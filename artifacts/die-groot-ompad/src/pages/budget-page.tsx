@@ -109,6 +109,39 @@ const INCOME_SYNC_MAP: Record<string, string> = {
 };
 
 // Compute monthly net cash from a rental config (mirrors the calc in rental-sub.tsx)
+// ── Buffered grid cell — commits on blur/Enter, never resets while typing ──────
+
+function BudgetCell({ value, onChange, step = 10, className }: {
+  value: number; onChange: (v: number) => void; step?: number; className?: string;
+}) {
+  const [local, setLocal] = useState(value === 0 ? "" : String(value));
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) setLocal(value === 0 ? "" : String(value));
+  }, [value, focused]);
+
+  const commit = (raw: string) => {
+    const n = parseFloat(raw);
+    onChange(isNaN(n) ? 0 : n);
+  };
+
+  return (
+    <input
+      type="number" min={0} step={step}
+      value={local}
+      placeholder="0"
+      onChange={e => setLocal(e.target.value)}
+      onFocus={() => setFocused(true)}
+      onBlur={e => { setFocused(false); commit(e.target.value); }}
+      onKeyDown={e => {
+        if (e.key === "Enter") { commit((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).blur(); }
+      }}
+      className={className}
+    />
+  );
+}
+
 function computeMonthlyRentalNet(rental: any): number {
   if (!rental) return 0;
   const cfg = { ...DEFAULT_RENTAL, ...rental } as RentalConfig;
@@ -1058,9 +1091,8 @@ export default function BudgetPage() {
                     return (
                       <td key={mi} className="text-right p-2 tabular-nums">
                         {mi === 0 ? (
-                          <input type="number" min={0} step={100}
-                            value={val}
-                            onChange={e => handleCellChange(0, "openingBalance", parseFloat(e.target.value) || 0)}
+                          <BudgetCell step={100} value={val}
+                            onChange={v => handleCellChange(0, "openingBalance", v)}
                             className="w-full text-right bg-transparent border-b border-[#d9b880]/50 focus:outline-none focus:border-[#d9b880] font-medium text-[#b8943e]"
                           />
                         ) : (
@@ -1097,9 +1129,8 @@ export default function BudgetPage() {
                             const val = Number(m[cat.key]) || 0;
                             return (
                               <td key={mi} className="p-1 text-right">
-                                <input type="number" min={0} step={10}
-                                  value={val}
-                                  onChange={e => handleCellChange(mi, cat.key, parseFloat(e.target.value) || 0)}
+                                <BudgetCell step={10} value={val}
+                                  onChange={v => handleCellChange(mi, cat.key, v)}
                                   className={cn(
                                     "w-full text-right bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 tabular-nums",
                                     val > 0 ? "text-foreground" : "text-muted-foreground/30"
@@ -1144,9 +1175,8 @@ export default function BudgetPage() {
                         const val = Number(m[cat.key]) || 0;
                         return (
                           <td key={mi} className="p-1 text-right">
-                            <input type="number" min={0} step={10}
-                              value={val}
-                              onChange={e => handleCellChange(mi, cat.key, parseFloat(e.target.value) || 0)}
+                            <BudgetCell step={10} value={val}
+                              onChange={v => handleCellChange(mi, cat.key, v)}
                               className={cn(
                                 "w-full text-right bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 tabular-nums",
                                 val > 0 ? "text-primary font-medium" : "text-muted-foreground/30"
