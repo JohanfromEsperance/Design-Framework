@@ -3,6 +3,8 @@ import {
 } from "@workspace/api-client-react";
 import RentalSub, { DEFAULT_RENTAL, type RentalConfig } from "./trips/tabs/rental-sub";
 import PlanningSub from "./trips/tabs/planning-sub";
+import SuperSub, { DEFAULT_SUPER, type SuperPortfolio } from "./trips/tabs/super-sub";
+import SharesSub, { DEFAULT_SHARES, type SharesPortfolio } from "./trips/tabs/shares-sub";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import {
@@ -169,7 +171,7 @@ export default function BudgetPage() {
   const [customFrom, setCustomFrom] = useState(0);
   const [customTo, setCustomTo] = useState(11);
 
-  const [subPage, setSubPage] = useState<"overview" | "rental" | "planning">("overview");
+  const [subPage, setSubPage] = useState<"overview" | "rental" | "planning" | "super" | "shares">("overview");
 
   const [cpiDialogOpen, setCpiDialogOpen] = useState(false);
   const [cpiRate, setCpiRate] = useState(2.5);
@@ -216,7 +218,7 @@ export default function BudgetPage() {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       saveGlobalBudget.mutate(
-        { data: { year: data.year, months: data.months, rental: data.rental } },
+        { data: { year: data.year, months: data.months, rental: data.rental, super: data.super, shares: data.shares } },
         { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetGlobalBudgetQueryKey() }) }
       );
     }, 1200);
@@ -235,7 +237,7 @@ export default function BudgetPage() {
     if (!budgetData) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveGlobalBudget.mutate(
-      { data: { year: budgetData.year, months: budgetData.months, rental: budgetData.rental } },
+      { data: { year: budgetData.year, months: budgetData.months, rental: budgetData.rental, super: budgetData.super, shares: budgetData.shares } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetGlobalBudgetQueryKey() });
@@ -243,6 +245,26 @@ export default function BudgetPage() {
         },
       }
     );
+  };
+
+  // ── Super change ─────────────────────────────────────────────────────────
+
+  const handleSuperChange = (superData: SuperPortfolio) => {
+    setBudgetData((prev: any) => {
+      const newData = { ...prev, super: superData };
+      triggerSave(newData);
+      return newData;
+    });
+  };
+
+  // ── Shares change ────────────────────────────────────────────────────────
+
+  const handleSharesChange = (sharesData: SharesPortfolio) => {
+    setBudgetData((prev: any) => {
+      const newData = { ...prev, shares: sharesData };
+      triggerSave(newData);
+      return newData;
+    });
   };
 
   // ── Rental config change ─────────────────────────────────────────────────
@@ -552,15 +574,21 @@ export default function BudgetPage() {
 
         {/* ── Sub-page nav ── */}
         <div className="flex gap-0.5 border-b border-border pb-0">
-          {(["overview", "rental", "planning"] as const).map(p => (
-            <button key={p} onClick={() => setSubPage(p)}
+          {([
+            { key: "overview", label: "Overview" },
+            { key: "rental",   label: "Rental Property" },
+            { key: "planning", label: "Trip Planning" },
+            { key: "super",    label: "Superannuation" },
+            { key: "shares",   label: "Shares" },
+          ] as const).map(({ key, label }) => (
+            <button key={key} onClick={() => setSubPage(key)}
               className={cn(
                 "px-5 py-2 text-sm font-semibold rounded-t-md transition-colors border-b-2 -mb-px",
-                subPage === p
+                subPage === key
                   ? "border-primary text-primary bg-primary/8"
                   : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
               )}>
-              {p === "overview" ? "Overview" : p === "rental" ? "Rental Property" : "Trip Planning"}
+              {label}
             </button>
           ))}
         </div>
@@ -579,6 +607,22 @@ export default function BudgetPage() {
             months={budgetData.months as Record<string, any>}
             tripStartDate={undefined}
             onChange={handlePlanningChange}
+          />
+        )}
+
+        {/* ── Superannuation sub-page ── */}
+        {subPage === "super" && (
+          <SuperSub
+            data={{ ...DEFAULT_SUPER, ...(budgetData.super as SuperPortfolio ?? {}) }}
+            onChange={handleSuperChange}
+          />
+        )}
+
+        {/* ── Shares sub-page ── */}
+        {subPage === "shares" && (
+          <SharesSub
+            data={{ ...DEFAULT_SHARES, ...(budgetData.shares as SharesPortfolio ?? {}) }}
+            onChange={handleSharesChange}
           />
         )}
 

@@ -8,6 +8,6 @@
 import type { MonthBudget } from './monthBudget';
 
 /**
- * Map of month index (0-11) to MonthBudget
+ * Map of month index (0-59) to MonthBudget
  */
 export type BudgetPlanMonths = {[key: string]: MonthBudget};

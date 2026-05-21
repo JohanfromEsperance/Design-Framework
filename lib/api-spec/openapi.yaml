@@ -813,13 +813,81 @@ components:
           type: string
         months:
           type: object
-          description: Map of month index (0-11) to MonthBudget
+          description: Map of month index (0-59) to MonthBudget
           additionalProperties:
             $ref: "#/components/schemas/MonthBudget"
         rental:
           $ref: "#/components/schemas/RentalConfig"
+        super:
+          $ref: "#/components/schemas/SuperPortfolio"
+        shares:
+          $ref: "#/components/schemas/SharesPortfolio"
         updatedAt:
           type: string
+
+    SuperAccount:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        fund:
+          type: string
+        currentBalance:
+          type: number
+        employerRate:
+          type: number
+          description: Employer SG contribution % of gross salary
+        personalRate:
+          type: number
+          description: Personal voluntary contribution % of gross salary
+        grossSalary:
+          type: number
+          description: Annual gross salary for contribution calculations
+        returnRate:
+          type: number
+          description: Expected annual investment return %
+        forecastYears:
+          type: integer
+          description: Number of years to project forward
+
+    SuperPortfolio:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/SuperAccount"
+
+    ShareHolding:
+      type: object
+      required: [id, code]
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+          description: ASX or exchange ticker code
+        company:
+          type: string
+        qty:
+          type: number
+        purchasePrice:
+          type: number
+        currentPrice:
+          type: number
+        purchaseDate:
+          type: string
+
+    SharesPortfolio:
+      type: object
+      properties:
+        holdings:
+          type: array
+          items:
+            $ref: "#/components/schemas/ShareHolding"
 
     MonthBudget:
       type: object
@@ -873,6 +941,10 @@ components:
             $ref: "#/components/schemas/MonthBudget"
         rental:
           $ref: "#/components/schemas/RentalConfig"
+        super:
+          $ref: "#/components/schemas/SuperPortfolio"
+        shares:
+          $ref: "#/components/schemas/SharesPortfolio"
 
     GlobalBudgetSummary:
       type: object

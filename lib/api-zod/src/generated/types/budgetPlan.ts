@@ -7,14 +7,18 @@
  */
 import type { BudgetPlanMonths } from './budgetPlanMonths';
 import type { RentalConfig } from './rentalConfig';
+import type { SharesPortfolio } from './sharesPortfolio';
+import type { SuperPortfolio } from './superPortfolio';
 
 export interface BudgetPlan {
   id: number;
   /** @nullable */
   tripId?: number | null;
   year: string;
-  /** Map of month index (0-11) to MonthBudget */
+  /** Map of month index (0-59) to MonthBudget */
   months: BudgetPlanMonths;
   rental?: RentalConfig;
+  super?: SuperPortfolio;
+  shares?: SharesPortfolio;
   updatedAt: string;
 }

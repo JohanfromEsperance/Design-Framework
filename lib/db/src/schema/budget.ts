@@ -9,6 +9,8 @@ export const budgetPlansTable = pgTable("budget_plans", {
   year: text("year").notNull().default("2026"),
   months: jsonb("months").notNull().default({}),
   rental: jsonb("rental").default({}),
+  super: jsonb("super").default({}),
+  shares: jsonb("shares").default({}),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

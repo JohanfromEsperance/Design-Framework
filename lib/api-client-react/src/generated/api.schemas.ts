@@ -163,18 +163,56 @@ export interface MonthBudget {
 }
 
 /**
- * Map of month index (0-11) to MonthBudget
+ * Map of month index (0-59) to MonthBudget
  */
 export type BudgetPlanMonths = {[key: string]: MonthBudget};
+
+export interface SuperAccount {
+  id: string;
+  name: string;
+  fund?: string;
+  currentBalance?: number;
+  /** Employer SG contribution % of gross salary */
+  employerRate?: number;
+  /** Personal voluntary contribution % of gross salary */
+  personalRate?: number;
+  /** Annual gross salary for contribution calculations */
+  grossSalary?: number;
+  /** Expected annual investment return % */
+  returnRate?: number;
+  /** Number of years to project forward */
+  forecastYears?: number;
+}
+
+export interface SuperPortfolio {
+  accounts?: SuperAccount[];
+}
+
+export interface ShareHolding {
+  id: string;
+  /** ASX or exchange ticker code */
+  code: string;
+  company?: string;
+  qty?: number;
+  purchasePrice?: number;
+  currentPrice?: number;
+  purchaseDate?: string;
+}
+
+export interface SharesPortfolio {
+  holdings?: ShareHolding[];
+}
 
 export interface BudgetPlan {
   id: number;
   /** @nullable */
   tripId?: number | null;
   year: string;
-  /** Map of month index (0-11) to MonthBudget */
+  /** Map of month index (0-59) to MonthBudget */
   months: BudgetPlanMonths;
   rental?: RentalConfig;
+  super?: SuperPortfolio;
+  shares?: SharesPortfolio;
   updatedAt: string;
 }
 
@@ -184,6 +222,8 @@ export interface BudgetPlanInput {
   year: string;
   months: BudgetPlanInputMonths;
   rental?: RentalConfig;
+  super?: SuperPortfolio;
+  shares?: SharesPortfolio;
 }
 
 export interface MonthCashflow {

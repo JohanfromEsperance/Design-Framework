@@ -7,9 +7,13 @@
  */
 import type { BudgetPlanInputMonths } from './budgetPlanInputMonths';
 import type { RentalConfig } from './rentalConfig';
+import type { SharesPortfolio } from './sharesPortfolio';
+import type { SuperPortfolio } from './superPortfolio';
 
 export interface BudgetPlanInput {
   year: string;
   months: BudgetPlanInputMonths;
   rental?: RentalConfig;
+  super?: SuperPortfolio;
+  shares?: SharesPortfolio;
 }

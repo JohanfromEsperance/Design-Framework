@@ -277,7 +277,7 @@ export const GetGlobalBudgetResponse = zod.object({
   "otherIncome1": zod.number().optional(),
   "otherIncome2": zod.number().optional(),
   "openingBalance": zod.number().optional()
-})).describe('Map of month index (0-11) to MonthBudget'),
+})).describe('Map of month index (0-59) to MonthBudget'),
   "rental": zod.object({
   "address": zod.string().optional(),
   "purchasePrice": zod.number().optional(),
@@ -305,6 +305,30 @@ export const GetGlobalBudgetResponse = zod.object({
   "marginalTaxRate": zod.number().optional(),
   "otherIncome": zod.number().optional()
 }).optional().describe('Australian rental property income and expense configuration'),
+  "super": zod.object({
+  "accounts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "fund": zod.string().optional(),
+  "currentBalance": zod.number().optional(),
+  "employerRate": zod.number().optional().describe('Employer SG contribution % of gross salary'),
+  "personalRate": zod.number().optional().describe('Personal voluntary contribution % of gross salary'),
+  "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
+  "returnRate": zod.number().optional().describe('Expected annual investment return %'),
+  "forecastYears": zod.number().optional().describe('Number of years to project forward')
+})).optional()
+}).optional(),
+  "shares": zod.object({
+  "holdings": zod.array(zod.object({
+  "id": zod.string(),
+  "code": zod.string().describe('ASX or exchange ticker code'),
+  "company": zod.string().optional(),
+  "qty": zod.number().optional(),
+  "purchasePrice": zod.number().optional(),
+  "currentPrice": zod.number().optional(),
+  "purchaseDate": zod.string().optional()
+})).optional()
+}).optional(),
   "updatedAt": zod.string()
 })
 
@@ -360,7 +384,31 @@ export const SaveGlobalBudgetBody = zod.object({
   "div40Annual": zod.number().optional(),
   "marginalTaxRate": zod.number().optional(),
   "otherIncome": zod.number().optional()
-}).optional().describe('Australian rental property income and expense configuration')
+}).optional().describe('Australian rental property income and expense configuration'),
+  "super": zod.object({
+  "accounts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "fund": zod.string().optional(),
+  "currentBalance": zod.number().optional(),
+  "employerRate": zod.number().optional().describe('Employer SG contribution % of gross salary'),
+  "personalRate": zod.number().optional().describe('Personal voluntary contribution % of gross salary'),
+  "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
+  "returnRate": zod.number().optional().describe('Expected annual investment return %'),
+  "forecastYears": zod.number().optional().describe('Number of years to project forward')
+})).optional()
+}).optional(),
+  "shares": zod.object({
+  "holdings": zod.array(zod.object({
+  "id": zod.string(),
+  "code": zod.string().describe('ASX or exchange ticker code'),
+  "company": zod.string().optional(),
+  "qty": zod.number().optional(),
+  "purchasePrice": zod.number().optional(),
+  "currentPrice": zod.number().optional(),
+  "purchaseDate": zod.string().optional()
+})).optional()
+}).optional()
 })
 
 export const SaveGlobalBudgetResponse = zod.object({
@@ -386,7 +434,7 @@ export const SaveGlobalBudgetResponse = zod.object({
   "otherIncome1": zod.number().optional(),
   "otherIncome2": zod.number().optional(),
   "openingBalance": zod.number().optional()
-})).describe('Map of month index (0-11) to MonthBudget'),
+})).describe('Map of month index (0-59) to MonthBudget'),
   "rental": zod.object({
   "address": zod.string().optional(),
   "purchasePrice": zod.number().optional(),
@@ -414,6 +462,30 @@ export const SaveGlobalBudgetResponse = zod.object({
   "marginalTaxRate": zod.number().optional(),
   "otherIncome": zod.number().optional()
 }).optional().describe('Australian rental property income and expense configuration'),
+  "super": zod.object({
+  "accounts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "fund": zod.string().optional(),
+  "currentBalance": zod.number().optional(),
+  "employerRate": zod.number().optional().describe('Employer SG contribution % of gross salary'),
+  "personalRate": zod.number().optional().describe('Personal voluntary contribution % of gross salary'),
+  "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
+  "returnRate": zod.number().optional().describe('Expected annual investment return %'),
+  "forecastYears": zod.number().optional().describe('Number of years to project forward')
+})).optional()
+}).optional(),
+  "shares": zod.object({
+  "holdings": zod.array(zod.object({
+  "id": zod.string(),
+  "code": zod.string().describe('ASX or exchange ticker code'),
+  "company": zod.string().optional(),
+  "qty": zod.number().optional(),
+  "purchasePrice": zod.number().optional(),
+  "currentPrice": zod.number().optional(),
+  "purchaseDate": zod.string().optional()
+})).optional()
+}).optional(),
   "updatedAt": zod.string()
 })
 
@@ -464,7 +536,7 @@ export const GetBudgetResponse = zod.object({
   "otherIncome1": zod.number().optional(),
   "otherIncome2": zod.number().optional(),
   "openingBalance": zod.number().optional()
-})).describe('Map of month index (0-11) to MonthBudget'),
+})).describe('Map of month index (0-59) to MonthBudget'),
   "rental": zod.object({
   "address": zod.string().optional(),
   "purchasePrice": zod.number().optional(),
@@ -492,6 +564,30 @@ export const GetBudgetResponse = zod.object({
   "marginalTaxRate": zod.number().optional(),
   "otherIncome": zod.number().optional()
 }).optional().describe('Australian rental property income and expense configuration'),
+  "super": zod.object({
+  "accounts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "fund": zod.string().optional(),
+  "currentBalance": zod.number().optional(),
+  "employerRate": zod.number().optional().describe('Employer SG contribution % of gross salary'),
+  "personalRate": zod.number().optional().describe('Personal voluntary contribution % of gross salary'),
+  "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
+  "returnRate": zod.number().optional().describe('Expected annual investment return %'),
+  "forecastYears": zod.number().optional().describe('Number of years to project forward')
+})).optional()
+}).optional(),
+  "shares": zod.object({
+  "holdings": zod.array(zod.object({
+  "id": zod.string(),
+  "code": zod.string().describe('ASX or exchange ticker code'),
+  "company": zod.string().optional(),
+  "qty": zod.number().optional(),
+  "purchasePrice": zod.number().optional(),
+  "currentPrice": zod.number().optional(),
+  "purchaseDate": zod.string().optional()
+})).optional()
+}).optional(),
   "updatedAt": zod.string()
 })
 
@@ -551,7 +647,31 @@ export const SaveBudgetBody = zod.object({
   "div40Annual": zod.number().optional(),
   "marginalTaxRate": zod.number().optional(),
   "otherIncome": zod.number().optional()
-}).optional().describe('Australian rental property income and expense configuration')
+}).optional().describe('Australian rental property income and expense configuration'),
+  "super": zod.object({
+  "accounts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "fund": zod.string().optional(),
+  "currentBalance": zod.number().optional(),
+  "employerRate": zod.number().optional().describe('Employer SG contribution % of gross salary'),
+  "personalRate": zod.number().optional().describe('Personal voluntary contribution % of gross salary'),
+  "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
+  "returnRate": zod.number().optional().describe('Expected annual investment return %'),
+  "forecastYears": zod.number().optional().describe('Number of years to project forward')
+})).optional()
+}).optional(),
+  "shares": zod.object({
+  "holdings": zod.array(zod.object({
+  "id": zod.string(),
+  "code": zod.string().describe('ASX or exchange ticker code'),
+  "company": zod.string().optional(),
+  "qty": zod.number().optional(),
+  "purchasePrice": zod.number().optional(),
+  "currentPrice": zod.number().optional(),
+  "purchaseDate": zod.string().optional()
+})).optional()
+}).optional()
 })
 
 export const SaveBudgetResponse = zod.object({
@@ -577,7 +697,7 @@ export const SaveBudgetResponse = zod.object({
   "otherIncome1": zod.number().optional(),
   "otherIncome2": zod.number().optional(),
   "openingBalance": zod.number().optional()
-})).describe('Map of month index (0-11) to MonthBudget'),
+})).describe('Map of month index (0-59) to MonthBudget'),
   "rental": zod.object({
   "address": zod.string().optional(),
   "purchasePrice": zod.number().optional(),
@@ -605,6 +725,30 @@ export const SaveBudgetResponse = zod.object({
   "marginalTaxRate": zod.number().optional(),
   "otherIncome": zod.number().optional()
 }).optional().describe('Australian rental property income and expense configuration'),
+  "super": zod.object({
+  "accounts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "fund": zod.string().optional(),
+  "currentBalance": zod.number().optional(),
+  "employerRate": zod.number().optional().describe('Employer SG contribution % of gross salary'),
+  "personalRate": zod.number().optional().describe('Personal voluntary contribution % of gross salary'),
+  "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
+  "returnRate": zod.number().optional().describe('Expected annual investment return %'),
+  "forecastYears": zod.number().optional().describe('Number of years to project forward')
+})).optional()
+}).optional(),
+  "shares": zod.object({
+  "holdings": zod.array(zod.object({
+  "id": zod.string(),
+  "code": zod.string().describe('ASX or exchange ticker code'),
+  "company": zod.string().optional(),
+  "qty": zod.number().optional(),
+  "purchasePrice": zod.number().optional(),
+  "currentPrice": zod.number().optional(),
+  "purchaseDate": zod.string().optional()
+})).optional()
+}).optional(),
   "updatedAt": zod.string()
 })
 

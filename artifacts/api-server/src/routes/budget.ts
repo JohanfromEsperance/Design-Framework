@@ -33,6 +33,8 @@ router.get("/budget", async (req, res): Promise<void> => {
       year: new Date().getFullYear().toString(),
       months: {},
       rental: {},
+      super: {},
+      shares: {},
       updatedAt: new Date().toISOString(),
     }));
     return;
