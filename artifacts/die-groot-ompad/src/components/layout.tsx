@@ -10,7 +10,7 @@ interface LayoutProps {
 function openJohan() {
   window.open(
     "https://agent.jotform.com/019d4b4f5e5e789fadd36134095d4f745b67?embedMode=popup&parentURL=" +
-      encodeURIComponent(window.top?.location.href ?? window.location.href),
+      encodeURIComponent(window.location.href),
     "blank",
     "scrollbars=yes,toolbar=no,width=700,height=500,top=" +
       (window.outerHeight / 2 - 250) +
