@@ -128,6 +128,10 @@ interface VehicleDocs {
   roadsidePolicy: string;
   roadsideExpiry: string;
   roadsideCost: string;
+  // Payment frequencies
+  insuranceFrequency: "monthly" | "yearly";
+  caravanInsuranceFrequency: "monthly" | "yearly";
+  roadsideFrequency: "monthly" | "yearly";
 }
 
 const DOCS_DEFAULTS: VehicleDocs = {
@@ -138,6 +142,7 @@ const DOCS_DEFAULTS: VehicleDocs = {
   insuranceProvider: "", insurancePolicy: "", insuranceExpiry: "", insuranceCost: "",
   caravanInsuranceProvider: "", caravanInsurancePolicy: "", caravanInsuranceExpiry: "", caravanInsuranceCost: "",
   roadsideProvider: "", roadsidePolicy: "", roadsideExpiry: "", roadsideCost: "",
+  insuranceFrequency: "yearly", caravanInsuranceFrequency: "yearly", roadsideFrequency: "yearly",
 };
 
 function daysUntil(dateStr: string): number {
@@ -152,6 +157,36 @@ function dateAlarm(dateStr: string) {
   if (days <= 30) return { label: `${days}d`, color: "text-destructive", badgeCls: "text-destructive bg-destructive/10 border-destructive/30" };
   if (days <= 60) return { label: `${days}d`, color: "text-[#b8943e]", badgeCls: "text-[#b8943e] bg-[#d9b880]/10 border-[#d9b880]/30" };
   return { label: new Date(dateStr).toLocaleDateString("en-AU", { month: "short", year: "numeric" }), color: "text-primary", badgeCls: "text-primary bg-primary/10 border-primary/20" };
+}
+
+// ── Payment frequency toggle ─────────────────────────────────────────────────
+
+function FreqToggle({
+  value,
+  onChange,
+}: {
+  value: "monthly" | "yearly";
+  onChange: (v: "monthly" | "yearly") => void;
+}) {
+  return (
+    <div className="flex rounded border border-border overflow-hidden text-[11px] font-semibold h-7 shrink-0">
+      {(["monthly", "yearly"] as const).map(f => (
+        <button
+          key={f}
+          type="button"
+          onClick={() => onChange(f)}
+          className={cn(
+            "px-2.5 capitalize transition-colors",
+            value === f
+              ? "bg-primary text-primary-foreground"
+              : "hover:bg-muted text-muted-foreground"
+          )}
+        >
+          {f}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 // ── Save indicator ────────────────────────────────────────────────────────────
@@ -407,13 +442,32 @@ export default function VehiclePage() {
   }
 
   // ── Insurance → Budget sync ──────────────────────────────────────────────
-  function syncInsuranceToBudget(budgetKey: "vehicleInsurance" | "caravanInsurance" | "roadsideAssistance", annualCost: string, targetMonth = 8) {
+  function syncInsuranceToBudget(
+    budgetKey: "vehicleInsurance" | "caravanInsurance" | "roadsideAssistance",
+    cost: string,
+    frequency: "monthly" | "yearly",
+    targetMonth = 8,
+  ) {
     const base = budgetRef.current ?? {};
     const months = { ...((base.months ?? {}) as Record<string, any>) };
-    months[targetMonth.toString()] = {
-      ...(months[targetMonth.toString()] ?? {}),
-      [budgetKey]: Number(annualCost) || 0,
-    };
+    const amount = Number(cost) || 0;
+
+    if (frequency === "monthly") {
+      // Spread the monthly amount across all 60 budget months
+      for (let i = 0; i < 60; i++) {
+        months[i.toString()] = {
+          ...(months[i.toString()] ?? {}),
+          [budgetKey]: amount,
+        };
+      }
+    } else {
+      // Lump-sum into the single target month
+      months[targetMonth.toString()] = {
+        ...(months[targetMonth.toString()] ?? {}),
+        [budgetKey]: amount,
+      };
+    }
+
     saveBudget.mutate(
       {
         data: {
@@ -432,7 +486,10 @@ export default function VehiclePage() {
         onSuccess: (saved) => {
           budgetRef.current = { ...base, ...saved };
           queryClient.invalidateQueries({ queryKey: getGetGlobalBudgetQueryKey() });
-          toast({ title: `$${Number(annualCost).toLocaleString()} synced to Budget Month ${targetMonth + 1}` });
+          const msg = frequency === "monthly"
+            ? `$${amount.toLocaleString()}/mo synced to all 60 budget months`
+            : `$${amount.toLocaleString()} synced to Budget Month ${targetMonth + 1}`;
+          toast({ title: msg });
         },
         onError: () => toast({ title: "Sync failed", variant: "destructive" }),
       }
@@ -700,16 +757,21 @@ export default function VehiclePage() {
                   <Input type="date" value={docs.insuranceExpiry} onChange={e => handleDocsChange({ insuranceExpiry: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Annual Premium ($)</Label>
-                  <Input value={docs.insuranceCost} onChange={e => handleDocsChange({ insuranceCost: e.target.value })} placeholder="2400" />
+                  <Label className="flex items-center justify-between">
+                    <span>{docs.insuranceFrequency === "monthly" ? "Monthly Premium ($)" : "Annual Premium ($)"}</span>
+                    <FreqToggle value={docs.insuranceFrequency ?? "yearly"} onChange={v => handleDocsChange({ insuranceFrequency: v })} />
+                  </Label>
+                  <Input value={docs.insuranceCost} onChange={e => handleDocsChange({ insuranceCost: e.target.value })} placeholder={docs.insuranceFrequency === "monthly" ? "200" : "2400"} />
                 </div>
               </div>
               {docs.insuranceCost && Number(docs.insuranceCost) > 0 && (
                 <div className="mt-2 flex items-center gap-2">
                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
-                    onClick={() => syncInsuranceToBudget("vehicleInsurance", docs.insuranceCost)}>
+                    onClick={() => syncInsuranceToBudget("vehicleInsurance", docs.insuranceCost, docs.insuranceFrequency ?? "yearly")}>
                     <ArrowRight className="h-3 w-3" />
-                    Sync ${Number(docs.insuranceCost).toLocaleString()} to Budget Month 9
+                    {docs.insuranceFrequency === "monthly"
+                      ? `Sync $${Number(docs.insuranceCost).toLocaleString()}/mo to all months`
+                      : `Sync $${Number(docs.insuranceCost).toLocaleString()} to Budget Month 9`}
                   </Button>
                   {docs.insuranceProvider && (
                     <span className="text-[10px] text-muted-foreground">{docs.insuranceProvider}{docs.insurancePolicy ? ` · ${docs.insurancePolicy}` : ""}</span>
@@ -744,16 +806,21 @@ export default function VehiclePage() {
                   <Input type="date" value={docs.caravanInsuranceExpiry} onChange={e => handleDocsChange({ caravanInsuranceExpiry: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Annual Premium ($)</Label>
-                  <Input value={docs.caravanInsuranceCost} onChange={e => handleDocsChange({ caravanInsuranceCost: e.target.value })} placeholder="1800" />
+                  <Label className="flex items-center justify-between">
+                    <span>{docs.caravanInsuranceFrequency === "monthly" ? "Monthly Premium ($)" : "Annual Premium ($)"}</span>
+                    <FreqToggle value={docs.caravanInsuranceFrequency ?? "yearly"} onChange={v => handleDocsChange({ caravanInsuranceFrequency: v })} />
+                  </Label>
+                  <Input value={docs.caravanInsuranceCost} onChange={e => handleDocsChange({ caravanInsuranceCost: e.target.value })} placeholder={docs.caravanInsuranceFrequency === "monthly" ? "150" : "1800"} />
                 </div>
               </div>
               {docs.caravanInsuranceCost && Number(docs.caravanInsuranceCost) > 0 && (
                 <div className="mt-2 flex items-center gap-2">
                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
-                    onClick={() => syncInsuranceToBudget("caravanInsurance", docs.caravanInsuranceCost)}>
+                    onClick={() => syncInsuranceToBudget("caravanInsurance", docs.caravanInsuranceCost, docs.caravanInsuranceFrequency ?? "yearly")}>
                     <ArrowRight className="h-3 w-3" />
-                    Sync ${Number(docs.caravanInsuranceCost).toLocaleString()} to Budget Month 9
+                    {docs.caravanInsuranceFrequency === "monthly"
+                      ? `Sync $${Number(docs.caravanInsuranceCost).toLocaleString()}/mo to all months`
+                      : `Sync $${Number(docs.caravanInsuranceCost).toLocaleString()} to Budget Month 9`}
                   </Button>
                   {docs.caravanInsuranceProvider && (
                     <span className="text-[10px] text-muted-foreground">{docs.caravanInsuranceProvider}{docs.caravanInsurancePolicy ? ` · ${docs.caravanInsurancePolicy}` : ""}</span>
@@ -787,16 +854,21 @@ export default function VehiclePage() {
                   <Input type="date" value={docs.roadsideExpiry} onChange={e => handleDocsChange({ roadsideExpiry: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Annual Cost ($)</Label>
-                  <Input value={docs.roadsideCost} onChange={e => handleDocsChange({ roadsideCost: e.target.value })} placeholder="250" />
+                  <Label className="flex items-center justify-between">
+                    <span>{docs.roadsideFrequency === "monthly" ? "Monthly Cost ($)" : "Annual Cost ($)"}</span>
+                    <FreqToggle value={docs.roadsideFrequency ?? "yearly"} onChange={v => handleDocsChange({ roadsideFrequency: v })} />
+                  </Label>
+                  <Input value={docs.roadsideCost} onChange={e => handleDocsChange({ roadsideCost: e.target.value })} placeholder={docs.roadsideFrequency === "monthly" ? "21" : "250"} />
                 </div>
               </div>
               {docs.roadsideCost && Number(docs.roadsideCost) > 0 && (
                 <div className="mt-2 flex items-center gap-2">
                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
-                    onClick={() => syncInsuranceToBudget("roadsideAssistance", docs.roadsideCost)}>
+                    onClick={() => syncInsuranceToBudget("roadsideAssistance", docs.roadsideCost, docs.roadsideFrequency ?? "yearly")}>
                     <ArrowRight className="h-3 w-3" />
-                    Sync ${Number(docs.roadsideCost).toLocaleString()} to Budget Month 9
+                    {docs.roadsideFrequency === "monthly"
+                      ? `Sync $${Number(docs.roadsideCost).toLocaleString()}/mo to all months`
+                      : `Sync $${Number(docs.roadsideCost).toLocaleString()} to Budget Month 9`}
                   </Button>
                   {docs.roadsideProvider && (
                     <span className="text-[10px] text-muted-foreground">{docs.roadsideProvider}{docs.roadsidePolicy ? ` · ${docs.roadsidePolicy}` : ""}</span>
