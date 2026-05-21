@@ -123,6 +123,11 @@ interface VehicleDocs {
   caravanInsurancePolicy: string;
   caravanInsuranceExpiry: string;
   caravanInsuranceCost: string;
+  // Roadside assistance
+  roadsideProvider: string;
+  roadsidePolicy: string;
+  roadsideExpiry: string;
+  roadsideCost: string;
 }
 
 const DOCS_DEFAULTS: VehicleDocs = {
@@ -132,6 +137,7 @@ const DOCS_DEFAULTS: VehicleDocs = {
   replacementVehicle: "", replacementCaravan: "",
   insuranceProvider: "", insurancePolicy: "", insuranceExpiry: "", insuranceCost: "",
   caravanInsuranceProvider: "", caravanInsurancePolicy: "", caravanInsuranceExpiry: "", caravanInsuranceCost: "",
+  roadsideProvider: "", roadsidePolicy: "", roadsideExpiry: "", roadsideCost: "",
 };
 
 function daysUntil(dateStr: string): number {
@@ -401,7 +407,7 @@ export default function VehiclePage() {
   }
 
   // ── Insurance → Budget sync ──────────────────────────────────────────────
-  function syncInsuranceToBudget(budgetKey: "vehicleInsurance" | "caravanInsurance", annualCost: string, targetMonth = 8) {
+  function syncInsuranceToBudget(budgetKey: "vehicleInsurance" | "caravanInsurance" | "roadsideAssistance", annualCost: string, targetMonth = 8) {
     const base = budgetRef.current ?? {};
     const months = { ...((base.months ?? {}) as Record<string, any>) };
     months[targetMonth.toString()] = {
@@ -447,6 +453,7 @@ export default function VehiclePage() {
     { label: "Driver's Licence", date: docs.licenceExpiry },
     { label: "Vehicle Insurance", date: docs.insuranceExpiry },
     { label: "Caravan Insurance", date: docs.caravanInsuranceExpiry },
+    { label: "Roadside Assistance", date: docs.roadsideExpiry },
   ].filter(a => a.date && daysUntil(a.date) <= 60);
 
   if (isLoading) return <div className="p-8 text-muted-foreground">Loading rig profile...</div>;
@@ -750,6 +757,49 @@ export default function VehiclePage() {
                   </Button>
                   {docs.caravanInsuranceProvider && (
                     <span className="text-[10px] text-muted-foreground">{docs.caravanInsuranceProvider}{docs.caravanInsurancePolicy ? ` · ${docs.caravanInsurancePolicy}` : ""}</span>
+                  )}
+                </div>
+              )}
+            </div>
+            {/* Roadside Assistance */}
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
+                <Shield className="h-3.5 w-3.5" /> Roadside Assistance
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Provider</Label>
+                  <Input value={docs.roadsideProvider} onChange={e => handleDocsChange({ roadsideProvider: e.target.value })} placeholder="NRMA, RACQ, RAA, RACV…" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Membership / Policy Number</Label>
+                  <Input value={docs.roadsidePolicy} onChange={e => handleDocsChange({ roadsidePolicy: e.target.value })} placeholder="Membership #" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-2">
+                    Renewal Date
+                    {dateAlarm(docs.roadsideExpiry) && (
+                      <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full border", dateAlarm(docs.roadsideExpiry)!.badgeCls)}>
+                        {dateAlarm(docs.roadsideExpiry)!.label}
+                      </span>
+                    )}
+                  </Label>
+                  <Input type="date" value={docs.roadsideExpiry} onChange={e => handleDocsChange({ roadsideExpiry: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Annual Cost ($)</Label>
+                  <Input value={docs.roadsideCost} onChange={e => handleDocsChange({ roadsideCost: e.target.value })} placeholder="250" />
+                </div>
+              </div>
+              {docs.roadsideCost && Number(docs.roadsideCost) > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                    onClick={() => syncInsuranceToBudget("roadsideAssistance", docs.roadsideCost)}>
+                    <ArrowRight className="h-3 w-3" />
+                    Sync ${Number(docs.roadsideCost).toLocaleString()} to Budget Month 9
+                  </Button>
+                  {docs.roadsideProvider && (
+                    <span className="text-[10px] text-muted-foreground">{docs.roadsideProvider}{docs.roadsidePolicy ? ` · ${docs.roadsidePolicy}` : ""}</span>
                   )}
                 </div>
               )}
