@@ -108,9 +108,18 @@ interface VehicleDocs {
   regoRenewalCost: string;
   caravanRegoNumber: string;
   caravanRegoExpiry: string;
+  // Driver 1 licence
+  licenceName: string;
   licenceNumber: string;
   licenceExpiry: string;
   licenceState: string;
+  licenceReplacementCost: string;
+  // Driver 2 licence
+  licence2Name: string;
+  licence2Number: string;
+  licence2Expiry: string;
+  licence2State: string;
+  licence2ReplacementCost: string;
   replacementVehicle: string;
   replacementCaravan: string;
   // Tow vehicle insurance
@@ -137,7 +146,8 @@ interface VehicleDocs {
 const DOCS_DEFAULTS: VehicleDocs = {
   regoNumber: "", regoExpiry: "", regoRenewalCost: "",
   caravanRegoNumber: "", caravanRegoExpiry: "",
-  licenceNumber: "", licenceExpiry: "", licenceState: "",
+  licenceName: "", licenceNumber: "", licenceExpiry: "", licenceState: "", licenceReplacementCost: "",
+  licence2Name: "", licence2Number: "", licence2Expiry: "", licence2State: "", licence2ReplacementCost: "",
   replacementVehicle: "", replacementCaravan: "",
   insuranceProvider: "", insurancePolicy: "", insuranceExpiry: "", insuranceCost: "",
   caravanInsuranceProvider: "", caravanInsurancePolicy: "", caravanInsuranceExpiry: "", caravanInsuranceCost: "",
@@ -507,7 +517,8 @@ export default function VehiclePage() {
   const docAlarms = [
     { label: "Vehicle Rego", date: docs.regoExpiry },
     { label: "Caravan Rego", date: docs.caravanRegoExpiry },
-    { label: "Driver's Licence", date: docs.licenceExpiry },
+    { label: "Driver 1 Licence", date: docs.licenceExpiry },
+    { label: "Driver 2 Licence", date: docs.licence2Expiry },
     { label: "Vehicle Insurance", date: docs.insuranceExpiry },
     { label: "Caravan Insurance", date: docs.caravanInsuranceExpiry },
     { label: "Roadside Assistance", date: docs.roadsideExpiry },
@@ -678,16 +689,21 @@ export default function VehiclePage() {
               </div>
             </div>
 
+            {/* Driver 1 Licence */}
             <div>
-              <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Driver's Licence</h4>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Driver 1 Licence</h4>
               <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Full Name</Label>
+                  <Input value={docs.licenceName} onChange={e => handleDocsChange({ licenceName: e.target.value })} placeholder="Driver 1 name" />
+                </div>
                 <div className="space-y-1.5">
                   <Label>Licence Number</Label>
                   <Input value={docs.licenceNumber} onChange={e => handleDocsChange({ licenceNumber: e.target.value })} placeholder="Licence #" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-2">
-                    Licence Expiry
+                    Expiry
                     {dateAlarm(docs.licenceExpiry) && (
                       <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full border", dateAlarm(docs.licenceExpiry)!.badgeCls)}>
                         {dateAlarm(docs.licenceExpiry)!.label}
@@ -699,6 +715,44 @@ export default function VehiclePage() {
                 <div className="space-y-1.5">
                   <Label>Issuing State</Label>
                   <Input value={docs.licenceState} onChange={e => handleDocsChange({ licenceState: e.target.value })} placeholder="WA, NSW, QLD..." />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Replacement Cost ($)</Label>
+                  <Input value={docs.licenceReplacementCost} onChange={e => handleDocsChange({ licenceReplacementCost: e.target.value })} placeholder="35" />
+                </div>
+              </div>
+            </div>
+
+            {/* Driver 2 Licence */}
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Driver 2 Licence</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Full Name</Label>
+                  <Input value={docs.licence2Name} onChange={e => handleDocsChange({ licence2Name: e.target.value })} placeholder="Driver 2 name" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Licence Number</Label>
+                  <Input value={docs.licence2Number} onChange={e => handleDocsChange({ licence2Number: e.target.value })} placeholder="Licence #" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-2">
+                    Expiry
+                    {dateAlarm(docs.licence2Expiry) && (
+                      <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full border", dateAlarm(docs.licence2Expiry)!.badgeCls)}>
+                        {dateAlarm(docs.licence2Expiry)!.label}
+                      </span>
+                    )}
+                  </Label>
+                  <Input type="date" value={docs.licence2Expiry} onChange={e => handleDocsChange({ licence2Expiry: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Issuing State</Label>
+                  <Input value={docs.licence2State} onChange={e => handleDocsChange({ licence2State: e.target.value })} placeholder="WA, NSW, QLD..." />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Replacement Cost ($)</Label>
+                  <Input value={docs.licence2ReplacementCost} onChange={e => handleDocsChange({ licence2ReplacementCost: e.target.value })} placeholder="35" />
                 </div>
               </div>
             </div>
