@@ -518,8 +518,9 @@ export default function BudgetPage() {
           const key = INCOME_SYNC_MAP[src.id];
           if (key) {
             m[key] = v;
-          } else {
-            // "rental" source and any other unmapped sources go to customIncome
+          } else if (src.id !== "rental") {
+            // "rental" is authoritative from the Rental sub-page — exclude it
+            // here to prevent double-counting rentalNet in customIncome.
             customIncome += v;
           }
         }
