@@ -11,6 +11,7 @@ import type { BudgetPlanVehicleDocs } from './budgetPlanVehicleDocs';
 import type { BudgetPlanVehicleProfile } from './budgetPlanVehicleProfile';
 import type { IncomeWorksheet } from './incomeWorksheet';
 import type { RentalConfig } from './rentalConfig';
+import type { SavingsWorksheet } from './savingsWorksheet';
 import type { SharesPortfolio } from './sharesPortfolio';
 import type { SuperPortfolio } from './superPortfolio';
 import type { TaxWorksheet } from './taxWorksheet';
@@ -33,5 +34,6 @@ export interface BudgetPlan {
   vehicleDocs?: BudgetPlanVehicleDocs;
   /** Checklist item states keyed by checklist id then item id */
   checklists?: BudgetPlanChecklists;
+  savings?: SavingsWorksheet;
   updatedAt: string;
 }

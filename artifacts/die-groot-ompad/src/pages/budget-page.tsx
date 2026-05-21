@@ -9,6 +9,7 @@ import SuperSub, { DEFAULT_SUPER, type SuperPortfolio } from "./trips/tabs/super
 import PensionSub, { DEFAULT_PENSION, type PensionWorksheet } from "./trips/tabs/pension-sub";
 import SharesSub, { DEFAULT_SHARES, type SharesPortfolio } from "./trips/tabs/shares-sub";
 import IncomeSub, { DEFAULT_INCOME, type IncomeWorksheet } from "./trips/tabs/income-sub";
+import SavingsSub, { DEFAULT_SAVINGS, type SavingsWorksheet } from "./trips/tabs/savings-sub";
 import TaxSub, { DEFAULT_TAX, type TaxWorksheet } from "./trips/tabs/tax-sub";
 import { Button } from "@/components/ui/button";
 import {
@@ -74,13 +75,33 @@ const SUPER_SAVINGS = [
 ];
 
 const INCOME_ITEMS = [
-  { key: "rentalNet",      label: "Rental Net Income" },
-  { key: "salary",         label: "Salary / Employment" },
-  { key: "businessIncome", label: "Business Income" },
-  { key: "refunds",        label: "Refunds / Reimbursements" },
-  { key: "otherIncome1",   label: "Other Income 1" },
-  { key: "otherIncome2",   label: "Other Income 2" },
+  { key: "rentalNet",          label: "Rental Net Income" },
+  { key: "salary",             label: "Salary / Employment" },
+  { key: "businessIncome",     label: "Business Income" },
+  { key: "dividends",          label: "Share Dividends" },
+  { key: "cgt",                label: "Capital Gains" },
+  { key: "centrelink",         label: "Centrelink / Govt" },
+  { key: "superPensionIncome", label: "Super Pension" },
+  { key: "sideIncome",         label: "Side Income" },
+  { key: "refunds",            label: "Refunds / Reimbursements" },
+  { key: "otherIncome1",       label: "Other Income 1" },
+  { key: "otherIncome2",       label: "Other Income 2" },
+  { key: "customIncome",       label: "Other (Income tab)" },
 ];
+
+// Maps income sub-page source id → months key for dashboard sync
+const INCOME_SYNC_MAP: Record<string, string> = {
+  salary:       "salary",
+  rental:       "rentalNet",
+  business:     "businessIncome",
+  dividends:    "dividends",
+  cgt:          "cgt",
+  centrelink:   "centrelink",
+  superPension: "superPensionIncome",
+  side:         "sideIncome",
+  other1:       "otherIncome1",
+  other2:       "otherIncome2",
+};
 
 const EXPENSE_SECTIONS = [
   { title: "Travel & Road",             items: TRAVEL_EXPENSES, color: "#1f6f5f" },
@@ -196,7 +217,7 @@ export default function BudgetPage() {
   const [customFrom, setCustomFrom] = useState(0);
   const [customTo, setCustomTo] = useState(11);
 
-  const [subPage, setSubPage] = useState<"overview" | "rental" | "planning" | "super" | "pension" | "shares" | "income" | "tax" | "memberships">("overview");
+  const [subPage, setSubPage] = useState<"overview" | "rental" | "planning" | "super" | "pension" | "shares" | "income" | "savings" | "tax" | "memberships">("overview");
 
   const [cpiDialogOpen, setCpiDialogOpen] = useState(false);
   const [cpiRate, setCpiRate] = useState(2.5);
@@ -251,6 +272,7 @@ export default function BudgetPage() {
     vehicleProfile: data.vehicleProfile,
     vehicleDocs: data.vehicleDocs,
     checklists: data.checklists,
+    savings: data.savings,
   });
 
   const triggerSave = (data: any) => {
@@ -339,11 +361,39 @@ export default function BudgetPage() {
     });
   };
 
-  // ── Income worksheet change ───────────────────────────────────────────────
+  // ── Income worksheet change — syncs to months so dashboard reflects it ───
 
   const handleIncomeChange = (incomeData: IncomeWorksheet) => {
     setBudgetData((prev: any) => {
-      const newData = { ...prev, income: incomeData };
+      const newMonths: Record<string, any> = { ...prev.months };
+      const sources = incomeData.sources ?? [];
+      for (let i = 0; i < 60; i++) {
+        const m = { ...(newMonths[i.toString()] ?? {}) };
+        let customIncome = 0;
+        for (const src of sources) {
+          const entry = src.months?.[i.toString()] ?? { forecast: 0, actual: 0 };
+          const v = (entry.actual > 0) ? entry.actual : entry.forecast;
+          const key = INCOME_SYNC_MAP[src.id];
+          if (key) {
+            m[key] = v;
+          } else {
+            customIncome += v;
+          }
+        }
+        if (customIncome > 0) m.customIncome = customIncome;
+        newMonths[i.toString()] = m;
+      }
+      const newData = { ...prev, income: incomeData, months: newMonths };
+      triggerSave(newData);
+      return newData;
+    });
+  };
+
+  // ── Savings worksheet change ──────────────────────────────────────────────
+
+  const handleSavingsChange = (savingsData: SavingsWorksheet) => {
+    setBudgetData((prev: any) => {
+      const newData = { ...prev, savings: savingsData };
       triggerSave(newData);
       return newData;
     });
@@ -666,6 +716,7 @@ export default function BudgetPage() {
           {([
             { key: "overview",     label: "Overview" },
             { key: "income",       label: "Income" },
+            { key: "savings",      label: "Savings" },
             { key: "tax",          label: "Tax" },
             { key: "rental",       label: "Rental Property" },
             { key: "planning",     label: "Trip Planning" },
@@ -692,6 +743,14 @@ export default function BudgetPage() {
             data={{ ...DEFAULT_INCOME, ...(budgetData.income as IncomeWorksheet ?? {}) }}
             onChange={handleIncomeChange}
             mainMonths={budgetData.months as Record<string, any>}
+          />
+        )}
+
+        {/* ── Savings sub-page ── */}
+        {subPage === "savings" && (
+          <SavingsSub
+            data={{ ...DEFAULT_SAVINGS, ...(budgetData.savings as SavingsWorksheet ?? {}) }}
+            onChange={handleSavingsChange}
           />
         )}
 

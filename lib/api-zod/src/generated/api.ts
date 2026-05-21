@@ -372,6 +372,14 @@ export const GetGlobalBudgetResponse = zod.object({
   "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
   "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records'),
   "checklists": zod.record(zod.string(), zod.unknown()).optional().describe('Checklist item states keyed by checklist id then item id'),
+  "savings": zod.object({
+  "bucketName": zod.string().optional().describe('Name of the savings bucket \/ account'),
+  "openingBalance": zod.number().optional().describe('Starting balance at month 0'),
+  "months": zod.record(zod.string(), zod.object({
+  "deposit": zod.number().optional(),
+  "withdrawal": zod.number().optional()
+})).optional().describe('Map of month index (0-59) to SavingsMonth')
+}).optional(),
   "updatedAt": zod.string()
 })
 
@@ -494,7 +502,15 @@ export const SaveGlobalBudgetBody = zod.object({
 }).optional(),
   "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
   "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records'),
-  "checklists": zod.record(zod.string(), zod.unknown()).optional().describe('Checklist item states keyed by checklist id then item id')
+  "checklists": zod.record(zod.string(), zod.unknown()).optional().describe('Checklist item states keyed by checklist id then item id'),
+  "savings": zod.object({
+  "bucketName": zod.string().optional().describe('Name of the savings bucket \/ account'),
+  "openingBalance": zod.number().optional().describe('Starting balance at month 0'),
+  "months": zod.record(zod.string(), zod.object({
+  "deposit": zod.number().optional(),
+  "withdrawal": zod.number().optional()
+})).optional().describe('Map of month index (0-59) to SavingsMonth')
+}).optional()
 })
 
 export const SaveGlobalBudgetResponse = zod.object({
@@ -615,6 +631,14 @@ export const SaveGlobalBudgetResponse = zod.object({
   "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
   "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records'),
   "checklists": zod.record(zod.string(), zod.unknown()).optional().describe('Checklist item states keyed by checklist id then item id'),
+  "savings": zod.object({
+  "bucketName": zod.string().optional().describe('Name of the savings bucket \/ account'),
+  "openingBalance": zod.number().optional().describe('Starting balance at month 0'),
+  "months": zod.record(zod.string(), zod.object({
+  "deposit": zod.number().optional(),
+  "withdrawal": zod.number().optional()
+})).optional().describe('Map of month index (0-59) to SavingsMonth')
+}).optional(),
   "updatedAt": zod.string()
 })
 
@@ -760,6 +784,14 @@ export const GetBudgetResponse = zod.object({
   "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
   "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records'),
   "checklists": zod.record(zod.string(), zod.unknown()).optional().describe('Checklist item states keyed by checklist id then item id'),
+  "savings": zod.object({
+  "bucketName": zod.string().optional().describe('Name of the savings bucket \/ account'),
+  "openingBalance": zod.number().optional().describe('Starting balance at month 0'),
+  "months": zod.record(zod.string(), zod.object({
+  "deposit": zod.number().optional(),
+  "withdrawal": zod.number().optional()
+})).optional().describe('Map of month index (0-59) to SavingsMonth')
+}).optional(),
   "updatedAt": zod.string()
 })
 
@@ -886,7 +918,15 @@ export const SaveBudgetBody = zod.object({
 }).optional(),
   "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
   "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records'),
-  "checklists": zod.record(zod.string(), zod.unknown()).optional().describe('Checklist item states keyed by checklist id then item id')
+  "checklists": zod.record(zod.string(), zod.unknown()).optional().describe('Checklist item states keyed by checklist id then item id'),
+  "savings": zod.object({
+  "bucketName": zod.string().optional().describe('Name of the savings bucket \/ account'),
+  "openingBalance": zod.number().optional().describe('Starting balance at month 0'),
+  "months": zod.record(zod.string(), zod.object({
+  "deposit": zod.number().optional(),
+  "withdrawal": zod.number().optional()
+})).optional().describe('Map of month index (0-59) to SavingsMonth')
+}).optional()
 })
 
 export const SaveBudgetResponse = zod.object({
@@ -1007,6 +1047,14 @@ export const SaveBudgetResponse = zod.object({
   "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
   "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records'),
   "checklists": zod.record(zod.string(), zod.unknown()).optional().describe('Checklist item states keyed by checklist id then item id'),
+  "savings": zod.object({
+  "bucketName": zod.string().optional().describe('Name of the savings bucket \/ account'),
+  "openingBalance": zod.number().optional().describe('Starting balance at month 0'),
+  "months": zod.record(zod.string(), zod.object({
+  "deposit": zod.number().optional(),
+  "withdrawal": zod.number().optional()
+})).optional().describe('Map of month index (0-59) to SavingsMonth')
+}).optional(),
   "updatedAt": zod.string()
 })
 

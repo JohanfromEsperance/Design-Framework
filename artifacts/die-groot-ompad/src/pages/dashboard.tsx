@@ -51,7 +51,11 @@ function dobTo67MonthIndex(dob: string): number | null {
 }
 
 // ── Budget category keys (must match budget-page.tsx definitions) ─────────────
-const INCOME_KEYS = ["rentalNet", "salary", "businessIncome", "refunds", "otherIncome1", "otherIncome2"] as const;
+const INCOME_KEYS = [
+  "rentalNet", "salary", "businessIncome",
+  "dividends", "cgt", "centrelink", "superPensionIncome", "sideIncome",
+  "refunds", "otherIncome1", "otherIncome2", "customIncome",
+] as const;
 const EXPENSE_KEYS = [
   // Travel & Road
   "fuel", "accommodation", "food", "eatingOut", "entertainment", "passesPermits", "ferries",
@@ -67,7 +71,10 @@ const EXPENSE_KEYS = [
 
 const INCOME_LABELS: Record<string, string> = {
   rentalNet: "Rental Net", salary: "Salary", businessIncome: "Business",
+  dividends: "Dividends", cgt: "Capital Gains", centrelink: "Centrelink",
+  superPensionIncome: "Super Pension", sideIncome: "Side Income",
   refunds: "Refunds", otherIncome1: "Other Income 1", otherIncome2: "Other Income 2",
+  customIncome: "Other Income",
 };
 const EXPENSE_LABELS: Record<string, string> = {
   // Travel

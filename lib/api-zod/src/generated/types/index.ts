@@ -36,6 +36,8 @@ export * from './legUpdate';
 export * from './monthBudget';
 export * from './monthCashflow';
 export * from './rentalConfig';
+export * from './savingsWorksheet';
+export * from './savingsWorksheetMonths';
 export * from './shareHolding';
 export * from './sharesPortfolio';
 export * from './superAccount';

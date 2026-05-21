@@ -17,6 +17,7 @@ export const budgetPlansTable = pgTable("budget_plans", {
   vehicleProfile: jsonb("vehicle_profile").default({}),
   vehicleDocs: jsonb("vehicle_docs").default({}),
   checklists: jsonb("checklists").default({}),
+  savings: jsonb("savings").default({}),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

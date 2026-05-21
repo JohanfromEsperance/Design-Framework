@@ -282,6 +282,23 @@ export interface TaxWorksheet {
   useProposedCGT?: boolean;
 }
 
+/**
+ * Map of month index (0-59) to SavingsMonth
+ */
+export type SavingsWorksheetMonths = {[key: string]: {
+  deposit?: number;
+  withdrawal?: number;
+}};
+
+export interface SavingsWorksheet {
+  /** Name of the savings bucket / account */
+  bucketName?: string;
+  /** Starting balance at month 0 */
+  openingBalance?: number;
+  /** Map of month index (0-59) to SavingsMonth */
+  months?: SavingsWorksheetMonths;
+}
+
 export interface BudgetPlan {
   id: number;
   /** @nullable */
@@ -300,6 +317,7 @@ export interface BudgetPlan {
   vehicleDocs?: BudgetPlanVehicleDocs;
   /** Checklist item states keyed by checklist id then item id */
   checklists?: BudgetPlanChecklists;
+  savings?: SavingsWorksheet;
   updatedAt: string;
 }
 
@@ -334,6 +352,7 @@ export interface BudgetPlanInput {
   vehicleDocs?: BudgetPlanInputVehicleDocs;
   /** Checklist item states keyed by checklist id then item id */
   checklists?: BudgetPlanInputChecklists;
+  savings?: SavingsWorksheet;
 }
 
 export interface MonthCashflow {

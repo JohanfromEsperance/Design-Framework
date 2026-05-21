@@ -839,6 +839,8 @@ components:
           type: object
           additionalProperties: true
           description: Checklist item states keyed by checklist id then item id
+        savings:
+          $ref: "#/components/schemas/SavingsWorksheet"
         updatedAt:
           type: string
 
@@ -1084,6 +1086,8 @@ components:
           type: object
           additionalProperties: true
           description: Checklist item states keyed by checklist id then item id
+        savings:
+          $ref: "#/components/schemas/SavingsWorksheet"
 
     GlobalBudgetSummary:
       type: object
@@ -1374,3 +1378,23 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TripCostBreakdown"
+
+    SavingsWorksheet:
+      type: object
+      properties:
+        bucketName:
+          type: string
+          description: Name of the savings bucket / account
+        openingBalance:
+          type: number
+          description: Starting balance at month 0
+        months:
+          type: object
+          description: Map of month index (0-59) to SavingsMonth
+          additionalProperties:
+            type: object
+            properties:
+              deposit:
+                type: number
+              withdrawal:
+                type: number
