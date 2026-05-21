@@ -1,4 +1,4 @@
-import { useGetVehicleProfile, useSaveVehicleProfile, getGetVehicleProfileQueryKey } from "@workspace/api-client-react";
+import { useGetVehicleProfile, useSaveVehicleProfile, getGetVehicleProfileQueryKey, useGetGlobalBudget } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Save, AlertTriangle, CheckCircle, AlertOctagon,
   Wrench, AlertCircle, Clock, DollarSign, ChevronDown, ChevronUp,
-  FileText, Shield,
+  FileText, Shield, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -136,8 +136,16 @@ function dateAlarm(dateStr: string) {
   return { label: new Date(dateStr).toLocaleDateString("en-AU", { month: "short", year: "numeric" }), color: "text-primary", badgeCls: "text-primary bg-primary/10 border-primary/20" };
 }
 
+// Fields copied when syncing from the main rig profile
+const RIG_SYNC_FIELDS = [
+  "vehicleModel", "kerbWeight", "gvm", "gcm", "towRating",
+  "payloadPeople", "payloadFood", "payloadRecovery", "payloadTools", "payloadFuel", "payloadOther",
+  "caravanModel", "caravanTare", "caravanAtm", "ballWeight", "waterLoad",
+] as const;
+
 export default function VehicleTab({ tripId }: VehicleTabProps) {
   const { data: vehicle, isLoading } = useGetVehicleProfile(tripId);
+  const { data: globalBudget } = useGetGlobalBudget();
   const saveProfile = useSaveVehicleProfile();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -148,6 +156,7 @@ export default function VehicleTab({ tripId }: VehicleTabProps) {
   const [maintItems, setMaintItems] = useState<MaintenanceItem[]>(DEFAULT_ITEMS);
   const [maintOpen, setMaintOpen] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [syncFlash, setSyncFlash] = useState(false);
 
   useEffect(() => {
     if (vehicle) setFormData(vehicle as unknown as Record<string, string | number>);
@@ -181,6 +190,27 @@ export default function VehicleTab({ tripId }: VehicleTabProps) {
   const handleMaintSave = () => {
     saveMaintenance(odometer, maintItems);
     toast({ title: "Maintenance plan saved" });
+  };
+
+  const mainProfile = (globalBudget?.vehicleProfile ?? {}) as Record<string, string | number>;
+  const mainVehicleModel  = String(mainProfile.vehicleModel  || "");
+  const mainCaravanModel  = String(mainProfile.caravanModel  || "");
+  const hasMainProfile    = RIG_SYNC_FIELDS.some(f => mainProfile[f] !== undefined && mainProfile[f] !== "" && mainProfile[f] !== 0);
+
+  const handleSyncFromMain = () => {
+    if (!hasMainProfile) return;
+    const patch: Record<string, string | number> = {};
+    for (const field of RIG_SYNC_FIELDS) {
+      const v = mainProfile[field];
+      if (v !== undefined && v !== "") patch[field] = v;
+    }
+    setFormData(d => ({ ...d, ...patch }));
+    setSyncFlash(true);
+    setTimeout(() => setSyncFlash(false), 2500);
+    toast({
+      title: "Rig profile synced",
+      description: `${mainVehicleModel || "Vehicle"} + ${mainCaravanModel || "Caravan"} — click Save to commit.`,
+    });
   };
 
   const updateItem = (id: string, field: keyof MaintenanceItem, value: string | number) => {
@@ -267,12 +297,52 @@ export default function VehicleTab({ tripId }: VehicleTabProps) {
     <div className="space-y-6 pb-8">
 
       {/* ── Rig Specs header ── */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-foreground">Rig Specifications</h2>
-        <Button onClick={handleSave} disabled={saveProfile.isPending}>
-          <Save className="mr-2 h-4 w-4" /> Save Configuration
-        </Button>
+      <div className="flex flex-wrap justify-between items-start gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Rig Specifications</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Weight compliance is computed live — values update as you type.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleSyncFromMain}
+            disabled={!hasMainProfile}
+            title={hasMainProfile ? "Copy rig specs from your main Vehicle profile into this trip" : "No main rig profile saved yet — go to the Vehicle page to set it up"}
+            className={cn(
+              "transition-colors",
+              syncFlash && "border-primary text-primary bg-primary/10",
+              !hasMainProfile && "opacity-50"
+            )}
+          >
+            <RefreshCw className={cn("mr-2 h-4 w-4", syncFlash && "animate-spin")} />
+            Sync from Main Profile
+            {hasMainProfile && (mainVehicleModel || mainCaravanModel) && (
+              <span className="ml-2 text-[10px] font-normal text-muted-foreground truncate max-w-[180px]">
+                {[mainVehicleModel, mainCaravanModel].filter(Boolean).join(" + ")}
+              </span>
+            )}
+          </Button>
+          <Button onClick={handleSave} disabled={saveProfile.isPending}>
+            <Save className="mr-2 h-4 w-4" /> Save Configuration
+          </Button>
+        </div>
       </div>
+
+      {/* ── Sync flash banner ── */}
+      {syncFlash && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-primary/40 bg-primary/8 text-xs text-primary">
+          <CheckCircle className="h-4 w-4 shrink-0" />
+          <span>
+            Rig specs copied from your main profile
+            {(mainVehicleModel || mainCaravanModel) && (
+              <> — <strong>{[mainVehicleModel, mainCaravanModel].filter(Boolean).join(" + ")}</strong></>
+            )}.
+            Review the fields below then click <strong>Save Configuration</strong> to commit.
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left column */}
