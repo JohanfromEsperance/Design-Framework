@@ -3,20 +3,34 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Die Groot Ompad — Integrated Travel Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: trips
+    description: Trip management
+  - name: legs
+    description: Journey leg management
+  - name: budget
+    description: Budget planning
+  - name: journal
+    description: Travel journal entries
+  - name: vehicle
+    description: Vehicle and caravan profiles
+  - name: gps
+    description: GPS track logging
+  - name: analytics
+    description: Analytics and summaries
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +38,506 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Trips ─────────────────────────────────────────────────────────────────
+  /trips:
+    get:
+      operationId: listTrips
+      tags: [trips]
+      summary: List all trips
+      responses:
+        "200":
+          description: List of trips
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Trip"
+    post:
+      operationId: createTrip
+      tags: [trips]
+      summary: Create a new trip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TripInput"
+      responses:
+        "201":
+          description: Trip created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trip"
+
+  /trips/{tripId}:
+    get:
+      operationId: getTrip
+      tags: [trips]
+      summary: Get a trip by ID
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Trip
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trip"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateTrip
+      tags: [trips]
+      summary: Update a trip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TripUpdate"
+      responses:
+        "200":
+          description: Updated trip
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trip"
+    delete:
+      operationId: deleteTrip
+      tags: [trips]
+      summary: Delete a trip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /trips/{tripId}/summary:
+    get:
+      operationId: getTripSummary
+      tags: [analytics]
+      summary: Get aggregated summary metrics for a trip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Trip summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripSummary"
+
+  # ── Legs ──────────────────────────────────────────────────────────────────
+  /trips/{tripId}/legs:
+    get:
+      operationId: listLegs
+      tags: [legs]
+      summary: List all legs for a trip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of legs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Leg"
+    post:
+      operationId: createLeg
+      tags: [legs]
+      summary: Add a leg to a trip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LegInput"
+      responses:
+        "201":
+          description: Leg created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Leg"
+
+  /trips/{tripId}/legs/{legId}:
+    patch:
+      operationId: updateLeg
+      tags: [legs]
+      summary: Update a leg
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: legId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LegUpdate"
+      responses:
+        "200":
+          description: Updated leg
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Leg"
+    delete:
+      operationId: deleteLeg
+      tags: [legs]
+      summary: Delete a leg
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: legId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /trips/{tripId}/legs/reorder:
+    post:
+      operationId: reorderLegs
+      tags: [legs]
+      summary: Reorder legs within a trip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LegReorder"
+      responses:
+        "200":
+          description: Reordered legs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Leg"
+
+  # ── Budget ─────────────────────────────────────────────────────────────────
+  /trips/{tripId}/budget:
+    get:
+      operationId: getBudget
+      tags: [budget]
+      summary: Get the 12-month budget plan for a trip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Budget plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetPlan"
+    put:
+      operationId: saveBudget
+      tags: [budget]
+      summary: Save/replace the budget plan for a trip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BudgetPlanInput"
+      responses:
+        "200":
+          description: Saved budget plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetPlan"
+
+  /trips/{tripId}/budget/summary:
+    get:
+      operationId: getBudgetSummary
+      tags: [analytics]
+      summary: Get yearly budget totals and cashflow by month
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Budget summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetSummary"
+
+  # ── Journal ────────────────────────────────────────────────────────────────
+  /trips/{tripId}/journal:
+    get:
+      operationId: listJournalEntries
+      tags: [journal]
+      summary: List all journal entries for a trip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Journal entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JournalEntry"
+    post:
+      operationId: createJournalEntry
+      tags: [journal]
+      summary: Create a journal entry
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JournalEntryInput"
+      responses:
+        "201":
+          description: Journal entry created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JournalEntry"
+
+  /trips/{tripId}/journal/{entryId}:
+    patch:
+      operationId: updateJournalEntry
+      tags: [journal]
+      summary: Update a journal entry
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JournalEntryUpdate"
+      responses:
+        "200":
+          description: Updated entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JournalEntry"
+    delete:
+      operationId: deleteJournalEntry
+      tags: [journal]
+      summary: Delete a journal entry
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Vehicle ────────────────────────────────────────────────────────────────
+  /trips/{tripId}/vehicle:
+    get:
+      operationId: getVehicleProfile
+      tags: [vehicle]
+      summary: Get vehicle and caravan profile for a trip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Vehicle profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VehicleProfile"
+    put:
+      operationId: saveVehicleProfile
+      tags: [vehicle]
+      summary: Save vehicle and caravan profile
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleProfileInput"
+      responses:
+        "200":
+          description: Saved vehicle profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VehicleProfile"
+
+  # ── GPS ────────────────────────────────────────────────────────────────────
+  /trips/{tripId}/gps:
+    get:
+      operationId: listGpsPoints
+      tags: [gps]
+      summary: Get GPS track points for a trip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: GPS points
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GpsPoint"
+    post:
+      operationId: logGpsPoint
+      tags: [gps]
+      summary: Log a GPS point
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GpsPointInput"
+      responses:
+        "201":
+          description: GPS point logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GpsPoint"
+    delete:
+      operationId: clearGpsTrack
+      tags: [gps]
+      summary: Clear all GPS points for a trip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Cleared
+
+  # ── Analytics ──────────────────────────────────────────────────────────────
+  /analytics/dashboard:
+    get:
+      operationId: getDashboard
+      tags: [analytics]
+      summary: Get overall dashboard stats across all trips
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +548,504 @@ components:
       required:
         - status
 
+    # ── Trip ──────────────────────────────────────────────────────────────────
+    Trip:
+      type: object
+      required: [id, name, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        notes:
+          type: ["string", "null"]
+        startDate:
+          type: ["string", "null"]
+        endDate:
+          type: ["string", "null"]
+        fuelPrice15:
+          type: number
+        fuelPrice18:
+          type: number
+        fuelPrice20:
+          type: number
+        revision:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    TripInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        notes:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: string
+        fuelPrice15:
+          type: number
+        fuelPrice18:
+          type: number
+        fuelPrice20:
+          type: number
+
+    TripUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        notes:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: string
+        fuelPrice15:
+          type: number
+        fuelPrice18:
+          type: number
+        fuelPrice20:
+          type: number
+        revision:
+          type: string
+
+    TripSummary:
+      type: object
+      required: [tripId, totalLegs, totalPlannedKm, totalActualKm, totalEstFuelCost18, totalActualFuelCost, avgConsumptionL100km, kmVariance, costVariance]
+      properties:
+        tripId:
+          type: integer
+        totalLegs:
+          type: integer
+        totalPlannedKm:
+          type: number
+        totalActualKm:
+          type: number
+        totalEstFuelCost18:
+          type: number
+        totalActualFuelCost:
+          type: number
+        avgConsumptionL100km:
+          type: number
+        kmVariance:
+          type: number
+        costVariance:
+          type: number
+
+    # ── Leg ───────────────────────────────────────────────────────────────────
+    Leg:
+      type: object
+      required: [id, tripId, sortOrder, fromPlace, toPlace]
+      properties:
+        id:
+          type: integer
+        tripId:
+          type: integer
+        sortOrder:
+          type: integer
+        fromPlace:
+          type: string
+        toPlace:
+          type: string
+        plannedKm:
+          type: number
+        actualKm:
+          type: ["number", "null"]
+        actualLitres:
+          type: ["number", "null"]
+        actualPricePerLitre:
+          type: ["number", "null"]
+        fuelPrice:
+          type: ["number", "null"]
+        serviceStation:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    LegInput:
+      type: object
+      required: [fromPlace, toPlace]
+      properties:
+        fromPlace:
+          type: string
+        toPlace:
+          type: string
+        plannedKm:
+          type: number
+        actualKm:
+          type: number
+        actualLitres:
+          type: number
+        actualPricePerLitre:
+          type: number
+        fuelPrice:
+          type: number
+        serviceStation:
+          type: string
+        notes:
+          type: string
+        sortOrder:
+          type: integer
+
+    LegUpdate:
+      type: object
+      properties:
+        fromPlace:
+          type: string
+        toPlace:
+          type: string
+        plannedKm:
+          type: number
+        actualKm:
+          type: number
+        actualLitres:
+          type: number
+        actualPricePerLitre:
+          type: number
+        fuelPrice:
+          type: number
+        serviceStation:
+          type: string
+        notes:
+          type: string
+        sortOrder:
+          type: integer
+
+    LegReorder:
+      type: object
+      required: [legIds]
+      properties:
+        legIds:
+          type: array
+          items:
+            type: integer
+
+    # ── Budget ─────────────────────────────────────────────────────────────────
+    BudgetPlan:
+      type: object
+      required: [id, tripId, year, months, updatedAt]
+      properties:
+        id:
+          type: integer
+        tripId:
+          type: integer
+        year:
+          type: string
+        months:
+          type: object
+          description: Map of month index (0-11) to MonthBudget
+          additionalProperties:
+            $ref: "#/components/schemas/MonthBudget"
+        updatedAt:
+          type: string
+
+    MonthBudget:
+      type: object
+      properties:
+        fuel:
+          type: number
+        accommodation:
+          type: number
+        groceries:
+          type: number
+        eatingOut:
+          type: number
+        entertainment:
+          type: number
+        passesPermits:
+          type: number
+        insurance:
+          type: number
+        phoneInternet:
+          type: number
+        medical:
+          type: number
+        repairs:
+          type: number
+        subscriptions:
+          type: number
+        otherExpenses:
+          type: number
+        salary:
+          type: number
+        businessIncome:
+          type: number
+        refunds:
+          type: number
+        otherIncome1:
+          type: number
+        otherIncome2:
+          type: number
+        openingBalance:
+          type: number
+
+    BudgetPlanInput:
+      type: object
+      required: [year, months]
+      properties:
+        year:
+          type: string
+        months:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/MonthBudget"
+
+    BudgetSummary:
+      type: object
+      required: [tripId, totalExpenses, totalIncome, netCashflow, monthlyBreakdown]
+      properties:
+        tripId:
+          type: integer
+        totalExpenses:
+          type: number
+        totalIncome:
+          type: number
+        netCashflow:
+          type: number
+        monthlyBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonthCashflow"
+
+    MonthCashflow:
+      type: object
+      required: [month, income, expenses, closing]
+      properties:
+        month:
+          type: integer
+        income:
+          type: number
+        expenses:
+          type: number
+        closing:
+          type: number
+
+    # ── Journal ────────────────────────────────────────────────────────────────
+    JournalEntry:
+      type: object
+      required: [id, tripId, weekDate, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        tripId:
+          type: integer
+        weekDate:
+          type: string
+        whereWere:
+          type: ["string", "null"]
+        destinations:
+          type: ["string", "null"]
+        weather:
+          type: ["string", "null"]
+        weekSummary:
+          type: ["string", "null"]
+        loved:
+          type: ["string", "null"]
+        learned:
+          type: ["string", "null"]
+        revision:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    JournalEntryInput:
+      type: object
+      required: [weekDate]
+      properties:
+        weekDate:
+          type: string
+        whereWere:
+          type: string
+        destinations:
+          type: string
+        weather:
+          type: string
+        weekSummary:
+          type: string
+        loved:
+          type: string
+        learned:
+          type: string
+
+    JournalEntryUpdate:
+      type: object
+      properties:
+        weekDate:
+          type: string
+        whereWere:
+          type: string
+        destinations:
+          type: string
+        weather:
+          type: string
+        weekSummary:
+          type: string
+        loved:
+          type: string
+        learned:
+          type: string
+
+    # ── Vehicle ────────────────────────────────────────────────────────────────
+    VehicleProfile:
+      type: object
+      required: [id, tripId, updatedAt]
+      properties:
+        id:
+          type: integer
+        tripId:
+          type: integer
+        vehicleModel:
+          type: string
+        vehicleFuel:
+          type: string
+        kerbWeight:
+          type: number
+        gvm:
+          type: number
+        gcm:
+          type: number
+        towRating:
+          type: number
+        frontAxleLimit:
+          type: number
+        rearAxleLimit:
+          type: number
+        caravanModel:
+          type: string
+        caravanType:
+          type: string
+        caravanTare:
+          type: number
+        caravanAtm:
+          type: number
+        caravanGtm:
+          type: number
+        ballWeight:
+          type: number
+        waterLoad:
+          type: number
+        extrasLoad:
+          type: number
+        payloadPeople:
+          type: number
+        payloadFood:
+          type: number
+        payloadRecovery:
+          type: number
+        payloadTools:
+          type: number
+        payloadFuel:
+          type: number
+        payloadOther:
+          type: number
+        updatedAt:
+          type: string
+
+    VehicleProfileInput:
+      type: object
+      properties:
+        vehicleModel:
+          type: string
+        vehicleFuel:
+          type: string
+        kerbWeight:
+          type: number
+        gvm:
+          type: number
+        gcm:
+          type: number
+        towRating:
+          type: number
+        frontAxleLimit:
+          type: number
+        rearAxleLimit:
+          type: number
+        caravanModel:
+          type: string
+        caravanType:
+          type: string
+        caravanTare:
+          type: number
+        caravanAtm:
+          type: number
+        caravanGtm:
+          type: number
+        ballWeight:
+          type: number
+        waterLoad:
+          type: number
+        extrasLoad:
+          type: number
+        payloadPeople:
+          type: number
+        payloadFood:
+          type: number
+        payloadRecovery:
+          type: number
+        payloadTools:
+          type: number
+        payloadFuel:
+          type: number
+        payloadOther:
+          type: number
+
+    # ── GPS ────────────────────────────────────────────────────────────────────
+    GpsPoint:
+      type: object
+      required: [id, tripId, lat, lng, capturedAt]
+      properties:
+        id:
+          type: integer
+        tripId:
+          type: integer
+        lat:
+          type: number
+        lng:
+          type: number
+        accuracy:
+          type: ["number", "null"]
+        note:
+          type: ["string", "null"]
+        capturedAt:
+          type: string
+
+    GpsPointInput:
+      type: object
+      required: [lat, lng]
+      properties:
+        lat:
+          type: number
+        lng:
+          type: number
+        accuracy:
+          type: number
+        note:
+          type: string
+        capturedAt:
+          type: string
+
+    # ── Analytics ──────────────────────────────────────────────────────────────
+    DashboardStats:
+      type: object
+      required: [totalTrips, totalKm, totalFuelCost, totalJournalEntries, recentTrips]
+      properties:
+        totalTrips:
+          type: integer
+        totalKm:
+          type: number
+        totalFuelCost:
+          type: number
+        totalJournalEntries:
+          type: integer
+        recentTrips:
+          type: array
+          items:
+            $ref: "#/components/schemas/Trip"

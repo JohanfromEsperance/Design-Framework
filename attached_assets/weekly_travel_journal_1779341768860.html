@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weekly Travel Journal</title>
+  <style>
+    :root{
+      --bg:#f7f3ea;
+      --paper:#fffdf8;
+      --ink:#5e6066;
+      --line:#8e9096;
+      --line-soft:#c9cbd1;
+      --panel:#ece6d8;
+      --accent:#6e7f76;
+      --chip:#f0ebe2;
+      --shadow:0 8px 24px rgba(40,40,40,.08);
+      --radius:20px;
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;padding:0;
+      background:linear-gradient(180deg,#ede6d9 0%, #f8f5ef 100%);
+      font-family:Arial,Helvetica,sans-serif;
+      color:var(--ink);
+    }
+    body{padding:18px}
+
+    .app{
+      width:min(1360px,100%);
+      min-height:1050px;
+      height:1050px;
+      margin:0 auto;
+      background:var(--paper);
+      border:1px solid #d9d3c7;
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .main{
+      flex:1;
+      padding:18px 20px 8px 20px;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .header{
+      display:flex;
+      justify-content:center;
+      align-items:flex-start;
+      gap:16px;
+      margin-bottom:8px;
+    }
+    .title-wrap{
+      width:min(900px,100%);
+      text-align:center;
+    }
+    .title{
+      font-size:54px;
+      line-height:1;
+      letter-spacing:1px;
+      font-weight:300;
+      color:#666970;
+      margin:0;
+    }
+    .title .script{
+      font-family:"Brush Script MT","Segoe Script","Lucida Handwriting",cursive;
+      font-size:1em;
+      font-weight:500;
+      margin-left:8px;
+    }
+    .rule{
+      height:12px;
+      border-top:3px solid var(--line);
+      border-bottom:1px solid var(--line-soft);
+      margin-top:8px;
+    }
+
+    .toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-bottom:12px;
+      align-items:center;
+    }
+    .tool-btn{
+      border:1px solid #cfc7b9;
+      background:#fffaf0;
+      border-radius:14px;
+      padding:8px 10px;
+      font-size:11px;
+      color:#2b2d31;
+      box-shadow:0 2px 10px rgba(0,0,0,.03);
+      cursor:pointer;
+      font-weight:700;
+      transition:.2s ease;
+      text-align:center;
+    }
+    .tool-btn:hover{background:#f2ecdf;transform:translateY(-1px)}
+    .tool-btn:active{transform:translateY(0)}
+    .toolbar .primary{background:var(--accent);color:#fff;border-color:#5d6c64}
+    .toolbar .primary:hover{background:#61736a}
+
+    .page{
+      flex:1;
+      border:1.5px solid var(--line);
+      border-radius:18px;
+      background:white;
+      padding:22px 24px 18px 24px;
+      display:grid;
+      grid-template-rows:auto auto 1fr auto;
+      gap:14px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .meta-grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px 14px;
+      margin-top:2px;
+    }
+    .field{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+    }
+    .field label{
+      min-width:max-content;
+      font-size:13px;
+      font-weight:700;
+      color:#666970;
+    }
+    .field input{
+      flex:1;
+      border:none;
+      border-bottom:2px solid var(--line);
+      padding:8px 4px 6px;
+      font-size:14px;
+      background:transparent;
+      color:#404349;
+      outline:none;
+    }
+
+    .section-title{
+      font-size:15px;
+      font-weight:700;
+      color:#4f5359;
+      margin:0 0 2px 0;
+    }
+
+    .week-block{
+      display:grid;
+      grid-template-rows:auto 1fr;
+      min-height:0;
+    }
+    .lined-area{
+      border-top:1px solid transparent;
+      height:100%;
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          transparent 0,
+          transparent 29px,
+          #cfd3d7 30px,
+          #cfd3d7 31px
+        );
+      border-radius:6px;
+      position:relative;
+      overflow:hidden;
+    }
+    textarea{
+      width:100%;
+      height:100%;
+      resize:none;
+      border:none;
+      background:transparent;
+      padding:6px 2px 0 2px;
+      line-height:31px;
+      font-size:14px;
+      color:#41454b;
+      outline:none;
+      font-family:Arial,Helvetica,sans-serif;
+    }
+
+    .bottom-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:20px;
+      min-height:310px;
+    }
+    .small-block{
+      display:grid;
+      grid-template-rows:auto 1fr;
+      min-height:0;
+    }
+
+    .footer-note{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-top:6px;
+      color:#8a8d93;
+      font-size:11px;
+    }
+    .status{font-weight:700}
+
+    .revision{
+      border-top:1px solid #ddd5c7;
+      background:linear-gradient(180deg,#f4efe5 0%, #ece5d7 100%);
+      padding:8px 12px 10px;
+      display:grid;
+      grid-template-columns: 120px repeat(6, minmax(120px,1fr));
+      gap:8px;
+      align-items:stretch;
+    }
+    .rev-title{
+      writing-mode:horizontal-tb;
+      transform:none;
+      text-align:center;
+      letter-spacing:1.2px;
+      font-size:10px;
+      font-weight:700;
+      color:#575b61;
+      border-right:1px solid #d6cfbf;
+      padding:8px 8px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:64px;
+    }
+    .rev-box{
+      border:1px solid #cfc7b9;
+      background:#fffaf0;
+      border-radius:14px;
+      padding:8px 10px;
+      font-size:12px;
+      color:var(--ink);
+      box-shadow:0 2px 10px rgba(0,0,0,.03);
+      line-height:1.25;
+    }
+
+    @media (max-width: 1100px){
+      .app{height:auto;min-height:1050px}
+      .title{font-size:40px}
+      .meta-grid{grid-template-columns:1fr}
+      .bottom-grid{grid-template-columns:1fr}
+      .revision{grid-template-columns:1fr 1fr 1fr}
+      .rev-title{
+        border-right:none;
+        border-bottom:1px solid #d6cfbf;
+        grid-column:1/-1;
+        min-height:auto
+      }
+    }
+
+    @page{
+      size:A3 landscape;
+      margin:10mm;
+    }
+    @media print{
+      body{background:white;padding:0}
+      .app{
+        width:100%;
+        height:auto;
+        min-height:auto;
+        box-shadow:none;
+        border:none;
+        border-radius:0;
+        display:block;
+      }
+      .revision,.toolbar{display:none !important}
+      .main{overflow:visible;padding:0}
+      .page{
+        height:auto;
+        border-radius:0;
+        border:1px solid #777;
+      }
+      .title{font-size:40px}
+      .field label{font-size:11px}
+      .field input{font-size:12px}
+      .section-title{font-size:12px}
+      textarea{font-size:11px;line-height:22px}
+      .lined-area{
+        background:
+          repeating-linear-gradient(
+            to bottom,
+            transparent 0,
+            transparent 21px,
+            #cfd3d7 22px,
+            #cfd3d7 23px
+          );
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="main">
+      <div class="header">
+        <div class="title-wrap">
+          <h1 class="title">WEEKLY <span class="script">TravelJournal</span></h1>
+          <div class="rule"></div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <button class="tool-btn primary" id="saveBtn">Save Local</button>
+        <button class="tool-btn" id="exportJsonBtn">Export JSON</button>
+        <button class="tool-btn" id="importJsonBtn">Import JSON</button>
+        <input type="file" id="importJsonFile" accept="application/json" hidden />
+        <button class="tool-btn" id="pdfBtn">Download PDF</button>
+        <button class="tool-btn" id="clearBtn">Clear Page</button>
+      </div>
+
+      <div class="page">
+        <div class="meta-grid">
+          <div class="field">
+            <label for="dateField">Date:</label>
+            <input id="dateField" type="text" placeholder="" />
+          </div>
+          <div class="field">
+            <label for="whereField">Where We Were:</label>
+            <input id="whereField" type="text" placeholder="" />
+          </div>
+          <div class="field">
+            <label for="destField">Destination(s):</label>
+            <input id="destField" type="text" placeholder="" />
+          </div>
+          <div class="field">
+            <label for="weatherField">Weather:</label>
+            <input id="weatherField" type="text" placeholder="" />
+          </div>
+        </div>
+
+        <div class="week-block">
+          <div class="section-title">Our Week Went Like This...</div>
+          <div class="lined-area">
+            <textarea id="weekText" spellcheck="true"></textarea>
+          </div>
+        </div>
+
+        <div class="bottom-grid">
+          <div class="small-block">
+            <div class="section-title">We Loved...</div>
+            <div class="lined-area">
+              <textarea id="lovedText" spellcheck="true"></textarea>
+            </div>
+          </div>
+          <div class="small-block">
+            <div class="section-title">We Learned...</div>
+            <div class="lined-area">
+              <textarea id="learnedText" spellcheck="true"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer-note">
+          <div>Local autosave active</div>
+          <div class="status" id="saveStatus">Revision 1.0</div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="revision">
+      <div class="rev-title">REVISION TRACKER</div>
+      <div class="rev-box"><strong>Tool</strong><br>Weekly Travel Journal</div>
+      <div class="rev-box"><strong>Version</strong><br><span id="revNo">1.0</span></div>
+      <div class="rev-box"><strong>Last Saved</strong><br><span id="lastSaved">Not saved yet</span></div>
+      <div class="rev-box"><strong>Mode</strong><br>Interactive journal</div>
+      <div class="rev-box"><strong>Storage</strong><br>Local + JSON</div>
+      <button class="tool-btn" id="bumpRevBtn">New Revision</button>
+    </aside>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'weeklyTravelJournal_v1';
+
+    const fields = [
+      'dateField',
+      'whereField',
+      'destField',
+      'weatherField',
+      'weekText',
+      'lovedText',
+      'learnedText'
+    ];
+
+    function getState(){
+      const state = {
+        meta:{
+          title:'Weekly Travel Journal',
+          version:document.getElementById('revNo').textContent,
+          lastSaved:new Date().toISOString()
+        },
+        data:{}
+      };
+      fields.forEach(id => state.data[id] = document.getElementById(id).value);
+      return state;
+    }
+
+    function applyState(state){
+      if(!state) return;
+      fields.forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.value = state.data?.[id] || '';
+      });
+      if(state.meta?.version){
+        document.getElementById('revNo').textContent = state.meta.version;
+        document.getElementById('saveStatus').textContent = `Revision ${state.meta.version}`;
+      }
+      if(state.meta?.lastSaved){
+        document.getElementById('lastSaved').textContent = formatWhen(state.meta.lastSaved);
+      }
+      autoGrowAll();
+    }
+
+    function formatWhen(iso){
+      const d = new Date(iso);
+      if(Number.isNaN(d.getTime())) return 'Not saved yet';
+      return d.toLocaleString();
+    }
+
+    function saveLocal(showStatus=true){
+      const state = getState();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      document.getElementById('lastSaved').textContent = formatWhen(state.meta.lastSaved);
+      if(showStatus){
+        const status = document.getElementById('saveStatus');
+        status.textContent = `Revision ${state.meta.version} · Saved`;
+        setTimeout(() => { status.textContent = `Revision ${state.meta.version}`; }, 1600);
+      }
+    }
+
+    function exportJson(){
+      const blob = new Blob([JSON.stringify(getState(), null, 2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `weekly-travel-journal-${new Date().toISOString().slice(0,10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+
+    function clearPage(){
+      if(!confirm('Clear all entered data on this page?')) return;
+      localStorage.removeItem(STORAGE_KEY);
+      fields.forEach(id => document.getElementById(id).value = '');
+      document.getElementById('lastSaved').textContent = 'Not saved yet';
+      autoGrowAll();
+      saveLocal(false);
+    }
+
+    function bumpRevision(){
+      const current = parseFloat(document.getElementById('revNo').textContent || '1.0') || 1.0;
+      const next = (Math.round((current + 0.1) * 10) / 10).toFixed(1);
+      document.getElementById('revNo').textContent = next;
+      document.getElementById('saveStatus').textContent = `Revision ${next}`;
+      saveLocal(false);
+    }
+
+    function autoGrow(el){
+      if(!el) return;
+      el.scrollTop = 0;
+    }
+
+    function autoGrowAll(){
+      ['weekText','lovedText','learnedText'].forEach(id => autoGrow(document.getElementById(id)));
+    }
+
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if(saved){
+      try{
+        applyState(JSON.parse(saved));
+      } catch(e){
+        console.warn('Could not load saved state', e);
+      }
+    } else {
+      autoGrowAll();
+    }
+
+    document.addEventListener('input', (e) => {
+      if(fields.includes(e.target.id)){
+        saveLocal(false);
+      }
+    });
+
+    document.getElementById('saveBtn').addEventListener('click', ()=>saveLocal(true));
+    document.getElementById('exportJsonBtn').addEventListener('click', exportJson);
+    document.getElementById('pdfBtn').addEventListener('click', ()=>window.print());
+    document.getElementById('clearBtn').addEventListener('click', clearPage);
+    document.getElementById('bumpRevBtn').addEventListener('click', bumpRevision);
+    document.getElementById('importJsonBtn').addEventListener('click', ()=>document.getElementById('importJsonFile').click());
+    document.getElementById('importJsonFile').addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try{
+          const state = JSON.parse(reader.result);
+          applyState(state);
+          saveLocal(true);
+        } catch(err){
+          alert('That JSON file could not be loaded.');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+  </script>
+</body>
+</html>

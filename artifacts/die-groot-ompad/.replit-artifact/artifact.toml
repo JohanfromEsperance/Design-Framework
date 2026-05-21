@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Die Groot Ompad"
+version = "1.0.0"
+id = "artifacts/die-groot-ompad"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20385
+
+[services.development]
+run = "pnpm --filter @workspace/die-groot-ompad run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/die-groot-ompad", "run", "build" ]
+publicDir = "artifacts/die-groot-ompad/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20385"
+BASE_PATH = "/"

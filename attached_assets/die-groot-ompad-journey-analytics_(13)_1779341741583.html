@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Die Groot Ompad | Journey Analytics</title>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <style>
+    :root {
+      --bg: #f6f1e7; --panel: #fffdf8; --line: #d8cdb8; --ink: #2b2b2b; --muted: #6b6b6b;
+      --green: #1f6f5f; --green-2: #2d8a77; --sand: #d9b880; --rust: #9d5f3f; --sky: #d9ecf2;
+      --danger: #b44949; --amber: #b28022; --ok: #2f7a33; --shadow: 0 10px 25px rgba(43,43,43,0.08); --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; font-family: Inter, Arial, Helvetica, sans-serif; color: var(--ink); background: linear-gradient(180deg, #f5efe3 0%, #efe7d8 100%); }
+    body { overflow-x: hidden; overflow-y: auto; }
+    .app { display: grid; grid-template-columns: 280px 1fr 320px; grid-template-rows: 64px minmax(860px, auto) 44px; grid-template-areas: "top top top" "left main right" "bottom bottom bottom"; min-height: 1180px; width: 100%; max-width: 1520px; margin: 0 auto; gap: 12px; padding: 12px; }
+    .topbar, .sidebar, .main, .rightbar, .bottombar { background: rgba(255,255,255,0.82); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.8); box-shadow: var(--shadow); border-radius: var(--radius); }
+    .topbar { grid-area: top; display:flex; align-items:center; justify-content:space-between; padding: 10px 16px; overflow:hidden; }
+    .brand { display:flex; align-items:center; gap:14px; min-width:0; }
+    .logo { width:44px; height:44px; border-radius:12px; background: linear-gradient(135deg, var(--green), var(--sand)); display:grid; place-items:center; color:#fff; font-weight:800; letter-spacing:.5px; flex:0 0 auto; }
+    .brand h1 { margin:0; font-size:1.15rem; }
+    .brand p { margin:2px 0 0; color:var(--muted); font-size:.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .top-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+    button, .btn { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:999px; padding:10px 14px; font-weight:600; cursor:pointer; transition:.2s ease; }
+    button:hover, .btn:hover { transform: translateY(-1px); border-color: var(--green-2); }
+    .btn-primary { background: linear-gradient(135deg, var(--green), var(--green-2)); color:#fff; border-color:transparent; }
+    .btn-soft { background:#f7f3eb; }
+    .sidebar { grid-area:left; padding:14px; overflow:auto; min-height: 820px; }
+    .nav-section-title { margin:2px 0 10px; font-size:.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+    .nav-btn { width:100%; text-align:left; border-radius:14px; margin-bottom:10px; padding:12px 14px; font-size:.95rem; display:flex; justify-content:space-between; align-items:center; background:#fff; }
+    .nav-btn.active { background: linear-gradient(135deg, rgba(31,111,95,0.12), rgba(217,184,128,0.25)); border-color: rgba(31,111,95,0.35); }
+    .nav-btn small { color: var(--muted); font-weight: 500; }
+    .summary-card { border:1px solid var(--line); border-radius:16px; padding:12px; margin-top:8px; background: linear-gradient(180deg, rgba(217,236,242,0.55), rgba(255,253,248,0.9));}
+    .metric-grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; }
+    .metric { background: rgba(255,255,255,0.85); border:1px solid var(--line); border-radius:14px; padding:10px; }
+    .metric .label { font-size:.78rem; color:var(--muted); }
+    .metric .value { font-size:1.25rem; font-weight:700; margin-top:4px; }
+    .main { grid-area:main; display:flex; flex-direction:column; overflow:hidden; min-height: 820px; }
+    .main-header { padding:10px 14px; border-bottom:1px solid #eee2cc; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    .main-header h2 { margin:0; font-size:1.1rem; }
+    .main-body { flex:1; overflow:auto; padding:10px 12px 12px; background: linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,253,248,0.95)); }
+    .viewer-panel { display:none; } .viewer-panel.active { display:block; }
+    .info-strip { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:12px; margin-bottom:10px; }
+    .strip-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px 12px; min-height: 88px; }
+    .strip-card .big { font-size:1.3rem; font-weight:800; } .strip-card .small { font-size:.82rem; color:var(--muted); }
+    table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+    thead th { position:sticky; top:0; z-index:2; background:#f5efe3; border-bottom:1px solid var(--line); padding:10px 8px; font-size:.82rem; text-align:left; white-space:nowrap; }
+    tbody td { border-top:1px solid #eee5d6; padding:6px 8px; vertical-align:top; }
+    tbody tr:hover { background:#fffaf0; }
+    input, select, textarea { width:100%; border:1px solid #d9cfbe; border-radius:10px; padding:8px 10px; background:#fff; font:inherit; color:inherit; }
+    textarea { min-height:70px; resize:vertical; } input[type="number"] { min-width:90px; }
+    .readonly { background:#f8f5ef; color:#4f4f4f; }
+    .table-wrap { border-radius:16px; overflow:visible; border:1px solid var(--line); background:#fff; max-height: none; }
+    .card-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:14px; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px; }
+    .card h3 { margin:0 0 10px; font-size:1rem; }
+    .rightbar { grid-area:right; padding:12px; overflow:auto; min-height: 160px; }
+    .history-list { display:flex; flex-direction:column; gap:8px; margin-top:8px; max-height: 150px; overflow:auto; }
+    .history-item { border:1px solid var(--line); border-radius:14px; padding:10px; background:#fff; }
+    .history-item h4 { margin:0 0 6px; font-size:.95rem; } .history-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .tiny { font-size:.78rem; color:var(--muted); }
+    .bottombar { grid-area:bottom; display:flex; align-items:center; justify-content:space-between; padding:6px 12px; gap:10px; overflow:visible; }
+    .chip-row { display:flex; gap:8px; flex-wrap:wrap; } .chip { padding:6px 10px; border-radius:999px; background:#fff; border:1px solid var(--line); font-size:.76rem; white-space:nowrap; } .footer-meta { display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end; } .revision-badge { padding:5px 10px; border-radius:999px; background:#fff; border:1px solid var(--line); font-size:.74rem; font-weight:700; }
+    #map { width:100%; height:720px; border:1px solid var(--line); border-radius:18px; overflow:hidden; }
+    .map-actions { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+    .status { display:inline-flex; align-items:center; gap:8px; font-weight:600; border-radius:999px; padding:8px 12px; background:#fff; border:1px solid var(--line); }
+    .dot { width:10px; height:10px; border-radius:999px; background:var(--amber); display:inline-block; }
+    .ok .dot { background:var(--ok); } .warn .dot { background:var(--amber); } .danger .dot { background:var(--danger); }
+    .footnote { margin-top:8px; padding:8px 10px; border:1px dashed #d4c7af; border-radius:12px; background:#fbf8f2; color:#5d564b; font-size:.74rem; line-height:1.35; }
+    .kpi { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border:1px solid var(--line); border-radius:12px; margin-top:8px; background:#fff; }
+    .kpi strong { font-size:1rem; } .pill { padding:4px 8px; border-radius:999px; font-size:.76rem; font-weight:700; }
+    .pill.good { background: rgba(47,122,51,0.12); color: var(--ok); } .pill.warn { background: rgba(178,128,34,0.12); color: var(--amber); } .pill.bad { background: rgba(180,73,73,0.12); color: var(--danger); }
+    .flex { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .planner-shell { display:grid; grid-template-columns: minmax(0, 1fr); gap:14px; }
+    .planner-toolbar { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+    .planner-nav { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .planner-leg-card { background:#fff; border:1px solid var(--line); border-radius:18px; padding:16px; box-shadow: var(--shadow); overflow:visible; min-height: 590px; }
+    .leg-head { display:grid; grid-template-columns: 64px minmax(0, 1fr) 44px minmax(0, 1fr); gap:10px; align-items:center; margin-bottom:14px; }
+    .leg-step { width:64px; height:64px; border-radius:18px; display:grid; place-items:center; background:linear-gradient(135deg, rgba(31,111,95,0.12), rgba(217,184,128,0.24)); border:1px solid rgba(31,111,95,0.18); font-weight:800; font-size:1.2rem; }
+    .leg-place { min-width:0; border:1px solid var(--line); border-radius:16px; padding:10px 12px; background:#fcfaf5; }
+    .leg-place .tiny { margin-bottom:4px; display:block; }
+    .leg-place input { font-size:1rem; font-weight:700; }
+    .leg-arrow { font-size:1.5rem; text-align:center; color:var(--green); font-weight:800; }
+    .planner-grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:12px; }
+    .planner-box { border:1px solid var(--line); border-radius:16px; background:#fffdf8; padding:12px; min-width:0; }
+    .planner-box h3 { margin:0 0 10px; font-size:.95rem; }
+    .planner-box .tiny { display:block; margin-bottom:4px; }
+    .planner-box input, .planner-box textarea { font-size:.95rem; }
+    .planner-box textarea { min-height:88px; }
+    .planner-kpis { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:10px; }
+    .planner-kpi { border:1px solid var(--line); border-radius:14px; background:#fff; padding:10px; min-width:0; }
+    .planner-kpi .value { font-size:1.15rem; font-weight:800; margin-top:4px; word-break:break-word; }
+    .planner-progress { color:var(--muted); font-size:.86rem; font-weight:600; }
+    @media (max-width: 1280px) {
+      .planner-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .planner-kpis { grid-template-columns: repeat(2, minmax(0,1fr)); }
+
+      .app { grid-template-columns: 270px 1fr; grid-template-rows: 72px auto minmax(220px, 32vh) 52px; grid-template-areas: "top top" "left main" "right right" "bottom bottom"; }
+      .info-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .card-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 860px) {
+      body { overflow:auto; }
+      .app { height:auto; grid-template-columns: 1fr; grid-template-rows: auto auto auto auto auto; grid-template-areas: "top" "left" "main" "right" "bottom"; }
+      .info-strip { grid-template-columns:1fr; } #map { height:420px; } .table-wrap { max-height:none; }
+      .leg-head { grid-template-columns: 1fr; }
+      .leg-arrow { transform: rotate(90deg); }
+      .planner-grid, .planner-kpis { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><div class="logo">DG</div><div><h1>Die Groot Ompad — Journey Analytics</h1><p>Australian road-trip planner, live logger, fuel tracker, tow-weight checker and map viewer.</p></div></div>
+    <div class="top-actions">
+      <button class="btn-soft" onclick="saveTrip()">Save to history</button>
+      <button class="btn-soft" onclick="exportTrip()">Export JSON</button>
+      <label class="btn" for="importFile">Import JSON</label><input id="importFile" type="file" accept=".json" style="display:none" />
+      <button class="btn-primary" onclick="captureCurrentPosition()">Log GPS point</button>
+    </div>
+  </div>
+
+  <aside class="sidebar">
+    <div class="nav-section-title">Project views</div>
+    <button class="nav-btn active" data-view="planner" onclick="showPanel('planner', this)">Trip Planner <small>estimate vs actual</small></button>
+    <button class="nav-btn" data-view="mapPanel" onclick="showPanel('mapPanel', this)">Map Viewer <small>route + GPS</small></button>
+    <button class="nav-btn" data-view="vehicle" onclick="showPanel('vehicle', this)">Vehicle & Caravan <small>weights and payload</small></button>
+    <button class="nav-btn" data-view="analysis" onclick="showPanel('analysis', this)">Trip Analysis <small>variances and KPIs</small></button>
+
+    <div class="summary-card">
+      <div class="nav-section-title" style="margin-top:0">Current trip</div>
+      <label class="tiny">Trip label</label><input id="tripLabel" value="Die Groot Ompad - Sample Trip" />
+      <label class="tiny" style="display:block; margin-top:10px;">Trip notes</label><textarea id="tripNotes" placeholder="Add route intent, camps, breakdown notes, budget comments, road conditions..."></textarea>
+      <div class="metric-grid">
+        <div class="metric"><div class="label">Planned km</div><div class="value" id="metricPlannedKm">0</div></div>
+        <div class="metric"><div class="label">Actual km</div><div class="value" id="metricActualKm">0</div></div>
+        <div class="metric"><div class="label">Est. fuel cost</div><div class="value" id="metricEstCost">$0</div></div>
+        <div class="metric"><div class="label">Actual fuel cost</div><div class="value" id="metricActualCost">$0</div></div>
+      </div>
+      <div class="footnote">This prototype saves trip history in your browser and can also export/import JSON files for local archive and later reload on GoDaddy.</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="main-header">
+      <div><h2 id="panelTitle">Trip Planner</h2><div class="tiny" id="panelSubTitle">Edit estimates first, then capture actual travel data as you move.</div></div>
+      <div class="flex"><span class="status warn" id="syncStatus"><span class="dot"></span><span id="syncStatusText">Ready — local browser mode</span></span></div>
+    </div>
+    <div class="main-body">
+      <section class="viewer-panel active" id="planner">
+        <div class="info-strip">
+          <div class="strip-card"><div class="small">Fuel scenario 1</div><div class="big">15 L/100km</div><div class="small">Tow-light estimate</div></div>
+          <div class="strip-card"><div class="small">Fuel scenario 2</div><div class="big">18 L/100km</div><div class="small">Tow-medium estimate</div></div>
+          <div class="strip-card"><div class="small">Fuel scenario 3</div><div class="big">20 L/100km</div><div class="small">Tow-heavy estimate</div></div>
+          <div class="strip-card"><div class="small">Operating mode</div><div class="big">One leg at a time</div><div class="small">Cleaner viewer-friendly workflow</div></div>
+        </div>
+        <div class="planner-shell">
+          <div class="planner-toolbar">
+            <div class="planner-nav">
+              <button onclick="changeLeg(-1)">◀ Previous</button>
+              <button class="btn-primary" onclick="changeLeg(1)">Next ▶</button>
+              <button class="btn-soft" onclick="addLegAfterCurrent()">+ Add stop</button>
+              <button class="btn-soft" onclick="removeCurrentLeg()">Remove stop</button>
+            </div>
+            <div class="planner-progress" id="plannerProgress">Leg 1 of 1</div>
+          </div>
+          <div class="planner-leg-card" id="plannerCard"></div>
+        </div>
+      </section>
+
+      <section class="viewer-panel" id="mapPanel">
+        <div class="map-actions"><button class="btn-primary" onclick="mapStops()">Map trip stops</button><button onclick="captureCurrentPosition()">Add current position</button><button onclick="fitMapToData()">Fit map</button><button onclick="clearGpsTrack()">Clear GPS track</button></div>
+        <div id="map"></div>
+        <div class="footnote">The map uses Leaflet with OpenStreetMap tiles and optional Nominatim geocoding. This works well for a light personal tool, but public OSM tile and geocoding services have usage limits, so a production-scale version should cache aggressively or move to a hosted provider.</div>
+      </section>
+
+      <section class="viewer-panel" id="vehicle">
+        <div class="card-grid">
+          <div class="card"><h3>Tow Vehicle</h3><div class="card-grid" style="grid-template-columns:1fr 1fr;">
+            <div><label class="tiny">Vehicle make / model</label><input id="vehicleModel" value="Toyota LandCruiser 200" /></div>
+            <div><label class="tiny">Engine / fuel</label><input id="vehicleFuel" value="Diesel" /></div>
+            <div><label class="tiny">Kerb weight (kg)</label><input id="vehicleKerb" type="number" value="2740" /></div>
+            <div><label class="tiny">GVM (kg)</label><input id="vehicleGvm" type="number" value="3350" /></div>
+            <div><label class="tiny">GCM (kg)</label><input id="vehicleGcm" type="number" value="6850" /></div>
+            <div><label class="tiny">Tow rating (kg)</label><input id="vehicleTow" type="number" value="3500" /></div>
+            <div><label class="tiny">Front axle limit (kg)</label><input id="frontAxleLimit" type="number" value="1630" /></div>
+            <div><label class="tiny">Rear axle limit (kg)</label><input id="rearAxleLimit" type="number" value="1950" /></div>
+          </div></div>
+          <div class="card"><h3>Caravan / Trailer</h3><div class="card-grid" style="grid-template-columns:1fr 1fr;">
+            <div><label class="tiny">Van make / model</label><input id="caravanModel" value="Off-road caravan" /></div>
+            <div><label class="tiny">ATM / GTM type</label><input id="caravanType" value="Dual axle" /></div>
+            <div><label class="tiny">Tare (kg)</label><input id="caravanTare" type="number" value="2650" /></div>
+            <div><label class="tiny">ATM (kg)</label><input id="caravanAtm" type="number" value="3500" /></div>
+            <div><label class="tiny">GTM (kg)</label><input id="caravanGtm" type="number" value="3200" /></div>
+            <div><label class="tiny">Ball weight (kg)</label><input id="ballWeight" type="number" value="300" /></div>
+            <div><label class="tiny">Water load (kg)</label><input id="waterLoad" type="number" value="180" /></div>
+            <div><label class="tiny">Gas / batteries / extras (kg)</label><input id="extrasLoad" type="number" value="120" /></div>
+          </div></div>
+          <div class="card"><h3>Payload Inputs</h3><div class="card-grid" style="grid-template-columns:1fr 1fr;">
+            <div><label class="tiny">People + pets (kg)</label><input id="payloadPeople" type="number" value="180" /></div>
+            <div><label class="tiny">Food + fridge (kg)</label><input id="payloadFood" type="number" value="85" /></div>
+            <div><label class="tiny">Recovery gear (kg)</label><input id="payloadRecovery" type="number" value="75" /></div>
+            <div><label class="tiny">Tools + spares (kg)</label><input id="payloadTools" type="number" value="90" /></div>
+            <div><label class="tiny">Fuel on board (kg)</label><input id="payloadFuel" type="number" value="120" /></div>
+            <div><label class="tiny">Other payload (kg)</label><input id="payloadOther" type="number" value="60" /></div>
+          </div></div>
+          <div class="card"><h3>Weight Check</h3><div id="weightSummary"></div><div class="footnote">These are planning checks only. They help flag overload risk early, but they do not replace a certified weighbridge measurement.</div></div>
+        </div>
+      </section>
+
+      <section class="viewer-panel" id="analysis">
+        <div class="card-grid"><div class="card"><h3>Trip KPI Snapshot</h3><div id="analysisKpis"></div></div><div class="card"><h3>GPS Log</h3><div id="gpsLogPanel" class="tiny"></div></div></div>
+      </section>
+    </div>
+  </main>
+
+  <aside class="rightbar">
+    <div class="nav-section-title">Saved history</div><div class="flex"><button onclick="refreshHistory()">Refresh</button><button onclick="saveTrip()" class="btn-primary">Save snapshot</button></div>
+    <div class="history-list" id="historyList"></div>
+    <div class="footnote">Local save note: a website cannot silently write to arbitrary folders on your device. This build uses <strong>browser localStorage</strong> for quick history and <strong>JSON export/import</strong> for manual local file storage and retrieval.</div>
+  </aside>
+
+  <div class="bottombar"><div class="chip-row"><div class="chip">Australia theme</div><div class="chip">Tow planner</div><div class="chip">Fuel variance</div><div class="chip">Offline-friendly storage</div><div class="chip">Map content viewer</div></div><div class="footer-meta"><div class="tiny">Designed by Asset Academy for Adventure Analytics Australia — Die Groot Ompad</div><div class="revision-badge">REV5</div></div></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+const STORAGE_KEY = 'die-groot-ompad-history-v1';
+const GEO_CACHE_KEY = 'die-groot-ompad-geocache-v1';
+const defaultTrip = {
+  meta: { label: 'Die Groot Ompad - Sample Trip', notes: '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  assumptions: { price15: 3.80, price18: 3.80, price20: 3.80 },
+  vehicle: {
+    vehicleModel:'Toyota LandCruiser 200', vehicleFuel:'Diesel', vehicleKerb:2740, vehicleGvm:3350, vehicleGcm:6850, vehicleTow:3500, frontAxleLimit:1630, rearAxleLimit:1950,
+    caravanModel:'Off-road caravan', caravanType:'Dual axle', caravanTare:2650, caravanAtm:3500, caravanGtm:3200, ballWeight:300, waterLoad:180, extrasLoad:120,
+    payloadPeople:180, payloadFood:85, payloadRecovery:75, payloadTools:90, payloadFuel:120, payloadOther:60
+  },
+  gpsTrack: [],
+  legs: [
+  {
+    "from": "Esperance",
+    "to": "Norseman",
+    "plannedKm": 203.0,
+    "estLiters15": 30.5,
+    "actualKm": 203.0,
+    "actualLiters": 30.5,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Norseman",
+    "to": "Balladonia",
+    "plannedKm": 190.0,
+    "estLiters15": 28.5,
+    "actualKm": 190.0,
+    "actualLiters": 28.5,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Balladonia",
+    "to": "Caiguna",
+    "plannedKm": 164.0,
+    "estLiters15": 24.6,
+    "actualKm": 164.0,
+    "actualLiters": 24.6,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Caiguna",
+    "to": "Cocklebiddy",
+    "plannedKm": 83.0,
+    "estLiters15": 12.5,
+    "actualKm": 83.0,
+    "actualLiters": 12.5,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Cocklebiddy",
+    "to": "Madura",
+    "plannedKm": 91.0,
+    "estLiters15": 13.7,
+    "actualKm": 91.0,
+    "actualLiters": 13.7,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Madura",
+    "to": "Mundrabilla",
+    "plannedKm": 116.0,
+    "estLiters15": 17.4,
+    "actualKm": 116.0,
+    "actualLiters": 17.4,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Mundrabilla",
+    "to": "Eucla",
+    "plannedKm": 66.0,
+    "estLiters15": 9.9,
+    "actualKm": 66.0,
+    "actualLiters": 9.9,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Eucla",
+    "to": "Border Village",
+    "plannedKm": 13.0,
+    "estLiters15": 2.0,
+    "actualKm": 13.0,
+    "actualLiters": 2.0,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Border Village",
+    "to": "Nullarbor",
+    "plannedKm": 184.0,
+    "estLiters15": 27.6,
+    "actualKm": 184.0,
+    "actualLiters": 27.6,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Nullarbor",
+    "to": "Yalata",
+    "plannedKm": 92.0,
+    "estLiters15": 13.8,
+    "actualKm": 92.0,
+    "actualLiters": 13.8,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Yalata",
+    "to": "Nundroo",
+    "plannedKm": 51.0,
+    "estLiters15": 7.7,
+    "actualKm": 51.0,
+    "actualLiters": 7.7,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Nundroo",
+    "to": "Penong",
+    "plannedKm": 85.0,
+    "estLiters15": 12.8,
+    "actualKm": 85.0,
+    "actualLiters": 12.8,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Penong",
+    "to": "Ceduna",
+    "plannedKm": 47.0,
+    "estLiters15": 7.1,
+    "actualKm": 47.0,
+    "actualLiters": 7.1,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Ceduna",
+    "to": "Streaky Bay",
+    "plannedKm": 109.0,
+    "estLiters15": 7.1,
+    "actualKm": 109.0,
+    "actualLiters": 7.1,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Streaky Bay",
+    "to": "Ceduna",
+    "plannedKm": 109.0,
+    "estLiters15": 7.1,
+    "actualKm": 109.0,
+    "actualLiters": 7.1,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Ceduna",
+    "to": "Penong",
+    "plannedKm": 47.0,
+    "estLiters15": 7.1,
+    "actualKm": 47.0,
+    "actualLiters": 7.1,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Ceduna",
+    "to": "Fowlers bay",
+    "plannedKm": 142.0,
+    "estLiters15": 7.1,
+    "actualKm": 142.0,
+    "actualLiters": 7.1,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Fowlers Bay",
+    "to": "Yalata",
+    "plannedKm": 84.0,
+    "estLiters15": 7.1,
+    "actualKm": 84.0,
+    "actualLiters": 7.1,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Yalata",
+    "to": "Penong",
+    "plannedKm": 85.0,
+    "estLiters15": 12.8,
+    "actualKm": 85.0,
+    "actualLiters": 12.8,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Penong",
+    "to": "Nundroo",
+    "plannedKm": 85.0,
+    "estLiters15": 12.8,
+    "actualKm": 85.0,
+    "actualLiters": 12.8,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Nundroo",
+    "to": "Yalata",
+    "plannedKm": 51.0,
+    "estLiters15": 7.7,
+    "actualKm": 51.0,
+    "actualLiters": 7.7,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Yalata",
+    "to": "Nullarbor",
+    "plannedKm": 92.0,
+    "estLiters15": 13.8,
+    "actualKm": 92.0,
+    "actualLiters": 13.8,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Nullarbor",
+    "to": "Border Village",
+    "plannedKm": 184.0,
+    "estLiters15": 27.6,
+    "actualKm": 184.0,
+    "actualLiters": 27.6,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Border Village",
+    "to": "Eucla",
+    "plannedKm": 13.0,
+    "estLiters15": 2.0,
+    "actualKm": 13.0,
+    "actualLiters": 2.0,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Eucla",
+    "to": "Mundrabilla",
+    "plannedKm": 66.0,
+    "estLiters15": 9.9,
+    "actualKm": 66.0,
+    "actualLiters": 9.9,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Mundrabilla",
+    "to": "Madura",
+    "plannedKm": 116.0,
+    "estLiters15": 17.4,
+    "actualKm": 116.0,
+    "actualLiters": 17.4,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Madura",
+    "to": "Cocklebiddy",
+    "plannedKm": 91.0,
+    "estLiters15": 13.7,
+    "actualKm": 91.0,
+    "actualLiters": 13.7,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Cocklebiddy",
+    "to": "Caiguna",
+    "plannedKm": 83.0,
+    "estLiters15": 12.5,
+    "actualKm": 83.0,
+    "actualLiters": 12.5,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Caiguna",
+    "to": "Balladonia",
+    "plannedKm": 164.0,
+    "estLiters15": 24.6,
+    "actualKm": 164.0,
+    "actualLiters": 24.6,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Balladonia",
+    "to": "Norseman",
+    "plannedKm": 190.0,
+    "estLiters15": 28.5,
+    "actualKm": 190.0,
+    "actualLiters": 28.5,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  },
+  {
+    "from": "Norseman",
+    "to": "Esperance",
+    "plannedKm": 203.0,
+    "estLiters15": 30.5,
+    "actualKm": 203.0,
+    "actualLiters": 30.5,
+    "fuelPrice": 3.8,
+    "serviceStation": "",
+    "actualPricePerLitre": "",
+    "notes": ""
+  }
+]
+};
+let trip = structuredClone(defaultTrip);
+let map, stopLayer, routeLayer, gpsLayer;
+let geocodeCache = JSON.parse(localStorage.getItem(GEO_CACHE_KEY) || '{}');
+
+function formatNum(v, digits=1){ const n = Number(v || 0); return Number.isFinite(n) ? n.toLocaleString(undefined, {maximumFractionDigits: digits, minimumFractionDigits: digits}) : '0'; }
+function formatCurrency(v){ const n = Number(v || 0); return '$' + n.toLocaleString(undefined, {maximumFractionDigits:2, minimumFractionDigits:2}); }
+function safe(v, fallback=''){ return v == null ? fallback : v; }
+
+function tripLegCalculations(leg){
+  const plannedKm = Number(leg.plannedKm || 0);
+  const est15 = plannedKm * 0.15, est18 = plannedKm * 0.18, est20 = plannedKm * 0.20;
+  const estCost15 = est15 * Number(trip.assumptions.price15 || 0);
+  const estCost18 = est18 * Number(trip.assumptions.price18 || 0);
+  const estCost20 = est20 * Number(trip.assumptions.price20 || 0);
+  const actualKm = Number(leg.actualKm || 0), actualLiters = Number(leg.actualLiters || 0), actualPrice = Number(leg.actualPricePerLitre || 0);
+  const kmPerL = actualLiters > 0 ? actualKm / actualLiters : 0;
+  const lPer100 = actualKm > 0 ? (actualLiters / actualKm) * 100 : 0;
+  const actualFuelCost = actualLiters * actualPrice;
+  return {est15, est18, est20, estCost15, estCost18, estCost20, kmPerL, lPer100, actualFuelCost, varianceKm: actualKm - plannedKm, varianceCost: actualFuelCost - estCost18};
+}
+
+let currentLegIndex = 0;
+
+function plannerInput(field, value, type='text', step='0.1'){
+  const safeValue = value == null ? '' : String(value).replace(/"/g, '&quot;');
+  if (type === 'textarea') return `<textarea data-leg-field="${field}">${safeValue}</textarea>`;
+  const stepAttr = type === 'number' ? ` step="${step}"` : '';
+  return `<input type="${type}" value="${safeValue}" data-leg-field="${field}"${stepAttr} />`;
+}
+
+function renderTripTable(){
+  const wrap = document.getElementById('plannerCard');
+  if (!wrap) return;
+  if (!trip.legs.length) trip.legs.push({ from:'', to:'', plannedKm:'', fuelPrice:trip.assumptions.price18, serviceStation:'', actualKm:'', actualLiters:'', actualPricePerLitre:'', notes:'' });
+  currentLegIndex = Math.max(0, Math.min(currentLegIndex, trip.legs.length - 1));
+  const leg = trip.legs[currentLegIndex];
+  const c = tripLegCalculations(leg);
+  wrap.innerHTML = `
+    <div class="leg-head">
+      <div class="leg-step">${currentLegIndex + 1}</div>
+      <div class="leg-place"><span class="tiny">From</span>${plannerInput('from', safe(leg.from))}</div>
+      <div class="leg-arrow">➜</div>
+      <div class="leg-place"><span class="tiny">To</span>${plannerInput('to', safe(leg.to))}</div>
+    </div>
+    <div class="planner-grid">
+      <div class="planner-box">
+        <h3>Planned travel</h3>
+        <label class="tiny">Planned distance (km)</label>${plannerInput('plannedKm', safe(leg.plannedKm,0), 'number')}
+        <label class="tiny" style="margin-top:8px;">Planned fuel price / L</label>${plannerInput('fuelPrice', safe(leg.fuelPrice, trip.assumptions.price18), 'number', '0.01')}
+        <label class="tiny" style="margin-top:8px;">Service station / fuel stop</label>${plannerInput('serviceStation', safe(leg.serviceStation))}
+      </div>
+      <div class="planner-box">
+        <h3>Estimate outputs</h3>
+        <label class="tiny">15 L/100km</label><input class="readonly" readonly value="${formatNum(c.est15)} L | ${formatCurrency(c.estCost15)}" />
+        <label class="tiny" style="margin-top:8px;">18 L/100km</label><input class="readonly" readonly value="${formatNum(c.est18)} L | ${formatCurrency(c.estCost18)}" />
+        <label class="tiny" style="margin-top:8px;">20 L/100km</label><input class="readonly" readonly value="${formatNum(c.est20)} L | ${formatCurrency(c.estCost20)}" />
+      </div>
+      <div class="planner-box">
+        <h3>Actual travel</h3>
+        <label class="tiny">Actual distance (km)</label>${plannerInput('actualKm', safe(leg.actualKm,0), 'number')}
+        <label class="tiny" style="margin-top:8px;">Actual litres</label>${plannerInput('actualLiters', safe(leg.actualLiters,0), 'number')}
+        <label class="tiny" style="margin-top:8px;">Actual fuel price / L</label>${plannerInput('actualPricePerLitre', safe(leg.actualPricePerLitre,''), 'number', '0.01')}
+      </div>
+      <div class="planner-box">
+        <h3>Leg notes</h3>
+        <label class="tiny">Road, weather, campsite, delay, issue</label>${plannerInput('notes', safe(leg.notes), 'textarea')}
+      </div>
+    </div>
+    <div class="planner-kpis" style="margin-top:12px;">
+      <div class="planner-kpi"><div class="tiny">Actual fuel cost</div><div class="value">${formatCurrency(c.actualFuelCost)}</div></div>
+      <div class="planner-kpi"><div class="tiny">Efficiency</div><div class="value">${formatNum(c.kmPerL,2)} km/L</div></div>
+      <div class="planner-kpi"><div class="tiny">Consumption</div><div class="value">${formatNum(c.lPer100,2)} L/100km</div></div>
+      <div class="planner-kpi"><div class="tiny">Variance vs 18L estimate</div><div class="value">${formatCurrency(c.varianceCost)}</div></div>
+    </div>
+  `;
+  document.getElementById('plannerProgress').textContent = `Leg ${currentLegIndex + 1} of ${trip.legs.length}`;
+  wrap.querySelectorAll('[data-leg-field]').forEach(input => {
+    input.addEventListener('input', e => {
+      const field = e.target.dataset.legField;
+      let value = e.target.value;
+      if (e.target.type === 'number') value = value === '' ? '' : Number(value);
+      trip.legs[currentLegIndex][field] = value;
+      touchTrip();
+      updateAll();
+    });
+  });
+}
+
+function changeLeg(delta){
+  if (!trip.legs.length) return;
+  currentLegIndex = Math.max(0, Math.min(currentLegIndex + delta, trip.legs.length - 1));
+  renderTripTable();
+}
+function addLegAfterCurrent(){
+  const template = { from: trip.legs[currentLegIndex]?.to || '', to:'', plannedKm:'', fuelPrice:trip.assumptions.price18, serviceStation:'', actualKm:'', actualLiters:'', actualPricePerLitre:'', notes:'' };
+  trip.legs.splice(currentLegIndex + 1, 0, template);
+  currentLegIndex += 1;
+  touchTrip();
+  updateAll();
+}
+function removeCurrentLeg(){
+  if (trip.legs.length <= 1) return;
+  trip.legs.splice(currentLegIndex, 1);
+  currentLegIndex = Math.max(0, Math.min(currentLegIndex, trip.legs.length - 1));
+  touchTrip();
+  updateAll();
+}
+
+function touchTrip(){
+  trip.meta.label = document.getElementById('tripLabel').value.trim() || 'Unnamed trip';
+  trip.meta.notes = document.getElementById('tripNotes').value || '';
+  trip.meta.updatedAt = new Date().toISOString();
+}
+function totalMetrics(){
+  let plannedKm=0, actualKm=0, estCost=0, actualCost=0, actualLiters=0;
+  trip.legs.forEach(leg => { const c = tripLegCalculations(leg); plannedKm += Number(leg.plannedKm||0); actualKm += Number(leg.actualKm||0); estCost += c.estCost18; actualCost += c.actualFuelCost; actualLiters += Number(leg.actualLiters||0); });
+  return { plannedKm, actualKm, estCost, actualCost, avgKmPerL: actualLiters > 0 ? actualKm / actualLiters : 0, avgLPer100: actualKm > 0 ? (actualLiters / actualKm) * 100 : 0 };
+}
+function updateSummary(){
+  const m = totalMetrics();
+  document.getElementById('metricPlannedKm').textContent = formatNum(m.plannedKm, 0);
+  document.getElementById('metricActualKm').textContent = formatNum(m.actualKm, 0);
+  document.getElementById('metricEstCost').textContent = formatCurrency(m.estCost);
+  document.getElementById('metricActualCost').textContent = formatCurrency(m.actualCost);
+}
+function bindMetaFields(){
+  document.getElementById('tripLabel').addEventListener('input', ()=>{ touchTrip(); refreshHistory(); });
+  document.getElementById('tripNotes').addEventListener('input', ()=> touchTrip());
+  document.getElementById('importFile').addEventListener('change', importTrip);
+}
+function initMap(){
+  map = L.map('map', { zoomControl:true }).setView([-31.95, 115.86], 5);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:18, attribution:'&copy; OpenStreetMap contributors' }).addTo(map);
+  stopLayer = L.layerGroup().addTo(map); routeLayer = L.layerGroup().addTo(map); gpsLayer = L.layerGroup().addTo(map); renderGpsTrack();
+}
+async function geocodePlace(place){
+  if (!place) return null;
+  const key = place.trim().toLowerCase(); if (geocodeCache[key]) return geocodeCache[key];
+  setStatus('Geocoding ' + place + '...', 'warn');
+  const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=au&q=' + encodeURIComponent(place + ', Australia');
+  const res = await fetch(url, { headers:{ 'Accept': 'application/json' } });
+  if (!res.ok) throw new Error('Geocoding failed for ' + place);
+  const data = await res.json();
+  const hit = data && data[0] ? { lat:Number(data[0].lat), lon:Number(data[0].lon), label:data[0].display_name } : null;
+  geocodeCache[key] = hit; localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(geocodeCache)); await new Promise(r => setTimeout(r, 1200)); return hit;
+}
+function buildPlacePopup(place, loc){
+  const key = (place || '').trim().toLowerCase();
+  const departures = trip.legs.filter(leg => (leg.from || '').trim().toLowerCase() === key);
+  const arrivals = trip.legs.filter(leg => (leg.to || '').trim().toLowerCase() === key);
+  const related = [...departures, ...arrivals];
+  let plannedKm = 0, actualKm = 0, actualLiters = 0, actualFuelCost = 0;
+  related.forEach(leg => {
+    const c = tripLegCalculations(leg);
+    plannedKm += Number(leg.plannedKm || 0);
+    actualKm += Number(leg.actualKm || 0);
+    actualLiters += Number(leg.actualLiters || 0);
+    actualFuelCost += Number(c.actualFuelCost || 0);
+  });
+  const stationText = departures.map(leg => leg.serviceStation).filter(Boolean).join(', ') || arrivals.map(leg => leg.serviceStation).filter(Boolean).join(', ');
+  const noteText = departures.map(leg => leg.notes).filter(Boolean)[0] || arrivals.map(leg => leg.notes).filter(Boolean)[0] || '';
+  const routeText = departures.length ? departures.map(leg => leg.to).filter(Boolean).join(', ') : arrivals.map(leg => leg.from).filter(Boolean).join(', ');
+  return '<div style="min-width:240px;max-width:300px">'
+    + '<div style="font-weight:700;font-size:15px;margin-bottom:4px">' + place + '</div>'
+    + '<div style="font-size:11px;color:#666;margin-bottom:8px">' + (loc.label || '') + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;font-size:12px">'
+    + '<div><strong>Route</strong><br>' + (routeText || 'Trip waypoint') + '</div>'
+    + '<div><strong>Leg count</strong><br>' + related.length + '</div>'
+    + '<div><strong>Planned km</strong><br>' + formatNum(plannedKm, 0) + ' km</div>'
+    + '<div><strong>Actual km</strong><br>' + formatNum(actualKm, 0) + ' km</div>'
+    + '<div><strong>Actual litres</strong><br>' + formatNum(actualLiters, 1) + ' L</div>'
+    + '<div><strong>Fuel cost</strong><br>' + formatCurrency(actualFuelCost) + '</div>'
+    + '</div>'
+    + (stationText ? '<div style="margin-top:8px;font-size:12px"><strong>Fuel stop</strong><br>' + stationText + '</div>' : '')
+    + (noteText ? '<div style="margin-top:8px;font-size:12px"><strong>Notes</strong><br>' + noteText + '</div>' : '')
+    + '</div>';
+}
+async function mapStops(){
+  stopLayer.clearLayers(); routeLayer.clearLayers(); const coords = []; const seen = new Set();
+  try {
+    for (const leg of trip.legs){
+      for (const place of [leg.from, leg.to]){
+        const key = (place || '').trim().toLowerCase(); if (!key || seen.has(key)) continue; seen.add(key);
+        const loc = await geocodePlace(place);
+        if (loc){
+          coords.push([loc.lat, loc.lon]);
+          L.marker([loc.lat, loc.lon]).bindPopup(buildPlacePopup(place, loc)).addTo(stopLayer);
+        }
+      }
+    }
+    if (coords.length > 1){ L.polyline(coords, { weight:4, opacity:0.8 }).addTo(routeLayer); map.fitBounds(coords, {padding:[30,30]}); }
+    setStatus('Trip stops mapped', 'ok');
+  } catch (err) { console.error(err); setStatus('Mapping paused: ' + err.message, 'danger'); }
+}
+function fitMapToData(){
+  const bounds = []; stopLayer.eachLayer(l => { if (l.getLatLng) bounds.push(l.getLatLng()); }); gpsLayer.eachLayer(l => { if (l.getLatLng) bounds.push(l.getLatLng()); });
+  if (bounds.length) map.fitBounds(bounds, {padding:[30,30]});
+}
+function captureCurrentPosition(){
+  if (!navigator.geolocation){ setStatus('Geolocation not supported in this browser', 'danger'); return; }
+  setStatus('Capturing current position...', 'warn');
+  navigator.geolocation.getCurrentPosition(pos => {
+    const p = { lat:pos.coords.latitude, lon:pos.coords.longitude, accuracy:pos.coords.accuracy, ts:new Date().toISOString() };
+    trip.gpsTrack.push(p); touchTrip(); renderGpsTrack(); updateAnalysis(); setStatus('GPS point logged', 'ok'); showPanel('mapPanel');
+  }, err => setStatus('GPS capture failed: ' + err.message, 'danger'), { enableHighAccuracy:true, timeout:12000, maximumAge:10000 });
+}
+function renderGpsTrack(){
+  if (!gpsLayer) return; gpsLayer.clearLayers();
+  const latlngs = trip.gpsTrack.map(p => [p.lat, p.lon]);
+  latlngs.forEach((ll, idx) => { const p = trip.gpsTrack[idx]; L.circleMarker(ll, { radius:6 }).bindPopup('<strong>GPS ' + (idx+1) + '</strong><br>' + p.ts + '<br>Accuracy: ' + Math.round(p.accuracy) + ' m').addTo(gpsLayer); });
+  if (latlngs.length > 1) L.polyline(latlngs, { dashArray:'6,8', weight:3 }).addTo(gpsLayer);
+}
+function clearGpsTrack(){ trip.gpsTrack = []; renderGpsTrack(); updateAnalysis(); setStatus('GPS track cleared', 'warn'); }
+function saveTrip(){
+  touchTrip();
+  const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  const id = trip.meta.id || ('trip-' + Date.now()); trip.meta.id = id;
+  const idx = history.findIndex(t => t.meta && t.meta.id === id); const snapshot = JSON.parse(JSON.stringify(trip));
+  if (idx >= 0) history[idx] = snapshot; else history.unshift(snapshot);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(history)); refreshHistory(); setStatus('Trip saved to browser history', 'ok');
+}
+function refreshHistory(){
+  const list = document.getElementById('historyList'); list.innerHTML = '';
+  const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  if (!history.length){ list.innerHTML = '<div class="tiny">No saved trips yet.</div>'; return; }
+  history.forEach(item => {
+    const wrap = document.createElement('div'); wrap.className = 'history-item';
+    wrap.innerHTML = '<h4>' + (item.meta?.label || 'Unnamed trip') + '</h4><div class="tiny">Updated: ' + new Date(item.meta?.updatedAt || Date.now()).toLocaleString() + '</div><div class="tiny">Legs: ' + (item.legs?.length || 0) + ' | GPS: ' + (item.gpsTrack?.length || 0) + '</div><div class="history-actions"><button onclick="loadTrip(\'' + item.meta.id + '\')">Load</button><button onclick="duplicateTrip(\'' + item.meta.id + '\')">Duplicate</button><button onclick="deleteTrip(\'' + item.meta.id + '\')">Delete</button></div>';
+    list.appendChild(wrap);
+  });
+}
+function loadTrip(id){
+  const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  const found = history.find(t => t.meta && t.meta.id === id); if (!found) return;
+  trip = JSON.parse(JSON.stringify(found)); currentLegIndex = 0; hydrateInputsFromTrip(); updateAll(); setStatus('Trip loaded from history', 'ok');
+}
+function duplicateTrip(id){
+  const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); const found = history.find(t => t.meta && t.meta.id === id); if (!found) return;
+  trip = JSON.parse(JSON.stringify(found)); trip.meta.id = 'trip-' + Date.now(); trip.meta.label = (trip.meta.label || 'Trip') + ' (copy)'; trip.meta.updatedAt = new Date().toISOString(); saveTrip();
+}
+function deleteTrip(id){ localStorage.setItem(STORAGE_KEY, JSON.stringify(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]').filter(t => t.meta?.id !== id))); refreshHistory(); setStatus('Trip deleted from browser history', 'warn'); }
+function exportTrip(){
+  touchTrip();
+  const blob = new Blob([JSON.stringify(trip, null, 2)], {type:'application/json'});
+  const a = document.createElement('a'), slug = (trip.meta.label || 'trip').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  a.href = URL.createObjectURL(blob); a.download = slug + '.json'; a.click(); URL.revokeObjectURL(a.href); setStatus('Trip exported as JSON', 'ok');
+}
+function importTrip(e){
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { try { trip = JSON.parse(reader.result); currentLegIndex = 0; hydrateInputsFromTrip(); updateAll(); setStatus('Trip imported', 'ok'); } catch (err) { console.error(err); setStatus('Import failed', 'danger'); } };
+  reader.readAsText(file);
+}
+function hydrateInputsFromTrip(){
+  document.getElementById('tripLabel').value = trip.meta?.label || ''; document.getElementById('tripNotes').value = trip.meta?.notes || '';
+  const v = trip.vehicle || {};
+  ['vehicleModel','vehicleFuel','vehicleKerb','vehicleGvm','vehicleGcm','vehicleTow','frontAxleLimit','rearAxleLimit','caravanModel','caravanType','caravanTare','caravanAtm','caravanGtm','ballWeight','waterLoad','extrasLoad','payloadPeople','payloadFood','payloadRecovery','payloadTools','payloadFuel','payloadOther'].forEach(id => { if (document.getElementById(id)) document.getElementById(id).value = safe(v[id], ''); });
+}
+function pullVehicleInputs(){
+  trip.vehicle = trip.vehicle || {};
+  ['vehicleModel','vehicleFuel','vehicleKerb','vehicleGvm','vehicleGcm','vehicleTow','frontAxleLimit','rearAxleLimit','caravanModel','caravanType','caravanTare','caravanAtm','caravanGtm','ballWeight','waterLoad','extrasLoad','payloadPeople','payloadFood','payloadRecovery','payloadTools','payloadFuel','payloadOther'].forEach(id => { const el = document.getElementById(id); if (!el) return; trip.vehicle[id] = el.type === 'number' ? Number(el.value || 0) : el.value; });
+}
+function bindVehicleInputs(){
+  ['vehicleModel','vehicleFuel','vehicleKerb','vehicleGvm','vehicleGcm','vehicleTow','frontAxleLimit','rearAxleLimit','caravanModel','caravanType','caravanTare','caravanAtm','caravanGtm','ballWeight','waterLoad','extrasLoad','payloadPeople','payloadFood','payloadRecovery','payloadTools','payloadFuel','payloadOther'].forEach(id => { const el = document.getElementById(id); if (!el) return; el.addEventListener('input', () => { pullVehicleInputs(); updateWeights(); }); });
+}
+function updateWeights(){
+  pullVehicleInputs();
+  const v = trip.vehicle, vehiclePayload = Number(v.payloadPeople)+Number(v.payloadFood)+Number(v.payloadRecovery)+Number(v.payloadTools)+Number(v.payloadFuel)+Number(v.payloadOther);
+  const vanLoaded = Number(v.caravanTare)+Number(v.waterLoad)+Number(v.extrasLoad), estimatedVehicleActual = Number(v.vehicleKerb)+vehiclePayload+Number(v.ballWeight);
+  const items = [
+    {label:'Vehicle estimated actual mass', value: estimatedVehicleActual, limit:Number(v.vehicleGvm), unit:'kg'},
+    {label:'Caravan loaded mass', value: vanLoaded, limit:Number(v.caravanAtm), unit:'kg'},
+    {label:'Tow rating check', value: Number(v.caravanAtm), limit:Number(v.vehicleTow), unit:'kg'},
+    {label:'Combined mass estimate', value: estimatedVehicleActual + Number(v.caravanGtm), limit:Number(v.vehicleGcm), unit:'kg'}
+  ];
+  const wrap = document.getElementById('weightSummary'); wrap.innerHTML = '';
+  items.forEach(item => {
+    const remaining = item.limit - item.value, cls = remaining >= 150 ? 'good' : remaining >= 0 ? 'warn' : 'bad';
+    const text = remaining >= 0 ? ('Remaining ' + formatNum(remaining,0) + ' ' + item.unit) : ('Over by ' + formatNum(Math.abs(remaining),0) + ' ' + item.unit);
+    const row = document.createElement('div'); row.className = 'kpi';
+    row.innerHTML = '<div><div class="tiny">' + item.label + '</div><strong>' + formatNum(item.value,0) + ' ' + item.unit + '</strong></div><div><div class="pill ' + cls + '">' + text + '</div><div class="tiny">Limit ' + formatNum(item.limit,0) + ' ' + item.unit + '</div></div>';
+    wrap.appendChild(row);
+  });
+  const extra = document.createElement('div'); extra.className = 'footnote';
+  const remainingGvm = Number(v.vehicleGvm)-estimatedVehicleActual, remainingTow = Number(v.vehicleTow)-Number(v.caravanAtm), remainingGcm = Number(v.vehicleGcm)-(estimatedVehicleActual + Number(v.caravanGtm));
+  extra.textContent = 'Vehicle payload entered: ' + formatNum(vehiclePayload,0) + ' kg | Remaining GVM: ' + formatNum(remainingGvm,0) + ' kg | Remaining tow rating: ' + formatNum(remainingTow,0) + ' kg | Remaining GCM: ' + formatNum(remainingGcm,0) + ' kg';
+  wrap.appendChild(extra);
+}
+function updateAnalysis(){
+  const m = totalMetrics(), variance = m.actualCost - m.estCost;
+  const kpis = [
+    { name:'Average km/L', value: formatNum(m.avgKmPerL, 2), status: m.avgKmPerL >= 5 ? 'good' : m.avgKmPerL >= 4 ? 'warn' : 'bad' },
+    { name:'Average L/100km', value: formatNum(m.avgLPer100, 2), status: m.avgLPer100 <= 18 ? 'good' : m.avgLPer100 <= 20 ? 'warn' : 'bad' },
+    { name:'Fuel cost variance', value: formatCurrency(variance), status: variance <= 0 ? 'good' : variance <= 150 ? 'warn' : 'bad' },
+    { name:'GPS log points', value: String(trip.gpsTrack.length), status: trip.gpsTrack.length > 0 ? 'good' : 'warn' }
+  ];
+  const wrap = document.getElementById('analysisKpis'); wrap.innerHTML = '';
+  kpis.forEach(k => { const row = document.createElement('div'); row.className = 'kpi'; row.innerHTML = '<div><div class="tiny">' + k.name + '</div><strong>' + k.value + '</strong></div><span class="pill ' + k.status + '">' + k.status.toUpperCase() + '</span>'; wrap.appendChild(row); });
+  const gpsPanel = document.getElementById('gpsLogPanel');
+  gpsPanel.innerHTML = trip.gpsTrack.length ? trip.gpsTrack.map((p, i) => '<div class="kpi"><div><strong>Point ' + (i+1) + '</strong><div class="tiny">' + new Date(p.ts).toLocaleString() + '</div></div><div class="tiny">' + p.lat.toFixed(5) + ', ' + p.lon.toFixed(5) + '<br>Accuracy ~ ' + Math.round(p.accuracy) + ' m</div></div>').join('') : '<div class="footnote">No GPS points logged yet. Use the top-right "Log GPS point" button while travelling.</div>';
+}
+function showPanel(id, btn){
+  document.querySelectorAll('.viewer-panel').forEach(p => p.classList.remove('active')); document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active')); if (!btn) btn = document.querySelector('.nav-btn[data-view="' + id + '"]'); if (btn) btn.classList.add('active');
+  const titles = { planner:['Trip Planner','Edit estimates first, then capture actual travel data as you move.'], mapPanel:['Map Viewer','Display route stops, view markers and add actual GPS track points.'], vehicle:['Vehicle & Caravan','Keep tow masses, payload and planning limits visible while travelling.'], analysis:['Trip Analysis','Quick snapshot of efficiency, cost variance and live travel log.'] };
+  document.getElementById('panelTitle').textContent = titles[id][0]; document.getElementById('panelSubTitle').textContent = titles[id][1];
+  if (id === 'mapPanel' && map) setTimeout(() => map.invalidateSize(), 200);
+}
+function setStatus(text, type='warn'){ const box = document.getElementById('syncStatus'); box.className = 'status ' + type; document.getElementById('syncStatusText').textContent = text; }
+function updateAll(){ renderTripTable(); updateSummary(); updateWeights(); updateAnalysis(); }
+function boot(){ currentLegIndex = 0; bindMetaFields(); bindVehicleInputs(); hydrateInputsFromTrip(); initMap(); updateAll(); refreshHistory(); setStatus('Ready — local browser mode', 'warn'); }
+window.addEventListener('DOMContentLoaded', boot);
+</script>
+</body>
+</html>

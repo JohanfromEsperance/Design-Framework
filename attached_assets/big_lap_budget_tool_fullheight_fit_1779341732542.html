@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Big Lap Budget Tool</title>
+  <style>
+    :root{
+      --bg:#f7f3ea;
+      --paper:#fffdf8;
+      --ink:#5e6066;
+      --line:#8e9096;
+      --line-soft:#c9cbd1;
+      --panel:#ece6d8;
+      --accent:#6e7f76;
+      --accent-2:#dfe8e2;
+      --chip:#f0ebe2;
+      --shadow:0 8px 24px rgba(40,40,40,.08);
+      --radius:20px;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:linear-gradient(180deg,#ede6d9 0%, #f8f5ef 100%);font-family:Arial,Helvetica,sans-serif;color:var(--ink)}
+    body{padding:18px}
+    .app{
+      width:min(1360px,100%);
+      min-height:1050px;
+      height:1050px;
+      margin:0 auto;
+      background:var(--paper);
+      border:1px solid #d9d3c7;
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+    .main{
+      flex:1;
+      padding:20px 20px 8px 20px;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+    .main::-webkit-scrollbar{width:10px;height:10px}
+    .main::-webkit-scrollbar-thumb{background:#d6d0c4;border-radius:10px}
+    .revision{
+      border-top:1px solid #ddd5c7;
+      background:linear-gradient(180deg,#f4efe5 0%, #ece5d7 100%);
+      padding:8px 12px 10px;
+      display:grid;
+      grid-template-columns: 120px repeat(6, minmax(120px,1fr));
+      gap:8px;
+      align-items:stretch;
+    }
+    .rev-title{
+      writing-mode:horizontal-tb;
+      transform:none;
+      text-align:center;
+      letter-spacing:1.2px;
+      font-size:10px;
+      font-weight:700;
+      color:#575b61;
+      border-right:1px solid #d6cfbf;
+      padding:8px 8px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:64px;
+    }
+    .rev-box,.tool-btn{
+      border:1px solid #cfc7b9;
+      background:#fffaf0;
+      border-radius:14px;
+      padding:8px 10px;
+      font-size:11px;
+      color:var(--ink);
+      box-shadow:0 2px 10px rgba(0,0,0,.03);
+    }
+    .tool-btn{
+      cursor:pointer;
+      font-weight:700;
+      transition:.2s ease;
+      text-align:center;
+    }
+    .tool-btn:hover{background:#f2ecdf;transform:translateY(-1px)}
+    .tool-btn:active{transform:translateY(0)}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:10px}
+    .title-wrap{margin-left:auto;max-width:620px;text-align:right}
+    .title{
+      font-size:44px;
+      line-height:1;
+      letter-spacing:1px;
+      font-weight:300;
+      color:#666970;
+      margin:0;
+    }
+    .title .script{
+      font-family:"Brush Script MT","Segoe Script","Lucida Handwriting",cursive;
+      font-size:1em;
+      font-weight:500;
+      margin-left:8px;
+    }
+    .rule{height:10px;border-top:3px solid var(--line);border-bottom:1px solid var(--line-soft);margin-top:6px}
+    .month-row{display:flex;align-items:center;justify-content:center;gap:14px;margin:2px 0 10px}
+    .month-row label{font-size:14px;font-weight:700;letter-spacing:.4px}
+    .month-row input{
+      width:280px;border:none;border-bottom:3px solid var(--line);
+      background:transparent;padding:6px 10px;font-size:14px;text-align:center;color:var(--ink);
+      outline:none;
+    }
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+    .toolbar .primary{
+      background:var(--accent);
+      color:white;
+      border-color:#5d6c64;
+    }
+    .toolbar .primary:hover{background:#61736a}
+    .sheet{
+      border:1.5px solid var(--line);
+      border-radius:18px;
+      overflow:hidden;
+      background:white;
+      width:100%;
+      flex:1;
+      position:relative;
+      scrollbar-width:thin;
+      scrollbar-color:var(--line-soft) transparent;
+    }
+    .sheet::-webkit-scrollbar{width:10px;height:10px}
+    .sheet::-webkit-scrollbar-thumb{background:#d6d0c4;border-radius:10px}
+    table{
+      width:100%;
+      min-width:0;
+      height:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      table-layout:fixed;
+      background:white;
+    }
+    col.section-col{width:32px}
+    col.label-col{width:190px}
+    col.month-col{width:auto}
+    th,td{
+      border-right:1px solid var(--line-soft);
+      border-bottom:1px solid var(--line-soft);
+      padding:0;
+      text-align:center;
+      vertical-align:middle;
+      background:white;
+    }
+    tr > *:first-child{border-left:1px solid var(--line-soft)}
+    thead tr:first-child > *{border-top:1px solid var(--line-soft)}
+    thead th{
+      background:#f4f1e9;
+      font-weight:700;
+      font-size:11px;
+      padding:6px 3px;
+      color:#64676d;
+      position:static;
+      top:auto;
+      z-index:auto;
+    }
+    .months th{background:#73767d;color:#fff;border-color:#8a8d93;padding:7px 2px;font-size:10px}
+    .months th.corner-1{left:auto;z-index:auto}
+    .months th.corner-2{left:auto;z-index:auto}
+    .row-label{
+      background:#f7f4ed;
+      text-align:left;
+      padding:0 8px;
+      font-weight:600;
+      font-size:12px;
+      min-width:190px;
+      position:static;
+      left:auto;
+      z-index:auto;
+    }
+    .section-label{
+      background:#6f7279;
+      color:white;
+      writing-mode:vertical-rl;
+      transform:rotate(180deg);
+      text-align:center;
+      font-weight:700;
+      letter-spacing:1px;
+      width:32px;
+      min-width:32px;
+      font-size:10px;
+      padding:6px 2px;
+      position:static;
+      left:auto;
+      z-index:auto;
+    }
+    .num, .label-input, .month-cell{
+      width:100%;border:none;background:transparent;color:var(--ink);
+      padding:5px 4px;font-size:11px;outline:none;
+    }
+    .num{text-align:right;font-variant-numeric:tabular-nums}
+    .month-cell{text-align:center;font-weight:700;background:#faf8f3}
+    .label-input{text-align:left;font-weight:600}
+    .readonly{background:#fbfaf6;font-weight:700}
+    .subtotal td,.subtotal th{background:#f1eee6;font-weight:700}
+    .summary-row .row-label{font-weight:700}
+    .summary-row td{background:#faf8f2}
+    .summary-row .section-label{
+      writing-mode:horizontal-tb;
+      transform:none;
+      text-align:left;
+      color:#222;
+      background:#f4f1e8;
+      font-size:13px;
+      letter-spacing:.4px;
+      padding:10px 12px;
+    }
+    .summary-row.closing td{background:#eaf2ec;font-weight:800}
+    .footer-note{display:flex;justify-content:space-between;align-items:center;margin-top:6px;color:#8a8d93;font-size:11px}
+    .status{font-weight:700}
+    @media (max-width: 1100px){
+      .app{height:auto;min-height:1050px}
+      .revision{grid-template-columns:1fr 1fr 1fr}
+      .rev-title{border-right:none;border-bottom:1px solid #d6cfbf;grid-column:1/-1;min-height:auto}
+      .title{font-size:34px}
+      .row-label{min-width:150px}
+    }
+      .revision{border-left:none;border-top:1px solid #ddd5c7;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+      .rev-title{writing-mode:horizontal-tb;transform:none;grid-column:1/-1;margin:0;text-align:left}
+      .title{font-size:42px}
+      .row-label{min-width:160px}
+    }
+    @page{size:A3 landscape;margin:10mm}
+    @media print{
+      body{background:white;padding:0}
+      .app{width:100%;height:auto;min-height:auto;box-shadow:none;border:none;border-radius:0;display:block}
+      .revision,.toolbar{display:none !important}
+      .main{overflow:visible;padding:0}
+      .sheet{height:auto;overflow:visible;border-radius:0}
+      table{width:100%;min-width:0}
+      thead th,.row-label,.section-label{position:static}
+      .title{font-size:42px}
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="main" id="printArea">
+      <div class="header">
+        <div style="flex:1"></div>
+        <div class="title-wrap">
+          <h1 class="title">Big Lap<span class="script">Budget</span></h1>
+          <div class="rule"></div>
+        </div>
+      </div>
+
+      <div class="month-row">
+        <label for="budgetYear">Year / Notes</label>
+        <input id="budgetYear" type="text" placeholder="2026 Budget Plan" />
+      </div>
+
+      <div class="toolbar">
+        <button class="tool-btn primary" id="saveBtn">Save Local</button>
+        <button class="tool-btn" id="exportJsonBtn">Export JSON</button>
+        <button class="tool-btn" id="importJsonBtn">Import JSON</button>
+        <input type="file" id="importJsonFile" accept="application/json" hidden />
+        <button class="tool-btn" id="pdfBtn">Download PDF</button>
+        <button class="tool-btn" id="clearBtn">Clear Page</button>
+      </div>
+
+      <div class="sheet">
+        <table id="budgetTable">
+          <colgroup>
+            <col class="section-col">
+            <col class="label-col">
+            <col class="month-col" span="12">
+          </colgroup>
+          <thead>
+            <tr class="months">
+              <th class="corner-1"></th>
+              <th class="corner-2"></th>
+              <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th>
+              <th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th>
+            </tr>
+          </thead>
+          <tbody id="bodyRows"></tbody>
+        </table>
+      </div>
+
+      <div class="footer-note">
+        <div>Local autosave active</div>
+        <div class="status" id="saveStatus">Revision 1.0</div>
+      </div>
+    </div>
+
+    <aside class="revision">
+      <div class="rev-title">REVISION TRACKER</div>
+      <div class="rev-box"><strong>Tool</strong><br>Big Lap Budget</div>
+      <div class="rev-box"><strong>Version</strong><br><span id="revNo">1.0</span></div>
+      <div class="rev-box"><strong>Last Saved</strong><br><span id="lastSaved">Not saved yet</span></div>
+      <div class="rev-box"><strong>Mode</strong><br>Interactive planner</div>
+      <div class="rev-box"><strong>Storage</strong><br>Local + JSON</div>
+      <button class="tool-btn" id="bumpRevBtn">New Revision</button>
+    </aside>
+  </div>
+
+  <script>
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const STORAGE_KEY = 'bigLapBudgetTool_v1';
+
+    const sections = [
+      {
+        key:'road',
+        label:'ON THE ROAD EXPENSES',
+        rows:[
+          {type:'fixed', name:'Fuel'},
+          {type:'fixed', name:'Accommodation'},
+          {type:'fixed', name:'Groceries'},
+          {type:'fixed', name:'Eating Out'},
+          {type:'fixed', name:'Entertainment'},
+          {type:'fixed', name:'Passes & Permits'}
+        ],
+        subtotalLabel:'TOTAL EXPENSES'
+      },
+      {
+        key:'bills',
+        label:'BILLS & OTHER EXPENSES',
+        rows:[
+          {type:'custom', name:'Insurance'},
+          {type:'custom', name:'Phone / Internet'},
+          {type:'custom', name:'Medical'},
+          {type:'custom', name:'Repairs'},
+          {type:'custom', name:'Subscriptions'},
+          {type:'custom', name:'Other'}
+        ],
+        subtotalLabel:'TOTAL BILLS'
+      },
+      {
+        key:'income',
+        label:'INCOME',
+        rows:[
+          {type:'custom', name:'Salary / Wages'},
+          {type:'custom', name:'Business Income'},
+          {type:'custom', name:'Refunds'},
+          {type:'custom', name:'Other Income 1'},
+          {type:'custom', name:'Other Income 2'}
+        ],
+        subtotalLabel:'TOTAL INCOME'
+      }
+    ];
+
+    const summaryRows = [
+      {key:'opening', label:'OPENING BALANCE', editable:true},
+      {key:'totalExpenses', label:'TOTAL EXPENSES', editable:false},
+      {key:'totalIncome', label:'TOTAL INCOME', editable:false},
+      {key:'closing', label:'CLOSING BALANCE', editable:false, closing:true}
+    ];
+
+    const bodyRows = document.getElementById('bodyRows');
+
+    function money(v){
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function buildTable(){
+      bodyRows.innerHTML = '';
+      sections.forEach(section => {
+        section.rows.forEach((row, rowIndex) => {
+          const tr = document.createElement('tr');
+          if(rowIndex === 0){
+            const sectionCell = document.createElement('th');
+            sectionCell.className = 'section-label';
+            sectionCell.rowSpan = section.rows.length + 1;
+            sectionCell.textContent = section.label;
+            tr.appendChild(sectionCell);
+          }
+          const labelTd = document.createElement('td');
+          labelTd.className = 'row-label';
+          if(row.type === 'custom'){
+            labelTd.innerHTML = `<input class="label-input" data-label-key="${section.key}_${rowIndex}_label" value="${escapeHtml(row.name)}">`;
+          } else {
+            labelTd.textContent = row.name;
+          }
+          tr.appendChild(labelTd);
+
+          MONTHS.forEach((m, i) => {
+            const td = document.createElement('td');
+            td.innerHTML = `<input class="num data-input" inputmode="decimal" data-section="${section.key}" data-row="${rowIndex}" data-col="${i}" placeholder="0">`;
+            tr.appendChild(td);
+          });
+          bodyRows.appendChild(tr);
+        });
+
+        const subtotalTr = document.createElement('tr');
+        subtotalTr.className = 'subtotal';
+        subtotalTr.innerHTML = `<td class="row-label">${section.subtotalLabel}</td>` + MONTHS.map((m,i)=>`<td><input class="num readonly subtotal-${section.key}" data-subtotal="${section.key}" data-col="${i}" readonly></td>`).join('');
+        bodyRows.appendChild(subtotalTr);
+      });
+
+      summaryRows.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.className = `summary-row ${row.closing ? 'closing':''}`;
+        tr.innerHTML = `<td class="section-label" colspan="2">${row.label}</td>` + MONTHS.map((m,i)=> {
+          if(row.editable) return `<td><input class="num ${row.editable ? 'data-input':''}" data-summary="${row.key}" data-col="${i}" placeholder="0"></td>`;
+          return `<td><input class="num readonly" data-summary="${row.key}" data-col="${i}" readonly></td>`;
+        }).join('');
+        bodyRows.appendChild(tr);
+      });
+    }
+
+    function escapeHtml(str){
+      return String(str)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&#039;');
+    }
+
+    function calculate(){
+      const expenseSections = ['road','bills'];
+      MONTHS.forEach((m, col) => {
+        let totalExpenses = 0;
+        let totalIncome = 0;
+
+        sections.forEach(section => {
+          let subtotal = 0;
+          section.rows.forEach((row, rowIndex) => {
+            const input = document.querySelector(`.data-input[data-section="${section.key}"][data-row="${rowIndex}"][data-col="${col}"]`);
+            subtotal += money(input?.value);
+          });
+          const subtotalInput = document.querySelector(`.subtotal-${section.key}[data-col="${col}"]`);
+          if(subtotalInput) subtotalInput.value = subtotal ? subtotal.toFixed(2) : '';
+          if(expenseSections.includes(section.key)) totalExpenses += subtotal;
+          if(section.key === 'income') totalIncome += subtotal;
+        });
+
+        const opening = money(document.querySelector(`[data-summary="opening"][data-col="${col}"]`)?.value);
+        const closing = opening - totalExpenses + totalIncome;
+
+        const expInput = document.querySelector(`[data-summary="totalExpenses"][data-col="${col}"]`);
+        const incInput = document.querySelector(`[data-summary="totalIncome"][data-col="${col}"]`);
+        const closeInput = document.querySelector(`[data-summary="closing"][data-col="${col}"]`);
+        if(expInput) expInput.value = totalExpenses ? totalExpenses.toFixed(2) : '';
+        if(incInput) incInput.value = totalIncome ? totalIncome.toFixed(2) : '';
+        if(closeInput) closeInput.value = (opening || totalExpenses || totalIncome) ? closing.toFixed(2) : '';
+      });
+    }
+
+    function getState(){
+      const state = {
+        meta:{
+          title:'Big Lap Budget',
+          version:document.getElementById('revNo').textContent,
+          lastSaved:new Date().toISOString(),
+          yearNotes:document.getElementById('budgetYear').value
+        },
+        labels:{},
+        cells:{},
+        summary:{}
+      };
+
+      document.querySelectorAll('[data-label-key]').forEach(el => state.labels[el.dataset.labelKey] = el.value);
+      document.querySelectorAll('.data-input[data-section]').forEach(el => {
+        state.cells[`${el.dataset.section}_${el.dataset.row}_${el.dataset.col}`] = el.value;
+      });
+      document.querySelectorAll('[data-summary="opening"]').forEach(el => {
+        state.summary[`opening_${el.dataset.col}`] = el.value;
+      });
+      return state;
+    }
+
+    function applyState(state){
+      if(!state) return;
+      document.getElementById('budgetYear').value = state.meta?.yearNotes || '';
+      if(state.meta?.version){
+        document.getElementById('revNo').textContent = state.meta.version;
+        document.getElementById('saveStatus').textContent = `Revision ${state.meta.version}`;
+      }
+      if(state.meta?.lastSaved){
+        document.getElementById('lastSaved').textContent = formatWhen(state.meta.lastSaved);
+      }
+      Object.entries(state.labels || {}).forEach(([k,v]) => {
+        const el = document.querySelector(`[data-label-key="${k}"]`);
+        if(el) el.value = v;
+      });
+      Object.entries(state.cells || {}).forEach(([k,v]) => {
+        const [section,row,col] = k.split('_');
+        const el = document.querySelector(`.data-input[data-section="${section}"][data-row="${row}"][data-col="${col}"]`);
+        if(el) el.value = v;
+      });
+      Object.entries(state.summary || {}).forEach(([k,v]) => {
+        const [, col] = k.split('_');
+        const el = document.querySelector(`[data-summary="opening"][data-col="${col}"]`);
+        if(el) el.value = v;
+      });
+      calculate();
+    }
+
+    function saveLocal(showStatus=true){
+      const state = getState();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      document.getElementById('lastSaved').textContent = formatWhen(state.meta.lastSaved);
+      if(showStatus){
+        const status = document.getElementById('saveStatus');
+        status.textContent = `Revision ${state.meta.version} · Saved`;
+        setTimeout(() => { status.textContent = `Revision ${state.meta.version}`; }, 1600);
+      }
+    }
+
+    function formatWhen(iso){
+      const d = new Date(iso);
+      if(Number.isNaN(d.getTime())) return 'Not saved yet';
+      return d.toLocaleString();
+    }
+
+    function exportJson(){
+      const blob = new Blob([JSON.stringify(getState(), null, 2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `big-lap-budget-${new Date().toISOString().slice(0,10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    }
+
+    function clearPage(){
+      if(!confirm('Clear all entered data on this page?')) return;
+      localStorage.removeItem(STORAGE_KEY);
+      document.querySelectorAll('input').forEach(input => {
+        if(input.id === 'budgetYear') input.value = '';
+        else if(!input.readOnly) input.value = '';
+      });
+      document.querySelectorAll('[data-label-key]').forEach((el, i) => {
+        const [sectionKey, rowIndex] = el.dataset.labelKey.split('_');
+        const section = sections.find(s=>s.key===sectionKey);
+        if(section && section.rows[rowIndex]) el.value = section.rows[rowIndex].name;
+      });
+      calculate();
+      document.getElementById('lastSaved').textContent = 'Not saved yet';
+      saveLocal(false);
+    }
+
+    function bumpRevision(){
+      const current = parseFloat(document.getElementById('revNo').textContent || '1.0') || 1.0;
+      const next = (Math.round((current + 0.1) * 10) / 10).toFixed(1);
+      document.getElementById('revNo').textContent = next;
+      document.getElementById('saveStatus').textContent = `Revision ${next}`;
+      saveLocal(false);
+    }
+
+    buildTable();
+
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if(saved){
+      try { applyState(JSON.parse(saved)); } catch(e) { console.warn('Could not load saved state', e); }
+    } else {
+      calculate();
+    }
+
+    document.addEventListener('input', (e) => {
+      if(e.target.matches('.data-input, [data-label-key], #budgetYear')){
+        calculate();
+        saveLocal(false);
+      }
+    });
+
+    document.getElementById('saveBtn').addEventListener('click', ()=>saveLocal(true));
+    document.getElementById('exportJsonBtn').addEventListener('click', exportJson);
+    document.getElementById('pdfBtn').addEventListener('click', ()=>window.print());
+    document.getElementById('clearBtn').addEventListener('click', clearPage);
+    document.getElementById('bumpRevBtn').addEventListener('click', bumpRevision);
+    document.getElementById('importJsonBtn').addEventListener('click', ()=>document.getElementById('importJsonFile').click());
+    document.getElementById('importJsonFile').addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const state = JSON.parse(reader.result);
+          applyState(state);
+          saveLocal(true);
+        } catch(err) {
+          alert('That JSON file could not be loaded.');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+  </script>
+</body>
+</html>
