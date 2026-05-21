@@ -172,7 +172,7 @@ const ALL_EXPENSE_KEYS = [
 
 const ALL_KEYS = [
   ...TRAVEL_EXPENSES, ...VEHICLE_COSTS, ...FIXED_BILLS,
-  ...ANNUAL_COSTS, ...SUPER_SAVINGS, ...INCOME_ITEMS,
+  ...ANNUAL_COSTS, ...SUPER_SAVINGS, ...FAMILY_COSTS, ...INCOME_ITEMS,
 ];
 
 // ── Default 12-month pattern (Year 1) ────────────────────────────────────────
@@ -264,6 +264,7 @@ export default function BudgetPage() {
   };
 
   const [budgetData, setBudgetData] = useState<any>(null);
+  const budgetSynced = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -286,6 +287,9 @@ export default function BudgetPage() {
 
   useEffect(() => {
     if (isLoading) return;
+    // Once real server data has been loaded once, never overwrite local state
+    // from a background refetch — local edits and imports must not be clobbered.
+    if (budgetSynced.current) return;
 
     // Inject computed rentalNet from the rental config into every month so the
     // budget grid and overview always stay in sync with the Rental sub-page.
@@ -313,7 +317,10 @@ export default function BudgetPage() {
         }
       }
       setBudgetData({ ...budget, months: withRentalNet(months, budget.rental) });
+      budgetSynced.current = true;
     } else {
+      // No server data yet (new user or auth error) — show defaults but keep
+      // trying on subsequent budget refetches (don't mark synced).
       setBudgetData({
         year: new Date().getFullYear().toString(),
         months: withRentalNet(build60MonthDefaults(), budget?.rental),
@@ -740,7 +747,12 @@ export default function BudgetPage() {
         );
         const ncols = lines[0].length - 2;
         const newMonths: Record<string, any> = {};
-        for (let i = 0; i < ncols; i++) newMonths[i.toString()] = { ...(Y1_MONTHS[i % 12]) };
+        // Seed from current live data so any field not present in the CSV
+        // (including FAMILY_COSTS, future additions, etc.) is preserved as-is.
+        for (let i = 0; i < ncols; i++) {
+          const existing = budgetData?.months?.[i.toString()] ?? budgetData?.months?.[i] ?? {};
+          newMonths[i.toString()] = { ...existing };
+        }
         for (const row of lines.slice(1)) {
           const label = row[0];
           const cat = ALL_KEYS.find(c => c.label === label);
