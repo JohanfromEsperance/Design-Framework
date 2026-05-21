@@ -1019,6 +1019,14 @@ export const GetDashboardResponse = zod.object({
   "revision": zod.string().optional(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
+})),
+  "tripBreakdown": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "plannedFuelCost": zod.number(),
+  "actualFuelCost": zod.number(),
+  "plannedKm": zod.number(),
+  "actualKm": zod.number()
 }))
 })
 

@@ -31,6 +31,7 @@ export * from './sharesPortfolio';
 export * from './superAccount';
 export * from './superPortfolio';
 export * from './trip';
+export * from './tripCostBreakdown';
 export * from './tripInput';
 export * from './tripSummary';
 export * from './tripUpdate';

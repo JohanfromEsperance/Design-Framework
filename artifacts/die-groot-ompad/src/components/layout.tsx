@@ -154,7 +154,7 @@ export function Layout({ children }: LayoutProps) {
               <Menu className="h-6 w-6" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0 bg-card border-r border-border" aria-describedby={undefined}>
+          <SheetContent side="left" className="w-52 p-0 bg-card border-r border-border" aria-describedby={undefined}>
             <Sidebar {...sidebarProps} />
           </SheetContent>
         </Sheet>
@@ -162,13 +162,13 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Desktop sidebar — fixed, only shown on md+ */}
       <aside
-        className="fixed inset-y-0 left-0 z-10 flex w-64 flex-col border-r border-border bg-card max-md:hidden"
+        className="fixed inset-y-0 left-0 z-10 flex w-52 flex-col border-r border-border bg-card max-md:hidden"
       >
         <Sidebar {...sidebarProps} />
       </aside>
 
       {/* Main content — offset by sidebar width on md+ */}
-      <div className="md:pl-64">
+      <div className="md:pl-52">
         <main className="flex-1 p-6 md:p-8">{children}</main>
       </div>
 

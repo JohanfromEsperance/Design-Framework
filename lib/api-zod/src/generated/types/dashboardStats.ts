@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Trip } from './trip';
+import type { TripCostBreakdown } from './tripCostBreakdown';
 
 export interface DashboardStats {
   totalTrips: number;
@@ -13,4 +14,5 @@ export interface DashboardStats {
   totalFuelCost: number;
   totalJournalEntries: number;
   recentTrips: Trip[];
+  tripBreakdown: TripCostBreakdown[];
 }

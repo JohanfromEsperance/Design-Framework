@@ -362,11 +362,21 @@ export interface GpsPointInput {
   capturedAt?: string;
 }
 
+export interface TripCostBreakdown {
+  id: number;
+  name: string;
+  plannedFuelCost: number;
+  actualFuelCost: number;
+  plannedKm: number;
+  actualKm: number;
+}
+
 export interface DashboardStats {
   totalTrips: number;
   totalKm: number;
   totalFuelCost: number;
   totalJournalEntries: number;
   recentTrips: Trip[];
+  tripBreakdown: TripCostBreakdown[];
 }
 

@@ -1198,9 +1198,26 @@ components:
           type: string
 
     # ── Analytics ──────────────────────────────────────────────────────────────
+    TripCostBreakdown:
+      type: object
+      required: [id, name, plannedFuelCost, actualFuelCost, plannedKm, actualKm]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        plannedFuelCost:
+          type: number
+        actualFuelCost:
+          type: number
+        plannedKm:
+          type: number
+        actualKm:
+          type: number
+
     DashboardStats:
       type: object
-      required: [totalTrips, totalKm, totalFuelCost, totalJournalEntries, recentTrips]
+      required: [totalTrips, totalKm, totalFuelCost, totalJournalEntries, recentTrips, tripBreakdown]
       properties:
         totalTrips:
           type: integer
@@ -1214,3 +1231,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Trip"
+        tripBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/TripCostBreakdown"
