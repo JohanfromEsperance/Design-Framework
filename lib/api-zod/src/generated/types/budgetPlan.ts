@@ -5,6 +5,7 @@
  * Die Groot Ompad — Integrated Travel Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { BudgetPlanChecklists } from './budgetPlanChecklists';
 import type { BudgetPlanMonths } from './budgetPlanMonths';
 import type { BudgetPlanVehicleDocs } from './budgetPlanVehicleDocs';
 import type { BudgetPlanVehicleProfile } from './budgetPlanVehicleProfile';
@@ -30,5 +31,7 @@ export interface BudgetPlan {
   vehicleProfile?: BudgetPlanVehicleProfile;
   /** Registration, licence, and insurance records */
   vehicleDocs?: BudgetPlanVehicleDocs;
+  /** Checklist item states keyed by checklist id then item id */
+  checklists?: BudgetPlanChecklists;
   updatedAt: string;
 }

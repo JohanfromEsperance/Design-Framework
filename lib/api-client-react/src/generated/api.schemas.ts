@@ -179,6 +179,11 @@ export type BudgetPlanVehicleProfile = { [key: string]: unknown };
  */
 export type BudgetPlanVehicleDocs = { [key: string]: unknown };
 
+/**
+ * Checklist item states keyed by checklist id then item id
+ */
+export type BudgetPlanChecklists = { [key: string]: unknown };
+
 export interface SuperAccount {
   id: string;
   name: string;
@@ -293,6 +298,8 @@ export interface BudgetPlan {
   vehicleProfile?: BudgetPlanVehicleProfile;
   /** Registration, licence, and insurance records */
   vehicleDocs?: BudgetPlanVehicleDocs;
+  /** Checklist item states keyed by checklist id then item id */
+  checklists?: BudgetPlanChecklists;
   updatedAt: string;
 }
 
@@ -308,6 +315,11 @@ export type BudgetPlanInputVehicleProfile = { [key: string]: unknown };
  */
 export type BudgetPlanInputVehicleDocs = { [key: string]: unknown };
 
+/**
+ * Checklist item states keyed by checklist id then item id
+ */
+export type BudgetPlanInputChecklists = { [key: string]: unknown };
+
 export interface BudgetPlanInput {
   year: string;
   months: BudgetPlanInputMonths;
@@ -320,6 +332,8 @@ export interface BudgetPlanInput {
   vehicleProfile?: BudgetPlanInputVehicleProfile;
   /** Registration, licence, and insurance records */
   vehicleDocs?: BudgetPlanInputVehicleDocs;
+  /** Checklist item states keyed by checklist id then item id */
+  checklists?: BudgetPlanInputChecklists;
 }
 
 export interface MonthCashflow {

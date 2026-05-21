@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import {
   Map, Route, Fuel, BookOpen, ArrowRight,
   TrendingUp, TrendingDown, Minus, Award, Compass, AlertTriangle,
-  BarChart2,
+  BarChart2, ClipboardCheck, CheckCircle2, XCircle, Clock,
 } from "lucide-react";
+import { ALL_CHECKLISTS, CheckState, computeStats } from "@/data/checklists";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
   ComposedChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -579,6 +580,116 @@ function FinancialOverviewChart({ months, superPortfolio }: FinancialOverviewCha
   );
 }
 
+// ── Checklist summary card ────────────────────────────────────────────────────
+type ChecklistStateMap = Record<string, Record<string, CheckState>>;
+
+function ChecklistSummaryCard({ budget }: { budget: unknown }) {
+  const allState = ((budget as Record<string, unknown>)?.checklists ?? {}) as ChecklistStateMap;
+
+  const rows = ALL_CHECKLISTS.map((cl) => {
+    const st = allState[cl.id] ?? {};
+    const s = computeStats(cl, st);
+    return { ...s, id: cl.id, navLabel: cl.navLabel, href: `/checklists/${cl.id}` };
+  });
+
+  const totalUnchecked = rows.reduce((s, r) => s + r.unchecked, 0);
+  const totalNo = rows.reduce((s, r) => s + r.noCount, 0);
+  const totalCritical = rows.reduce((s, r) => s + r.criticalUnchecked, 0);
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader className="pb-2 pt-4 px-5">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <ClipboardCheck className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-semibold text-foreground">Checklist Status</CardTitle>
+          </div>
+          <div className="flex items-center gap-3 text-xs">
+            {totalCritical > 0 && (
+              <span className="flex items-center gap-1 font-semibold" style={{ color: "#dc2626" }}>
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {totalCritical} critical unchecked
+              </span>
+            )}
+            {totalNo > 0 && (
+              <span className="flex items-center gap-1 font-semibold" style={{ color: "#b97e30" }}>
+                <XCircle className="h-3.5 w-3.5" />
+                {totalNo} marked NO
+              </span>
+            )}
+            {totalUnchecked === 0 && totalNo === 0 && (
+              <span className="flex items-center gap-1 font-semibold" style={{ color: "#1f6f5f" }}>
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                All clear
+              </span>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground mt-0.5">Pilot-style pre-departure checklists — click any row to open</p>
+      </CardHeader>
+      <CardContent className="px-5 pb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {rows.map((row) => {
+            const allDone = row.pct === 100;
+            const hasNo = row.noCount > 0;
+            const borderColor = hasNo ? "#dc2626" : allDone ? "#1f6f5f" : row.unchecked > 0 ? "#d9b880" : "#e5e7eb";
+            return (
+              <Link key={row.id} href={row.href}>
+                <div
+                  className="rounded-lg border p-3 cursor-pointer hover:bg-muted/40 transition-colors"
+                  style={{ borderColor }}
+                >
+                  <div className="flex items-center justify-between mb-2 gap-1">
+                    <span className="text-xs font-semibold text-foreground truncate">{row.navLabel}</span>
+                    <span
+                      className="text-[10px] font-bold shrink-0"
+                      style={{ color: allDone ? "#1f6f5f" : hasNo ? "#dc2626" : "#b97e30" }}
+                    >
+                      {row.pct}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden mb-2">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${row.pct}%`,
+                        background: allDone ? "#1f6f5f" : hasNo ? "#dc2626" : "linear-gradient(90deg,#1f6f5f,#d9b880)",
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap">
+                    {row.unchecked > 0 && (
+                      <span className="flex items-center gap-0.5">
+                        <Clock className="h-2.5 w-2.5" />
+                        {row.unchecked} pending
+                      </span>
+                    )}
+                    {row.noCount > 0 && (
+                      <span className="flex items-center gap-0.5" style={{ color: "#dc2626" }}>
+                        <XCircle className="h-2.5 w-2.5" />
+                        {row.noCount} NO
+                      </span>
+                    )}
+                    {row.yesCount > 0 && (
+                      <span className="flex items-center gap-0.5" style={{ color: "#1f6f5f" }}>
+                        <CheckCircle2 className="h-2.5 w-2.5" />
+                        {row.yesCount} YES
+                      </span>
+                    )}
+                    {row.answered === 0 && (
+                      <span className="italic">Not started</span>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Main dashboard ────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const { data: stats, isLoading } = useGetDashboard();
@@ -653,7 +764,10 @@ export default function Dashboard() {
           totalJournalEntries={stats?.totalJournalEntries ?? 0} breakdown={breakdown} />
       </div>
 
-      {/* Row 4 — Recent expeditions */}
+      {/* Row 4 — Checklist status */}
+      <ChecklistSummaryCard budget={budget} />
+
+      {/* Row 5 — Recent expeditions */}
       <div>
         <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-3">Recent Expeditions</h2>
         {stats?.recentTrips && stats.recentTrips.length > 0 ? (

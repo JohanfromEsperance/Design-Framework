@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Map, Home, Menu, MessageSquare, Globe, DollarSign, LogOut, Truck } from "lucide-react";
+import { Map, Home, Menu, MessageSquare, Globe, DollarSign, LogOut, Truck, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useClerk, useUser } from "@clerk/react";
@@ -18,11 +18,18 @@ function openJohan() {
   );
 }
 
-const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard", icon: Home },
-  { href: "/trips",     label: "My Trips",   icon: Map },
-  { href: "/budget",   label: "Budget",     icon: DollarSign },
+const MAIN_NAV = [
+  { href: "/dashboard", label: "Dashboard",    icon: Home },
+  { href: "/trips",     label: "My Trips",     icon: Map },
+  { href: "/budget",   label: "Budget",        icon: DollarSign },
   { href: "/vehicle",  label: "Rig & Vehicle", icon: Truck },
+] as const;
+
+const CHECKLIST_NAV = [
+  { href: "/checklists/d2",        label: "D-2 Systems",    icon: ClipboardCheck },
+  { href: "/checklists/departure", label: "Departure Day",  icon: ClipboardCheck },
+  { href: "/checklists/packing",   label: "Packing",        icon: ClipboardCheck },
+  { href: "/checklists/service",   label: "Annual Service", icon: ClipboardCheck },
 ] as const;
 
 interface SidebarProps {
@@ -33,9 +40,30 @@ interface SidebarProps {
   onSignOut: () => void;
 }
 
+function NavItem({ href, label, Icon, isActive }: { href: string; label: string; Icon: React.ElementType; isActive: boolean }) {
+  return (
+    <Link href={href}>
+      <div
+        className={`flex cursor-pointer items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+          isActive
+            ? "bg-primary text-primary-foreground"
+            : "text-foreground hover:bg-muted"
+        }`}
+      >
+        <Icon
+          className={`mr-3 h-4 w-4 shrink-0 ${
+            isActive ? "text-primary-foreground" : "text-muted-foreground"
+          }`}
+        />
+        {label}
+      </div>
+    </Link>
+  );
+}
+
 function Sidebar({ location, firstName, initials, email, onSignOut }: SidebarProps) {
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col overflow-y-auto">
       {/* Brand / logo header */}
       <div className="shrink-0 border-b border-border overflow-hidden">
         <div className="relative h-28">
@@ -54,34 +82,33 @@ function Sidebar({ location, firstName, initials, email, onSignOut }: SidebarPro
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 px-4 py-4">
-        {NAV_ITEMS.map((item) => {
+      <nav className="flex-1 px-4 py-4 space-y-0.5">
+        {/* Main nav */}
+        {MAIN_NAV.map((item) => {
           const isActive =
             location === item.href ||
             (item.href !== "/dashboard" && location.startsWith(item.href));
           return (
-            <Link key={item.href} href={item.href}>
-              <div
-                className={`flex cursor-pointer items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-foreground hover:bg-muted"
-                }`}
-              >
-                <item.icon
-                  className={`mr-3 h-5 w-5 shrink-0 ${
-                    isActive ? "text-primary-foreground" : "text-muted-foreground"
-                  }`}
-                />
-                {item.label}
-              </div>
-            </Link>
+            <NavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} isActive={isActive} />
+          );
+        })}
+
+        {/* Checklists section */}
+        <div className="pt-4 pb-1">
+          <p className="px-3 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/70 select-none">
+            Checklists
+          </p>
+        </div>
+        {CHECKLIST_NAV.map((item) => {
+          const isActive = location === item.href || location.startsWith(item.href);
+          return (
+            <NavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} isActive={isActive} />
           );
         })}
       </nav>
 
       {/* Sidebar footer */}
-      <div className="p-4 border-t border-border space-y-2">
+      <div className="p-4 border-t border-border space-y-2 shrink-0">
         <a
           href="https://adventure-analytics-australia.com/"
           target="_blank"

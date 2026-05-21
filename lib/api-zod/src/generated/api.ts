@@ -371,6 +371,7 @@ export const GetGlobalBudgetResponse = zod.object({
 }).optional(),
   "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
   "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records'),
+  "checklists": zod.record(zod.string(), zod.unknown()).optional().describe('Checklist item states keyed by checklist id then item id'),
   "updatedAt": zod.string()
 })
 
@@ -492,7 +493,8 @@ export const SaveGlobalBudgetBody = zod.object({
   "useProposedCGT": zod.boolean().optional()
 }).optional(),
   "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
-  "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records')
+  "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records'),
+  "checklists": zod.record(zod.string(), zod.unknown()).optional().describe('Checklist item states keyed by checklist id then item id')
 })
 
 export const SaveGlobalBudgetResponse = zod.object({
@@ -612,6 +614,7 @@ export const SaveGlobalBudgetResponse = zod.object({
 }).optional(),
   "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
   "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records'),
+  "checklists": zod.record(zod.string(), zod.unknown()).optional().describe('Checklist item states keyed by checklist id then item id'),
   "updatedAt": zod.string()
 })
 
@@ -756,6 +759,7 @@ export const GetBudgetResponse = zod.object({
 }).optional(),
   "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
   "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records'),
+  "checklists": zod.record(zod.string(), zod.unknown()).optional().describe('Checklist item states keyed by checklist id then item id'),
   "updatedAt": zod.string()
 })
 
@@ -881,7 +885,8 @@ export const SaveBudgetBody = zod.object({
   "useProposedCGT": zod.boolean().optional()
 }).optional(),
   "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
-  "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records')
+  "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records'),
+  "checklists": zod.record(zod.string(), zod.unknown()).optional().describe('Checklist item states keyed by checklist id then item id')
 })
 
 export const SaveBudgetResponse = zod.object({
@@ -1001,6 +1006,7 @@ export const SaveBudgetResponse = zod.object({
 }).optional(),
   "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
   "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records'),
+  "checklists": zod.record(zod.string(), zod.unknown()).optional().describe('Checklist item states keyed by checklist id then item id'),
   "updatedAt": zod.string()
 })
 

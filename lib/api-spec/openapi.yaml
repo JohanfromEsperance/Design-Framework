@@ -835,6 +835,10 @@ components:
           type: object
           additionalProperties: true
           description: Registration, licence, and insurance records
+        checklists:
+          type: object
+          additionalProperties: true
+          description: Checklist item states keyed by checklist id then item id
         updatedAt:
           type: string
 
@@ -1076,6 +1080,10 @@ components:
           type: object
           additionalProperties: true
           description: Registration, licence, and insurance records
+        checklists:
+          type: object
+          additionalProperties: true
+          description: Checklist item states keyed by checklist id then item id
 
     GlobalBudgetSummary:
       type: object
