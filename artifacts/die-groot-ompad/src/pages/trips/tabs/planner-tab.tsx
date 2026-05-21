@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Plus, Trash2, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { VoiceField } from "@/components/voice-button";
 
 interface PlannerTabProps {
   trip: Trip;
@@ -22,8 +23,7 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
   const queryClient = useQueryClient();
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  
-  // Create a default leg state
+
   const defaultLegState = {
     fromPlace: "",
     toPlace: "",
@@ -31,12 +31,11 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
     actualKm: 0,
     actualLitres: 0,
     actualPricePerLitre: 0,
-    notes: ""
+    notes: "",
   };
-  
+
   const [currentLegData, setCurrentLegData] = useState(defaultLegState);
 
-  // Safely get sorted legs
   const sortedLegs = legs ? [...legs].sort((a, b) => a.sortOrder - b.sortOrder) : [];
   const activeLeg = sortedLegs[currentIndex];
 
@@ -49,100 +48,82 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
         actualKm: activeLeg.actualKm || 0,
         actualLitres: activeLeg.actualLitres || 0,
         actualPricePerLitre: activeLeg.actualPricePerLitre || 0,
-        notes: activeLeg.notes || ""
+        notes: activeLeg.notes || "",
       });
     } else {
       setCurrentLegData(defaultLegState);
     }
   }, [currentIndex, legs]);
 
-  const handleNext = () => {
-    if (currentIndex < sortedLegs.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-    }
-  };
-
-  const handlePrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
-    }
-  };
-
   const handleAddStop = () => {
     const newOrder = sortedLegs.length > 0 ? sortedLegs[sortedLegs.length - 1].sortOrder + 1 : 1;
-    createLeg.mutate({
-      tripId: trip.id,
-      data: {
-        fromPlace: "New Stop",
-        toPlace: "Destination",
-        sortOrder: newOrder,
-        plannedKm: 0
+    createLeg.mutate(
+      {
+        tripId: trip.id,
+        data: { fromPlace: "New Stop", toPlace: "Destination", sortOrder: newOrder, plannedKm: 0 },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListLegsQueryKey(trip.id) });
+          setCurrentIndex(sortedLegs.length);
+          toast({ title: "Stop added" });
+        },
       }
-    }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListLegsQueryKey(trip.id) });
-        setCurrentIndex(sortedLegs.length);
-        toast({ title: "Leg added" });
-      }
-    });
+    );
   };
 
   const handleSaveLeg = () => {
     if (!activeLeg) return;
-    updateLeg.mutate({
-      tripId: trip.id,
-      legId: activeLeg.id,
-      data: currentLegData
-    }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListLegsQueryKey(trip.id) });
-        toast({ title: "Saved", description: "Leg details updated" });
+    updateLeg.mutate(
+      { tripId: trip.id, legId: activeLeg.id, data: currentLegData },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListLegsQueryKey(trip.id) });
+          toast({ title: "Saved", description: "Leg details updated" });
+        },
       }
-    });
+    );
   };
 
   const handleDeleteLeg = () => {
-    if (!activeLeg) return;
-    if (confirm("Delete this leg?")) {
-      deleteLeg.mutate({ tripId: trip.id, legId: activeLeg.id }, {
+    if (!activeLeg || !confirm("Delete this leg?")) return;
+    deleteLeg.mutate(
+      { tripId: trip.id, legId: activeLeg.id },
+      {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListLegsQueryKey(trip.id) });
-          if (currentIndex > 0) {
-            setCurrentIndex(currentIndex - 1);
-          }
+          if (currentIndex > 0) setCurrentIndex(currentIndex - 1);
           toast({ title: "Leg deleted" });
-        }
-      });
-    }
+        },
+      }
+    );
   };
 
-  // Calculations
   const fuelPrice18 = trip.fuelPrice18 || 1.5;
   const plannedKm = currentLegData.plannedKm || 0;
-  
   const est15 = plannedKm * 0.15;
   const est18 = plannedKm * 0.18;
   const est20 = plannedKm * 0.20;
-  
   const estCost18 = est18 * fuelPrice18;
   const actualFuelCost = (currentLegData.actualLitres || 0) * (currentLegData.actualPricePerLitre || 0);
   const kmPerL = currentLegData.actualLitres ? (currentLegData.actualKm || 0) / currentLegData.actualLitres : 0;
   const lPer100 = currentLegData.actualKm ? ((currentLegData.actualLitres || 0) / currentLegData.actualKm) * 100 : 0;
   const varianceCost = actualFuelCost - estCost18;
 
-  if (isLoading) return <div>Loading planner...</div>;
+  if (isLoading) return <div className="p-8 text-muted-foreground">Loading planner...</div>;
 
   return (
     <div className="space-y-6">
+      {/* Navigation bar */}
       <div className="flex justify-between items-center bg-card p-4 rounded-lg border border-border">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={handlePrev} disabled={currentIndex === 0}>
+          <Button variant="outline" size="icon" onClick={() => setCurrentIndex(i => i - 1)} disabled={currentIndex === 0}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="font-medium text-foreground">
-            {sortedLegs.length > 0 ? `Leg ${currentIndex + 1} of ${sortedLegs.length}` : 'No legs yet'}
+            {sortedLegs.length > 0 ? `Leg ${currentIndex + 1} of ${sortedLegs.length}` : "No legs yet"}
           </span>
-          <Button variant="outline" size="icon" onClick={handleNext} disabled={currentIndex >= sortedLegs.length - 1}>
+          <Button variant="outline" size="icon" onClick={() => setCurrentIndex(i => i + 1)} disabled={currentIndex >= sortedLegs.length - 1}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -152,7 +133,7 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
               <Trash2 className="h-4 w-4" />
             </Button>
           )}
-          <Button onClick={handleAddStop}>
+          <Button onClick={handleAddStop} disabled={createLeg.isPending}>
             <Plus className="mr-2 h-4 w-4" /> Add Stop
           </Button>
         </div>
@@ -161,6 +142,7 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
       {activeLeg ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
+            {/* Route details */}
             <Card className="bg-card">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Route Details</CardTitle>
@@ -172,42 +154,63 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>From</Label>
-                    <Input 
-                      value={currentLegData.fromPlace} 
-                      onChange={e => setCurrentLegData({...currentLegData, fromPlace: e.target.value})} 
-                    />
+                    <VoiceField
+                      value={currentLegData.fromPlace}
+                      onChange={(v) => setCurrentLegData({ ...currentLegData, fromPlace: v })}
+                    >
+                      <Input
+                        value={currentLegData.fromPlace}
+                        onChange={(e) => setCurrentLegData({ ...currentLegData, fromPlace: e.target.value })}
+                        placeholder="Departure town"
+                      />
+                    </VoiceField>
                   </div>
                   <div className="space-y-2">
                     <Label>To</Label>
-                    <Input 
-                      value={currentLegData.toPlace} 
-                      onChange={e => setCurrentLegData({...currentLegData, toPlace: e.target.value})} 
-                    />
+                    <VoiceField
+                      value={currentLegData.toPlace}
+                      onChange={(v) => setCurrentLegData({ ...currentLegData, toPlace: v })}
+                    >
+                      <Input
+                        value={currentLegData.toPlace}
+                        onChange={(e) => setCurrentLegData({ ...currentLegData, toPlace: e.target.value })}
+                        placeholder="Destination town"
+                      />
+                    </VoiceField>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-3 gap-4 border-t border-border pt-4">
                   <div className="space-y-2">
                     <Label>Planned Km</Label>
-                    <Input 
-                      type="number" 
-                      value={currentLegData.plannedKm} 
-                      onChange={e => setCurrentLegData({...currentLegData, plannedKm: Number(e.target.value)})} 
+                    <Input
+                      type="number"
+                      value={currentLegData.plannedKm}
+                      onChange={(e) => setCurrentLegData({ ...currentLegData, plannedKm: Number(e.target.value) })}
                     />
                   </div>
                 </div>
-                
-                <div className="space-y-2 pt-4">
+
+                <div className="space-y-2 pt-2">
                   <Label>Notes</Label>
-                  <Textarea 
-                    rows={4}
+                  <VoiceField
                     value={currentLegData.notes}
-                    onChange={e => setCurrentLegData({...currentLegData, notes: e.target.value})}
-                  />
+                    onChange={(v) => setCurrentLegData({ ...currentLegData, notes: v })}
+                    speakable
+                    appendMode
+                  >
+                    <Textarea
+                      rows={4}
+                      value={currentLegData.notes}
+                      onChange={(e) => setCurrentLegData({ ...currentLegData, notes: e.target.value })}
+                      placeholder="Leg notes, fuel stops, points of interest..."
+                    />
+                  </VoiceField>
                 </div>
               </CardContent>
             </Card>
 
+            {/* Actual log */}
             <Card className="bg-card">
               <CardHeader>
                 <CardTitle>Actual Log</CardTitle>
@@ -216,27 +219,27 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Actual Km</Label>
-                    <Input 
-                      type="number" 
-                      value={currentLegData.actualKm} 
-                      onChange={e => setCurrentLegData({...currentLegData, actualKm: Number(e.target.value)})} 
+                    <Input
+                      type="number"
+                      value={currentLegData.actualKm}
+                      onChange={(e) => setCurrentLegData({ ...currentLegData, actualKm: Number(e.target.value) })}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Actual Litres</Label>
-                    <Input 
-                      type="number" 
-                      value={currentLegData.actualLitres} 
-                      onChange={e => setCurrentLegData({...currentLegData, actualLitres: Number(e.target.value)})} 
+                    <Input
+                      type="number"
+                      value={currentLegData.actualLitres}
+                      onChange={(e) => setCurrentLegData({ ...currentLegData, actualLitres: Number(e.target.value) })}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Price / Litre ($)</Label>
-                    <Input 
-                      type="number" 
+                    <Input
+                      type="number"
                       step="0.01"
-                      value={currentLegData.actualPricePerLitre} 
-                      onChange={e => setCurrentLegData({...currentLegData, actualPricePerLitre: Number(e.target.value)})} 
+                      value={currentLegData.actualPricePerLitre}
+                      onChange={(e) => setCurrentLegData({ ...currentLegData, actualPricePerLitre: Number(e.target.value) })}
                     />
                   </div>
                 </div>
@@ -244,6 +247,7 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
             </Card>
           </div>
 
+          {/* Right column */}
           <div className="space-y-6">
             <Card className="bg-card">
               <CardHeader>
@@ -252,7 +256,7 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">15L / 100km</span>
-                  <span className="font-medium text-foreground">{est15.toFixed(1)} L</span>
+                  <span className="font-medium">{est15.toFixed(1)} L</span>
                 </div>
                 <div className="flex justify-between items-center text-sm font-semibold bg-muted p-2 rounded">
                   <span>18L / 100km (Baseline)</span>
@@ -260,10 +264,10 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">20L / 100km</span>
-                  <span className="font-medium text-foreground">{est20.toFixed(1)} L</span>
+                  <span className="font-medium">{est20.toFixed(1)} L</span>
                 </div>
-                <div className="pt-4 border-t border-border mt-4 flex justify-between items-center">
-                  <span className="font-medium text-foreground">Est. Cost (Baseline)</span>
+                <div className="pt-4 border-t border-border flex justify-between items-center">
+                  <span className="font-medium">Est. Cost (Baseline)</span>
                   <span className="font-bold text-lg">${estCost18.toFixed(2)}</span>
                 </div>
               </CardContent>
@@ -274,31 +278,31 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                 <CardTitle>KPIs</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-4">
-                <div className="bg-muted p-3 rounded-lg flex flex-col justify-center">
-                  <span className="text-xs text-muted-foreground">Actual Cost</span>
-                  <span className="font-bold text-foreground">${actualFuelCost.toFixed(2)}</span>
+                <div className="bg-muted p-3 rounded-lg">
+                  <span className="text-xs text-muted-foreground block">Actual Cost</span>
+                  <span className="font-bold">${actualFuelCost.toFixed(2)}</span>
                 </div>
-                <div className="bg-muted p-3 rounded-lg flex flex-col justify-center">
-                  <span className="text-xs text-muted-foreground">Variance vs Est</span>
-                  <span className={`font-bold ${varianceCost > 0 ? 'text-destructive' : 'text-primary'}`}>
-                    {varianceCost > 0 ? '+' : ''}{varianceCost.toFixed(2)}
+                <div className="bg-muted p-3 rounded-lg">
+                  <span className="text-xs text-muted-foreground block">Variance vs Est</span>
+                  <span className={`font-bold ${varianceCost > 0 ? "text-destructive" : "text-primary"}`}>
+                    {varianceCost > 0 ? "+" : ""}{varianceCost.toFixed(2)}
                   </span>
                 </div>
-                <div className="bg-muted p-3 rounded-lg flex flex-col justify-center">
-                  <span className="text-xs text-muted-foreground">Km / L</span>
-                  <span className="font-bold text-foreground">{kmPerL.toFixed(2)}</span>
+                <div className="bg-muted p-3 rounded-lg">
+                  <span className="text-xs text-muted-foreground block">Km / L</span>
+                  <span className="font-bold">{kmPerL.toFixed(2)}</span>
                 </div>
-                <div className="bg-muted p-3 rounded-lg flex flex-col justify-center">
-                  <span className="text-xs text-muted-foreground">L / 100km</span>
-                  <span className="font-bold text-foreground">{lPer100.toFixed(2)}</span>
+                <div className="bg-muted p-3 rounded-lg">
+                  <span className="text-xs text-muted-foreground block">L / 100km</span>
+                  <span className="font-bold">{lPer100.toFixed(2)}</span>
                 </div>
               </CardContent>
             </Card>
           </div>
         </div>
       ) : (
-        <div className="text-center py-12 bg-card rounded-lg border border-border">
-          <p className="text-muted-foreground">No legs found. Add a stop to begin planning.</p>
+        <div className="text-center py-16 bg-card rounded-lg border border-border">
+          <p className="text-muted-foreground">No legs yet. Add a stop to begin planning.</p>
         </div>
       )}
     </div>
