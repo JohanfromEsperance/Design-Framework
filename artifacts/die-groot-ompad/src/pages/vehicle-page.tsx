@@ -108,6 +108,7 @@ interface VehicleDocs {
   regoRenewalCost: string;
   caravanRegoNumber: string;
   caravanRegoExpiry: string;
+  caravanRegoRenewalCost: string;
   // Driver 1 licence
   licenceName: string;
   licenceNumber: string;
@@ -141,11 +142,13 @@ interface VehicleDocs {
   insuranceFrequency: "monthly" | "yearly";
   caravanInsuranceFrequency: "monthly" | "yearly";
   roadsideFrequency: "monthly" | "yearly";
+  regoFrequency: "monthly" | "yearly";
+  caravanRegoFrequency: "monthly" | "yearly";
 }
 
 const DOCS_DEFAULTS: VehicleDocs = {
   regoNumber: "", regoExpiry: "", regoRenewalCost: "",
-  caravanRegoNumber: "", caravanRegoExpiry: "",
+  caravanRegoNumber: "", caravanRegoExpiry: "", caravanRegoRenewalCost: "",
   licenceName: "", licenceNumber: "", licenceExpiry: "", licenceState: "", licenceReplacementCost: "",
   licence2Name: "", licence2Number: "", licence2Expiry: "", licence2State: "", licence2ReplacementCost: "",
   replacementVehicle: "", replacementCaravan: "",
@@ -153,6 +156,7 @@ const DOCS_DEFAULTS: VehicleDocs = {
   caravanInsuranceProvider: "", caravanInsurancePolicy: "", caravanInsuranceExpiry: "", caravanInsuranceCost: "",
   roadsideProvider: "", roadsidePolicy: "", roadsideExpiry: "", roadsideCost: "",
   insuranceFrequency: "yearly", caravanInsuranceFrequency: "yearly", roadsideFrequency: "yearly",
+  regoFrequency: "yearly", caravanRegoFrequency: "yearly",
 };
 
 function daysUntil(dateStr: string): number {
@@ -453,7 +457,7 @@ export default function VehiclePage() {
 
   // ── Insurance → Budget sync ──────────────────────────────────────────────
   function syncInsuranceToBudget(
-    budgetKey: "vehicleInsurance" | "caravanInsurance" | "roadsideAssistance",
+    budgetKey: "vehicleInsurance" | "caravanInsurance" | "roadsideAssistance" | "vehicleLicence" | "caravanLicence",
     cost: string,
     frequency: "monthly" | "yearly",
     targetMonth = 8,
@@ -683,10 +687,24 @@ export default function VehiclePage() {
                   <Input value={docs.replacementVehicle} onChange={e => handleDocsChange({ replacementVehicle: e.target.value })} placeholder="85000" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Rego Renewal Cost ($)</Label>
-                  <Input value={docs.regoRenewalCost} onChange={e => handleDocsChange({ regoRenewalCost: e.target.value })} placeholder="850" />
+                  <Label className="flex items-center justify-between">
+                    <span>{docs.regoFrequency === "monthly" ? "Rego Cost / Month ($)" : "Rego Renewal Cost ($)"}</span>
+                    <FreqToggle value={docs.regoFrequency ?? "yearly"} onChange={v => handleDocsChange({ regoFrequency: v })} />
+                  </Label>
+                  <Input value={docs.regoRenewalCost} onChange={e => handleDocsChange({ regoRenewalCost: e.target.value })} placeholder={docs.regoFrequency === "monthly" ? "70" : "850"} />
                 </div>
               </div>
+              {docs.regoRenewalCost && Number(docs.regoRenewalCost) > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                    onClick={() => syncInsuranceToBudget("vehicleLicence", docs.regoRenewalCost, docs.regoFrequency ?? "yearly", 3)}>
+                    <ArrowRight className="h-3 w-3" />
+                    {docs.regoFrequency === "monthly"
+                      ? `Sync $${Number(docs.regoRenewalCost).toLocaleString()}/mo to all months`
+                      : `Sync $${Number(docs.regoRenewalCost).toLocaleString()} to Budget Month 4`}
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Driver 1 Licence */}
@@ -782,7 +800,25 @@ export default function VehiclePage() {
                   <Label>Caravan Replacement Value ($)</Label>
                   <Input value={docs.replacementCaravan} onChange={e => handleDocsChange({ replacementCaravan: e.target.value })} placeholder="95000" />
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center justify-between">
+                    <span>{docs.caravanRegoFrequency === "monthly" ? "REGO Cost / Month ($)" : "REGO Renewal Cost ($)"}</span>
+                    <FreqToggle value={docs.caravanRegoFrequency ?? "yearly"} onChange={v => handleDocsChange({ caravanRegoFrequency: v })} />
+                  </Label>
+                  <Input value={docs.caravanRegoRenewalCost} onChange={e => handleDocsChange({ caravanRegoRenewalCost: e.target.value })} placeholder={docs.caravanRegoFrequency === "monthly" ? "50" : "600"} />
+                </div>
               </div>
+              {docs.caravanRegoRenewalCost && Number(docs.caravanRegoRenewalCost) > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                    onClick={() => syncInsuranceToBudget("caravanLicence", docs.caravanRegoRenewalCost, docs.caravanRegoFrequency ?? "yearly", 3)}>
+                    <ArrowRight className="h-3 w-3" />
+                    {docs.caravanRegoFrequency === "monthly"
+                      ? `Sync $${Number(docs.caravanRegoRenewalCost).toLocaleString()}/mo to all months`
+                      : `Sync $${Number(docs.caravanRegoRenewalCost).toLocaleString()} to Budget Month 4`}
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Tow Vehicle Insurance */}
