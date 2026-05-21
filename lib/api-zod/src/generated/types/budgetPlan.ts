@@ -6,9 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BudgetPlanMonths } from './budgetPlanMonths';
+import type { IncomeWorksheet } from './incomeWorksheet';
 import type { RentalConfig } from './rentalConfig';
 import type { SharesPortfolio } from './sharesPortfolio';
 import type { SuperPortfolio } from './superPortfolio';
+import type { TaxWorksheet } from './taxWorksheet';
 
 export interface BudgetPlan {
   id: number;
@@ -20,5 +22,7 @@ export interface BudgetPlan {
   rental?: RentalConfig;
   super?: SuperPortfolio;
   shares?: SharesPortfolio;
+  income?: IncomeWorksheet;
+  tax?: TaxWorksheet;
   updatedAt: string;
 }

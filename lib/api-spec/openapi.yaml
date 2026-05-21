@@ -822,6 +822,10 @@ components:
           $ref: "#/components/schemas/SuperPortfolio"
         shares:
           $ref: "#/components/schemas/SharesPortfolio"
+        income:
+          $ref: "#/components/schemas/IncomeWorksheet"
+        tax:
+          $ref: "#/components/schemas/TaxWorksheet"
         updatedAt:
           type: string
 
@@ -852,6 +856,15 @@ components:
         forecastYears:
           type: integer
           description: Number of years to project forward
+        lumpSumWithdrawal:
+          type: number
+          description: Planned lump sum withdrawal amount at eligibility
+        lumpSumDate:
+          type: string
+          description: Year of lump sum withdrawal (YYYY)
+        preservationAge:
+          type: number
+          description: Age at which super becomes accessible (default 60)
 
     SuperPortfolio:
       type: object
@@ -929,6 +942,91 @@ components:
         openingBalance:
           type: number
 
+    IncomeSource:
+      type: object
+      required: [id, label]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        months:
+          type: object
+          description: Map of month index (0-59) to {forecast, actual}
+          additionalProperties:
+            type: object
+            properties:
+              forecast:
+                type: number
+              actual:
+                type: number
+
+    IncomeWorksheet:
+      type: object
+      properties:
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/IncomeSource"
+
+    CgtEvent:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+        assetName:
+          type: string
+        purchaseDate:
+          type: string
+        purchasePrice:
+          type: number
+        saleDate:
+          type: string
+        salePrice:
+          type: number
+        qty:
+          type: number
+
+    TaxProfile:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        grossSalary:
+          type: number
+        superPension:
+          type: number
+        centrelink:
+          type: number
+        dividends:
+          type: number
+        workDeductions:
+          type: number
+        hecsDebt:
+          type: boolean
+        privateMedicare:
+          type: boolean
+
+    TaxWorksheet:
+      type: object
+      properties:
+        profiles:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaxProfile"
+        cgtEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/CgtEvent"
+        useProposedNegGearing:
+          type: boolean
+        useProposedCGT:
+          type: boolean
+
     BudgetPlanInput:
       type: object
       required: [year, months]
@@ -945,6 +1043,10 @@ components:
           $ref: "#/components/schemas/SuperPortfolio"
         shares:
           $ref: "#/components/schemas/SharesPortfolio"
+        income:
+          $ref: "#/components/schemas/IncomeWorksheet"
+        tax:
+          $ref: "#/components/schemas/TaxWorksheet"
 
     GlobalBudgetSummary:
       type: object

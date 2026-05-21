@@ -315,7 +315,10 @@ export const GetGlobalBudgetResponse = zod.object({
   "personalRate": zod.number().optional().describe('Personal voluntary contribution % of gross salary'),
   "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
   "returnRate": zod.number().optional().describe('Expected annual investment return %'),
-  "forecastYears": zod.number().optional().describe('Number of years to project forward')
+  "forecastYears": zod.number().optional().describe('Number of years to project forward'),
+  "lumpSumWithdrawal": zod.number().optional().describe('Planned lump sum withdrawal amount at eligibility'),
+  "lumpSumDate": zod.string().optional().describe('Year of lump sum withdrawal (YYYY)'),
+  "preservationAge": zod.number().optional().describe('Age at which super becomes accessible (default 60)')
 })).optional()
 }).optional(),
   "shares": zod.object({
@@ -328,6 +331,40 @@ export const GetGlobalBudgetResponse = zod.object({
   "currentPrice": zod.number().optional(),
   "purchaseDate": zod.string().optional()
 })).optional()
+}).optional(),
+  "income": zod.object({
+  "sources": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "months": zod.record(zod.string(), zod.object({
+  "forecast": zod.number().optional(),
+  "actual": zod.number().optional()
+})).optional().describe('Map of month index (0-59) to {forecast, actual}')
+})).optional()
+}).optional(),
+  "tax": zod.object({
+  "profiles": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "grossSalary": zod.number().optional(),
+  "superPension": zod.number().optional(),
+  "centrelink": zod.number().optional(),
+  "dividends": zod.number().optional(),
+  "workDeductions": zod.number().optional(),
+  "hecsDebt": zod.boolean().optional(),
+  "privateMedicare": zod.boolean().optional()
+})).optional(),
+  "cgtEvents": zod.array(zod.object({
+  "id": zod.string(),
+  "assetName": zod.string().optional(),
+  "purchaseDate": zod.string().optional(),
+  "purchasePrice": zod.number().optional(),
+  "saleDate": zod.string().optional(),
+  "salePrice": zod.number().optional(),
+  "qty": zod.number().optional()
+})).optional(),
+  "useProposedNegGearing": zod.boolean().optional(),
+  "useProposedCGT": zod.boolean().optional()
 }).optional(),
   "updatedAt": zod.string()
 })
@@ -395,7 +432,10 @@ export const SaveGlobalBudgetBody = zod.object({
   "personalRate": zod.number().optional().describe('Personal voluntary contribution % of gross salary'),
   "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
   "returnRate": zod.number().optional().describe('Expected annual investment return %'),
-  "forecastYears": zod.number().optional().describe('Number of years to project forward')
+  "forecastYears": zod.number().optional().describe('Number of years to project forward'),
+  "lumpSumWithdrawal": zod.number().optional().describe('Planned lump sum withdrawal amount at eligibility'),
+  "lumpSumDate": zod.string().optional().describe('Year of lump sum withdrawal (YYYY)'),
+  "preservationAge": zod.number().optional().describe('Age at which super becomes accessible (default 60)')
 })).optional()
 }).optional(),
   "shares": zod.object({
@@ -408,6 +448,40 @@ export const SaveGlobalBudgetBody = zod.object({
   "currentPrice": zod.number().optional(),
   "purchaseDate": zod.string().optional()
 })).optional()
+}).optional(),
+  "income": zod.object({
+  "sources": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "months": zod.record(zod.string(), zod.object({
+  "forecast": zod.number().optional(),
+  "actual": zod.number().optional()
+})).optional().describe('Map of month index (0-59) to {forecast, actual}')
+})).optional()
+}).optional(),
+  "tax": zod.object({
+  "profiles": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "grossSalary": zod.number().optional(),
+  "superPension": zod.number().optional(),
+  "centrelink": zod.number().optional(),
+  "dividends": zod.number().optional(),
+  "workDeductions": zod.number().optional(),
+  "hecsDebt": zod.boolean().optional(),
+  "privateMedicare": zod.boolean().optional()
+})).optional(),
+  "cgtEvents": zod.array(zod.object({
+  "id": zod.string(),
+  "assetName": zod.string().optional(),
+  "purchaseDate": zod.string().optional(),
+  "purchasePrice": zod.number().optional(),
+  "saleDate": zod.string().optional(),
+  "salePrice": zod.number().optional(),
+  "qty": zod.number().optional()
+})).optional(),
+  "useProposedNegGearing": zod.boolean().optional(),
+  "useProposedCGT": zod.boolean().optional()
 }).optional()
 })
 
@@ -472,7 +546,10 @@ export const SaveGlobalBudgetResponse = zod.object({
   "personalRate": zod.number().optional().describe('Personal voluntary contribution % of gross salary'),
   "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
   "returnRate": zod.number().optional().describe('Expected annual investment return %'),
-  "forecastYears": zod.number().optional().describe('Number of years to project forward')
+  "forecastYears": zod.number().optional().describe('Number of years to project forward'),
+  "lumpSumWithdrawal": zod.number().optional().describe('Planned lump sum withdrawal amount at eligibility'),
+  "lumpSumDate": zod.string().optional().describe('Year of lump sum withdrawal (YYYY)'),
+  "preservationAge": zod.number().optional().describe('Age at which super becomes accessible (default 60)')
 })).optional()
 }).optional(),
   "shares": zod.object({
@@ -485,6 +562,40 @@ export const SaveGlobalBudgetResponse = zod.object({
   "currentPrice": zod.number().optional(),
   "purchaseDate": zod.string().optional()
 })).optional()
+}).optional(),
+  "income": zod.object({
+  "sources": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "months": zod.record(zod.string(), zod.object({
+  "forecast": zod.number().optional(),
+  "actual": zod.number().optional()
+})).optional().describe('Map of month index (0-59) to {forecast, actual}')
+})).optional()
+}).optional(),
+  "tax": zod.object({
+  "profiles": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "grossSalary": zod.number().optional(),
+  "superPension": zod.number().optional(),
+  "centrelink": zod.number().optional(),
+  "dividends": zod.number().optional(),
+  "workDeductions": zod.number().optional(),
+  "hecsDebt": zod.boolean().optional(),
+  "privateMedicare": zod.boolean().optional()
+})).optional(),
+  "cgtEvents": zod.array(zod.object({
+  "id": zod.string(),
+  "assetName": zod.string().optional(),
+  "purchaseDate": zod.string().optional(),
+  "purchasePrice": zod.number().optional(),
+  "saleDate": zod.string().optional(),
+  "salePrice": zod.number().optional(),
+  "qty": zod.number().optional()
+})).optional(),
+  "useProposedNegGearing": zod.boolean().optional(),
+  "useProposedCGT": zod.boolean().optional()
 }).optional(),
   "updatedAt": zod.string()
 })
@@ -574,7 +685,10 @@ export const GetBudgetResponse = zod.object({
   "personalRate": zod.number().optional().describe('Personal voluntary contribution % of gross salary'),
   "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
   "returnRate": zod.number().optional().describe('Expected annual investment return %'),
-  "forecastYears": zod.number().optional().describe('Number of years to project forward')
+  "forecastYears": zod.number().optional().describe('Number of years to project forward'),
+  "lumpSumWithdrawal": zod.number().optional().describe('Planned lump sum withdrawal amount at eligibility'),
+  "lumpSumDate": zod.string().optional().describe('Year of lump sum withdrawal (YYYY)'),
+  "preservationAge": zod.number().optional().describe('Age at which super becomes accessible (default 60)')
 })).optional()
 }).optional(),
   "shares": zod.object({
@@ -587,6 +701,40 @@ export const GetBudgetResponse = zod.object({
   "currentPrice": zod.number().optional(),
   "purchaseDate": zod.string().optional()
 })).optional()
+}).optional(),
+  "income": zod.object({
+  "sources": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "months": zod.record(zod.string(), zod.object({
+  "forecast": zod.number().optional(),
+  "actual": zod.number().optional()
+})).optional().describe('Map of month index (0-59) to {forecast, actual}')
+})).optional()
+}).optional(),
+  "tax": zod.object({
+  "profiles": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "grossSalary": zod.number().optional(),
+  "superPension": zod.number().optional(),
+  "centrelink": zod.number().optional(),
+  "dividends": zod.number().optional(),
+  "workDeductions": zod.number().optional(),
+  "hecsDebt": zod.boolean().optional(),
+  "privateMedicare": zod.boolean().optional()
+})).optional(),
+  "cgtEvents": zod.array(zod.object({
+  "id": zod.string(),
+  "assetName": zod.string().optional(),
+  "purchaseDate": zod.string().optional(),
+  "purchasePrice": zod.number().optional(),
+  "saleDate": zod.string().optional(),
+  "salePrice": zod.number().optional(),
+  "qty": zod.number().optional()
+})).optional(),
+  "useProposedNegGearing": zod.boolean().optional(),
+  "useProposedCGT": zod.boolean().optional()
 }).optional(),
   "updatedAt": zod.string()
 })
@@ -658,7 +806,10 @@ export const SaveBudgetBody = zod.object({
   "personalRate": zod.number().optional().describe('Personal voluntary contribution % of gross salary'),
   "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
   "returnRate": zod.number().optional().describe('Expected annual investment return %'),
-  "forecastYears": zod.number().optional().describe('Number of years to project forward')
+  "forecastYears": zod.number().optional().describe('Number of years to project forward'),
+  "lumpSumWithdrawal": zod.number().optional().describe('Planned lump sum withdrawal amount at eligibility'),
+  "lumpSumDate": zod.string().optional().describe('Year of lump sum withdrawal (YYYY)'),
+  "preservationAge": zod.number().optional().describe('Age at which super becomes accessible (default 60)')
 })).optional()
 }).optional(),
   "shares": zod.object({
@@ -671,6 +822,40 @@ export const SaveBudgetBody = zod.object({
   "currentPrice": zod.number().optional(),
   "purchaseDate": zod.string().optional()
 })).optional()
+}).optional(),
+  "income": zod.object({
+  "sources": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "months": zod.record(zod.string(), zod.object({
+  "forecast": zod.number().optional(),
+  "actual": zod.number().optional()
+})).optional().describe('Map of month index (0-59) to {forecast, actual}')
+})).optional()
+}).optional(),
+  "tax": zod.object({
+  "profiles": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "grossSalary": zod.number().optional(),
+  "superPension": zod.number().optional(),
+  "centrelink": zod.number().optional(),
+  "dividends": zod.number().optional(),
+  "workDeductions": zod.number().optional(),
+  "hecsDebt": zod.boolean().optional(),
+  "privateMedicare": zod.boolean().optional()
+})).optional(),
+  "cgtEvents": zod.array(zod.object({
+  "id": zod.string(),
+  "assetName": zod.string().optional(),
+  "purchaseDate": zod.string().optional(),
+  "purchasePrice": zod.number().optional(),
+  "saleDate": zod.string().optional(),
+  "salePrice": zod.number().optional(),
+  "qty": zod.number().optional()
+})).optional(),
+  "useProposedNegGearing": zod.boolean().optional(),
+  "useProposedCGT": zod.boolean().optional()
 }).optional()
 })
 
@@ -735,7 +920,10 @@ export const SaveBudgetResponse = zod.object({
   "personalRate": zod.number().optional().describe('Personal voluntary contribution % of gross salary'),
   "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
   "returnRate": zod.number().optional().describe('Expected annual investment return %'),
-  "forecastYears": zod.number().optional().describe('Number of years to project forward')
+  "forecastYears": zod.number().optional().describe('Number of years to project forward'),
+  "lumpSumWithdrawal": zod.number().optional().describe('Planned lump sum withdrawal amount at eligibility'),
+  "lumpSumDate": zod.string().optional().describe('Year of lump sum withdrawal (YYYY)'),
+  "preservationAge": zod.number().optional().describe('Age at which super becomes accessible (default 60)')
 })).optional()
 }).optional(),
   "shares": zod.object({
@@ -748,6 +936,40 @@ export const SaveBudgetResponse = zod.object({
   "currentPrice": zod.number().optional(),
   "purchaseDate": zod.string().optional()
 })).optional()
+}).optional(),
+  "income": zod.object({
+  "sources": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "months": zod.record(zod.string(), zod.object({
+  "forecast": zod.number().optional(),
+  "actual": zod.number().optional()
+})).optional().describe('Map of month index (0-59) to {forecast, actual}')
+})).optional()
+}).optional(),
+  "tax": zod.object({
+  "profiles": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "grossSalary": zod.number().optional(),
+  "superPension": zod.number().optional(),
+  "centrelink": zod.number().optional(),
+  "dividends": zod.number().optional(),
+  "workDeductions": zod.number().optional(),
+  "hecsDebt": zod.boolean().optional(),
+  "privateMedicare": zod.boolean().optional()
+})).optional(),
+  "cgtEvents": zod.array(zod.object({
+  "id": zod.string(),
+  "assetName": zod.string().optional(),
+  "purchaseDate": zod.string().optional(),
+  "purchasePrice": zod.number().optional(),
+  "saleDate": zod.string().optional(),
+  "salePrice": zod.number().optional(),
+  "qty": zod.number().optional()
+})).optional(),
+  "useProposedNegGearing": zod.boolean().optional(),
+  "useProposedCGT": zod.boolean().optional()
 }).optional(),
   "updatedAt": zod.string()
 })

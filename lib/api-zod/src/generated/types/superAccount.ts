@@ -21,4 +21,10 @@ export interface SuperAccount {
   returnRate?: number;
   /** Number of years to project forward */
   forecastYears?: number;
+  /** Planned lump sum withdrawal amount at eligibility */
+  lumpSumWithdrawal?: number;
+  /** Year of lump sum withdrawal (YYYY) */
+  lumpSumDate?: string;
+  /** Age at which super becomes accessible (default 60) */
+  preservationAge?: number;
 }

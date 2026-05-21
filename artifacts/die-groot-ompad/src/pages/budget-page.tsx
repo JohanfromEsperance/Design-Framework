@@ -5,6 +5,8 @@ import RentalSub, { DEFAULT_RENTAL, type RentalConfig } from "./trips/tabs/renta
 import PlanningSub from "./trips/tabs/planning-sub";
 import SuperSub, { DEFAULT_SUPER, type SuperPortfolio } from "./trips/tabs/super-sub";
 import SharesSub, { DEFAULT_SHARES, type SharesPortfolio } from "./trips/tabs/shares-sub";
+import IncomeSub, { DEFAULT_INCOME, type IncomeWorksheet } from "./trips/tabs/income-sub";
+import TaxSub, { DEFAULT_TAX, type TaxWorksheet } from "./trips/tabs/tax-sub";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -170,7 +172,7 @@ export default function BudgetPage() {
   const [customFrom, setCustomFrom] = useState(0);
   const [customTo, setCustomTo] = useState(11);
 
-  const [subPage, setSubPage] = useState<"overview" | "rental" | "planning" | "super" | "shares">("overview");
+  const [subPage, setSubPage] = useState<"overview" | "rental" | "planning" | "super" | "shares" | "income" | "tax">("overview");
 
   const [cpiDialogOpen, setCpiDialogOpen] = useState(false);
   const [cpiRate, setCpiRate] = useState(2.5);
@@ -217,7 +219,7 @@ export default function BudgetPage() {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       saveGlobalBudget.mutate(
-        { data: { year: data.year, months: data.months, rental: data.rental, super: data.super, shares: data.shares } },
+        { data: { year: data.year, months: data.months, rental: data.rental, super: data.super, shares: data.shares, income: data.income, tax: data.tax } },
         { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetGlobalBudgetQueryKey() }) }
       );
     }, 1200);
@@ -236,7 +238,7 @@ export default function BudgetPage() {
     if (!budgetData) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveGlobalBudget.mutate(
-      { data: { year: budgetData.year, months: budgetData.months, rental: budgetData.rental, super: budgetData.super, shares: budgetData.shares } },
+      { data: { year: budgetData.year, months: budgetData.months, rental: budgetData.rental, super: budgetData.super, shares: budgetData.shares, income: budgetData.income, tax: budgetData.tax } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetGlobalBudgetQueryKey() });
@@ -261,6 +263,26 @@ export default function BudgetPage() {
   const handleSharesChange = (sharesData: SharesPortfolio) => {
     setBudgetData((prev: any) => {
       const newData = { ...prev, shares: sharesData };
+      triggerSave(newData);
+      return newData;
+    });
+  };
+
+  // ── Income worksheet change ───────────────────────────────────────────────
+
+  const handleIncomeChange = (incomeData: IncomeWorksheet) => {
+    setBudgetData((prev: any) => {
+      const newData = { ...prev, income: incomeData };
+      triggerSave(newData);
+      return newData;
+    });
+  };
+
+  // ── Tax worksheet change ──────────────────────────────────────────────────
+
+  const handleTaxChange = (taxData: TaxWorksheet) => {
+    setBudgetData((prev: any) => {
+      const newData = { ...prev, tax: taxData };
       triggerSave(newData);
       return newData;
     });
@@ -569,9 +591,11 @@ export default function BudgetPage() {
         </div>
 
         {/* ── Sub-page nav ── */}
-        <div className="flex gap-0.5 border-b border-border pb-0">
+        <div className="flex gap-0.5 border-b border-border pb-0 flex-wrap">
           {([
             { key: "overview", label: "Overview" },
+            { key: "income",   label: "Income" },
+            { key: "tax",      label: "Tax" },
             { key: "rental",   label: "Rental Property" },
             { key: "planning", label: "Trip Planning" },
             { key: "super",    label: "Superannuation" },
@@ -588,6 +612,24 @@ export default function BudgetPage() {
             </button>
           ))}
         </div>
+
+        {/* ── Income worksheet sub-page ── */}
+        {subPage === "income" && (
+          <IncomeSub
+            data={{ ...DEFAULT_INCOME, ...(budgetData.income as IncomeWorksheet ?? {}) }}
+            onChange={handleIncomeChange}
+            mainMonths={budgetData.months as Record<string, any>}
+          />
+        )}
+
+        {/* ── Tax worksheet sub-page ── */}
+        {subPage === "tax" && (
+          <TaxSub
+            data={{ ...DEFAULT_TAX, ...(budgetData.tax as TaxWorksheet ?? {}) }}
+            onChange={handleTaxChange}
+            rentalConfig={budgetData.rental}
+          />
+        )}
 
         {/* ── Rental sub-page ── */}
         {subPage === "rental" && (

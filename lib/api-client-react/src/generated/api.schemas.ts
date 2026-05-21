@@ -182,6 +182,12 @@ export interface SuperAccount {
   returnRate?: number;
   /** Number of years to project forward */
   forecastYears?: number;
+  /** Planned lump sum withdrawal amount at eligibility */
+  lumpSumWithdrawal?: number;
+  /** Year of lump sum withdrawal (YYYY) */
+  lumpSumDate?: string;
+  /** Age at which super becomes accessible (default 60) */
+  preservationAge?: number;
 }
 
 export interface SuperPortfolio {
@@ -203,6 +209,54 @@ export interface SharesPortfolio {
   holdings?: ShareHolding[];
 }
 
+/**
+ * Map of month index (0-59) to {forecast, actual}
+ */
+export type IncomeSourceMonths = {[key: string]: {
+  forecast?: number;
+  actual?: number;
+}};
+
+export interface IncomeSource {
+  id: string;
+  label: string;
+  /** Map of month index (0-59) to {forecast, actual} */
+  months?: IncomeSourceMonths;
+}
+
+export interface IncomeWorksheet {
+  sources?: IncomeSource[];
+}
+
+export interface TaxProfile {
+  id: string;
+  name: string;
+  grossSalary?: number;
+  superPension?: number;
+  centrelink?: number;
+  dividends?: number;
+  workDeductions?: number;
+  hecsDebt?: boolean;
+  privateMedicare?: boolean;
+}
+
+export interface CgtEvent {
+  id: string;
+  assetName?: string;
+  purchaseDate?: string;
+  purchasePrice?: number;
+  saleDate?: string;
+  salePrice?: number;
+  qty?: number;
+}
+
+export interface TaxWorksheet {
+  profiles?: TaxProfile[];
+  cgtEvents?: CgtEvent[];
+  useProposedNegGearing?: boolean;
+  useProposedCGT?: boolean;
+}
+
 export interface BudgetPlan {
   id: number;
   /** @nullable */
@@ -213,6 +267,8 @@ export interface BudgetPlan {
   rental?: RentalConfig;
   super?: SuperPortfolio;
   shares?: SharesPortfolio;
+  income?: IncomeWorksheet;
+  tax?: TaxWorksheet;
   updatedAt: string;
 }
 
@@ -224,6 +280,8 @@ export interface BudgetPlanInput {
   rental?: RentalConfig;
   super?: SuperPortfolio;
   shares?: SharesPortfolio;
+  income?: IncomeWorksheet;
+  tax?: TaxWorksheet;
 }
 
 export interface MonthCashflow {
