@@ -8,6 +8,7 @@ import journalRouter from "./journal";
 import vehicleRouter from "./vehicle";
 import gpsRouter from "./gps";
 import analyticsRouter from "./analytics";
+import seedRouter from "./seed";
 
 const router: IRouter = Router();
 
@@ -15,6 +16,7 @@ router.use(healthRouter);
 
 router.use(requireAuth);
 
+router.use(seedRouter);
 router.use(tripsRouter);
 router.use(legsRouter);
 router.use(budgetRouter);

@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function TripsList() {
@@ -19,6 +20,19 @@ export default function TripsList() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const seedDemo = useMutation({
+    mutationFn: () => fetch("/api/seed-demo", { method: "POST" }).then(r => r.json()),
+    onSuccess: (data) => {
+      if (data.seeded) {
+        queryClient.invalidateQueries({ queryKey: getListTripsQueryKey() });
+        toast({ title: "Demo data loaded", description: data.message });
+      } else {
+        toast({ title: "Already loaded", description: data.message });
+      }
+    },
+    onError: () => toast({ title: "Error", description: "Failed to load demo data", variant: "destructive" }),
+  });
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newTripName, setNewTripName] = useState("");
@@ -163,6 +177,12 @@ export default function TripsList() {
               <MapPin className="mx-auto h-12 w-12 text-muted-foreground opacity-50 mb-4" />
               <h3 className="text-lg font-medium text-foreground">Your map is blank</h3>
               <p className="text-muted-foreground mt-1">Create a trip to start planning your route.</p>
+              <div className="mt-6 flex items-center justify-center gap-3">
+                <Button variant="outline" size="sm" onClick={() => seedDemo.mutate()} disabled={seedDemo.isPending}>
+                  {seedDemo.isPending ? "Loading..." : "Load demo data"}
+                </Button>
+                <span className="text-xs text-muted-foreground">or use the button above to create your own</span>
+              </div>
             </div>
           )}
         </div>
