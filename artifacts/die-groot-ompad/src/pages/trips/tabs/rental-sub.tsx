@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import {
@@ -127,6 +127,19 @@ function FieldRow({
   prefix?: string; suffix?: string; step?: number; min?: number;
   computed?: boolean; highlight?: boolean;
 }) {
+  const [local, setLocal] = useState(value === 0 ? "" : String(value));
+  const [focused, setFocused] = useState(false);
+
+  // Sync from parent only when not actively editing
+  useEffect(() => {
+    if (!focused) setLocal(value === 0 ? "" : String(value));
+  }, [value, focused]);
+
+  const commit = (raw: string) => {
+    const n = parseFloat(raw);
+    onChange?.(isNaN(n) ? 0 : n);
+  };
+
   return (
     <div className={cn(
       "flex items-center justify-between gap-2 py-1.5 px-2 rounded",
@@ -150,8 +163,16 @@ function FieldRow({
         ) : (
           <input
             type="number" min={min} step={step}
-            value={value}
-            onChange={e => onChange?.(parseFloat(e.target.value) || 0)}
+            value={local}
+            onChange={e => setLocal(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={e => { setFocused(false); commit(e.target.value); }}
+            onKeyDown={e => {
+              if (e.key === "Enter") {
+                commit((e.target as HTMLInputElement).value);
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
             className="w-28 text-right bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 tabular-nums text-sm"
           />
         )}
@@ -162,19 +183,34 @@ function FieldRow({
 }
 
 function TextField({
-  label, value, onChange,
+  label, value, onChange, placeholder,
 }: {
-  label: string; value: string; onChange: (v: string) => void;
+  label: string; value: string; onChange: (v: string) => void; placeholder?: string;
 }) {
+  const [local, setLocal] = useState(value);
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) setLocal(value);
+  }, [value, focused]);
+
   return (
     <div className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/20">
       <span className="text-sm text-foreground w-36 shrink-0">{label}</span>
       <input
         type="text"
-        value={value}
-        onChange={e => onChange(e.target.value)}
+        value={local}
+        onChange={e => setLocal(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={e => { setFocused(false); onChange(e.target.value); }}
+        onKeyDown={e => {
+          if (e.key === "Enter") {
+            onChange((e.target as HTMLInputElement).value);
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
         className="flex-1 bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 text-sm"
-        placeholder="e.g. 14 Wanderer St, Fremantle WA 6160"
+        placeholder={placeholder ?? ""}
       />
     </div>
   );
@@ -330,7 +366,7 @@ export default function RentalSub({ config, onChange }: RentalSubProps) {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4 space-y-0.5">
-              <TextField label="Address" value={config.address} onChange={v => set("address", v)} />
+              <TextField label="Address" value={config.address} onChange={v => set("address", v)} placeholder="e.g. 14 Wanderer St, Fremantle WA 6160" />
               <div className="grid grid-cols-2 gap-1 mt-1">
                 <FieldRow label="Purchase price" value={config.purchasePrice} onChange={v => set("purchasePrice", v)} step={5000} />
                 <FieldRow label="Current market value" value={config.currentValue} onChange={v => set("currentValue", v)} step={5000} />

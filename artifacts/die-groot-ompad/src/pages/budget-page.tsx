@@ -239,14 +239,29 @@ export default function BudgetPage() {
 
   // ── Auto-save ────────────────────────────────────────────────────────────
 
+  // Always carry ALL budget fields so no column clobbers another
+  const buildPayload = (data: any) => ({
+    year: data.year,
+    months: data.months,
+    rental: data.rental,
+    super: data.super,
+    shares: data.shares,
+    income: data.income,
+    tax: data.tax,
+    vehicleProfile: data.vehicleProfile,
+    vehicleDocs: data.vehicleDocs,
+    checklists: data.checklists,
+  });
+
   const triggerSave = (data: any) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       saveGlobalBudget.mutate(
-        { data: { year: data.year, months: data.months, rental: data.rental, super: data.super, shares: data.shares, income: data.income, tax: data.tax } },
+        { data: buildPayload(data) },
         { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetGlobalBudgetQueryKey() }) }
       );
-    }, 1200);
+      saveTimerRef.current = undefined;
+    }, 600);
   };
 
   const handleCellChange = (monthIndex: number, category: string, value: number) => {
@@ -262,9 +277,9 @@ export default function BudgetPage() {
 
   const handleManualSave = () => {
     if (!budgetData) return;
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = undefined; }
     saveGlobalBudget.mutate(
-      { data: { year: budgetData.year, months: budgetData.months, rental: budgetData.rental, super: budgetData.super, shares: budgetData.shares, income: budgetData.income, tax: budgetData.tax } },
+      { data: buildPayload(budgetData) },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetGlobalBudgetQueryKey() });
@@ -277,10 +292,18 @@ export default function BudgetPage() {
   // Keep ref fresh so the registered save function always calls latest handleManualSave
   handleManualSaveRef.current = handleManualSave;
 
-  // Register with global SaveContext (Hard Save button)
+  // Register with global SaveContext (Hard Save button) — flush on unmount too
   useEffect(() => {
     register(() => handleManualSaveRef.current());
-    return () => unregister();
+    return () => {
+      // Flush any pending debounced save before unmount
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = undefined;
+        handleManualSaveRef.current();
+      }
+      unregister();
+    };
   }, [register, unregister]);
 
   // ── Super change ─────────────────────────────────────────────────────────
