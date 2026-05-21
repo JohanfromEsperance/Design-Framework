@@ -252,6 +252,189 @@ export const ReorderLegsResponse = zod.array(ReorderLegsResponseItem)
 
 
 /**
+ * @summary Get the global (trip-independent) 60-month budget plan
+ */
+export const GetGlobalBudgetResponse = zod.object({
+  "id": zod.number(),
+  "tripId": zod.number().nullish(),
+  "year": zod.string(),
+  "months": zod.record(zod.string(), zod.object({
+  "fuel": zod.number().optional(),
+  "accommodation": zod.number().optional(),
+  "groceries": zod.number().optional(),
+  "eatingOut": zod.number().optional(),
+  "entertainment": zod.number().optional(),
+  "passesPermits": zod.number().optional(),
+  "insurance": zod.number().optional(),
+  "phoneInternet": zod.number().optional(),
+  "medical": zod.number().optional(),
+  "repairs": zod.number().optional(),
+  "subscriptions": zod.number().optional(),
+  "otherExpenses": zod.number().optional(),
+  "salary": zod.number().optional(),
+  "businessIncome": zod.number().optional(),
+  "refunds": zod.number().optional(),
+  "otherIncome1": zod.number().optional(),
+  "otherIncome2": zod.number().optional(),
+  "openingBalance": zod.number().optional()
+})).describe('Map of month index (0-11) to MonthBudget'),
+  "rental": zod.object({
+  "address": zod.string().optional(),
+  "purchasePrice": zod.number().optional(),
+  "currentValue": zod.number().optional(),
+  "yearBuilt": zod.number().optional(),
+  "constructionCost": zod.number().optional(),
+  "weeklyRent": zod.number().optional(),
+  "vacancyWeeks": zod.number().optional(),
+  "councilRates": zod.number().optional(),
+  "waterRates": zod.number().optional(),
+  "landlordInsurance": zod.number().optional(),
+  "strataLevies": zod.number().optional(),
+  "landTax": zod.number().optional(),
+  "managementFeeRate": zod.number().optional(),
+  "lettingFeeWeeks": zod.number().optional(),
+  "repairs": zod.number().optional(),
+  "advertising": zod.number().optional(),
+  "accountingFees": zod.number().optional(),
+  "legalFees": zod.number().optional(),
+  "bankCharges": zod.number().optional(),
+  "loanBalance": zod.number().optional(),
+  "interestRate": zod.number().optional(),
+  "div43Annual": zod.number().optional(),
+  "div40Annual": zod.number().optional(),
+  "marginalTaxRate": zod.number().optional(),
+  "otherIncome": zod.number().optional()
+}).optional().describe('Australian rental property income and expense configuration'),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Save/replace the global budget plan
+ */
+export const SaveGlobalBudgetBody = zod.object({
+  "year": zod.string(),
+  "months": zod.record(zod.string(), zod.object({
+  "fuel": zod.number().optional(),
+  "accommodation": zod.number().optional(),
+  "groceries": zod.number().optional(),
+  "eatingOut": zod.number().optional(),
+  "entertainment": zod.number().optional(),
+  "passesPermits": zod.number().optional(),
+  "insurance": zod.number().optional(),
+  "phoneInternet": zod.number().optional(),
+  "medical": zod.number().optional(),
+  "repairs": zod.number().optional(),
+  "subscriptions": zod.number().optional(),
+  "otherExpenses": zod.number().optional(),
+  "salary": zod.number().optional(),
+  "businessIncome": zod.number().optional(),
+  "refunds": zod.number().optional(),
+  "otherIncome1": zod.number().optional(),
+  "otherIncome2": zod.number().optional(),
+  "openingBalance": zod.number().optional()
+})),
+  "rental": zod.object({
+  "address": zod.string().optional(),
+  "purchasePrice": zod.number().optional(),
+  "currentValue": zod.number().optional(),
+  "yearBuilt": zod.number().optional(),
+  "constructionCost": zod.number().optional(),
+  "weeklyRent": zod.number().optional(),
+  "vacancyWeeks": zod.number().optional(),
+  "councilRates": zod.number().optional(),
+  "waterRates": zod.number().optional(),
+  "landlordInsurance": zod.number().optional(),
+  "strataLevies": zod.number().optional(),
+  "landTax": zod.number().optional(),
+  "managementFeeRate": zod.number().optional(),
+  "lettingFeeWeeks": zod.number().optional(),
+  "repairs": zod.number().optional(),
+  "advertising": zod.number().optional(),
+  "accountingFees": zod.number().optional(),
+  "legalFees": zod.number().optional(),
+  "bankCharges": zod.number().optional(),
+  "loanBalance": zod.number().optional(),
+  "interestRate": zod.number().optional(),
+  "div43Annual": zod.number().optional(),
+  "div40Annual": zod.number().optional(),
+  "marginalTaxRate": zod.number().optional(),
+  "otherIncome": zod.number().optional()
+}).optional().describe('Australian rental property income and expense configuration')
+})
+
+export const SaveGlobalBudgetResponse = zod.object({
+  "id": zod.number(),
+  "tripId": zod.number().nullish(),
+  "year": zod.string(),
+  "months": zod.record(zod.string(), zod.object({
+  "fuel": zod.number().optional(),
+  "accommodation": zod.number().optional(),
+  "groceries": zod.number().optional(),
+  "eatingOut": zod.number().optional(),
+  "entertainment": zod.number().optional(),
+  "passesPermits": zod.number().optional(),
+  "insurance": zod.number().optional(),
+  "phoneInternet": zod.number().optional(),
+  "medical": zod.number().optional(),
+  "repairs": zod.number().optional(),
+  "subscriptions": zod.number().optional(),
+  "otherExpenses": zod.number().optional(),
+  "salary": zod.number().optional(),
+  "businessIncome": zod.number().optional(),
+  "refunds": zod.number().optional(),
+  "otherIncome1": zod.number().optional(),
+  "otherIncome2": zod.number().optional(),
+  "openingBalance": zod.number().optional()
+})).describe('Map of month index (0-11) to MonthBudget'),
+  "rental": zod.object({
+  "address": zod.string().optional(),
+  "purchasePrice": zod.number().optional(),
+  "currentValue": zod.number().optional(),
+  "yearBuilt": zod.number().optional(),
+  "constructionCost": zod.number().optional(),
+  "weeklyRent": zod.number().optional(),
+  "vacancyWeeks": zod.number().optional(),
+  "councilRates": zod.number().optional(),
+  "waterRates": zod.number().optional(),
+  "landlordInsurance": zod.number().optional(),
+  "strataLevies": zod.number().optional(),
+  "landTax": zod.number().optional(),
+  "managementFeeRate": zod.number().optional(),
+  "lettingFeeWeeks": zod.number().optional(),
+  "repairs": zod.number().optional(),
+  "advertising": zod.number().optional(),
+  "accountingFees": zod.number().optional(),
+  "legalFees": zod.number().optional(),
+  "bankCharges": zod.number().optional(),
+  "loanBalance": zod.number().optional(),
+  "interestRate": zod.number().optional(),
+  "div43Annual": zod.number().optional(),
+  "div40Annual": zod.number().optional(),
+  "marginalTaxRate": zod.number().optional(),
+  "otherIncome": zod.number().optional()
+}).optional().describe('Australian rental property income and expense configuration'),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Get global budget totals and cashflow by month
+ */
+export const GetGlobalBudgetSummaryResponse = zod.object({
+  "totalExpenses": zod.number(),
+  "totalIncome": zod.number(),
+  "netCashflow": zod.number(),
+  "monthlyBreakdown": zod.array(zod.object({
+  "month": zod.number(),
+  "income": zod.number(),
+  "expenses": zod.number(),
+  "closing": zod.number()
+}))
+})
+
+
+/**
  * @summary Get the 12-month budget plan for a trip
  */
 export const GetBudgetParams = zod.object({
@@ -260,7 +443,7 @@ export const GetBudgetParams = zod.object({
 
 export const GetBudgetResponse = zod.object({
   "id": zod.number(),
-  "tripId": zod.number(),
+  "tripId": zod.number().nullish(),
   "year": zod.string(),
   "months": zod.record(zod.string(), zod.object({
   "fuel": zod.number().optional(),
@@ -373,7 +556,7 @@ export const SaveBudgetBody = zod.object({
 
 export const SaveBudgetResponse = zod.object({
   "id": zod.number(),
-  "tripId": zod.number(),
+  "tripId": zod.number().nullish(),
   "year": zod.string(),
   "months": zod.record(zod.string(), zod.object({
   "fuel": zod.number().optional(),

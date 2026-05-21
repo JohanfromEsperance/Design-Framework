@@ -5,7 +5,7 @@ import { tripsTable } from "./trips";
 
 export const budgetPlansTable = pgTable("budget_plans", {
   id: serial("id").primaryKey(),
-  tripId: integer("trip_id").notNull().references(() => tripsTable.id, { onDelete: "cascade" }).unique(),
+  tripId: integer("trip_id").references(() => tripsTable.id, { onDelete: "cascade" }),
   year: text("year").notNull().default("2026"),
   months: jsonb("months").notNull().default({}),
   rental: jsonb("rental").default({}),

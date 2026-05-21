@@ -3,13 +3,13 @@ import { useGetTrip, useUpdateTrip, getGetTripQueryKey } from "@workspace/api-cl
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Map, Route, Car, DollarSign, BookOpen, BarChart3, CalendarCheck, Award, Pencil, X, Check } from "lucide-react";
+import { Map, Route, Car, TrendingDown, BookOpen, BarChart3, CalendarCheck, Award, Pencil, X, Check } from "lucide-react";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import PlannerTab from "./tabs/planner-tab";
 import MapTab from "./tabs/map-tab";
 import VehicleTab from "./tabs/vehicle-tab";
-import BudgetTab from "./tabs/budget-tab";
+import TripCostsTab from "./tabs/trip-costs-tab";
 import JournalTab from "./tabs/journal-tab";
 import AnalysisTab from "./tabs/analysis-tab";
 import BookingsTab from "./tabs/bookings-tab";
@@ -138,8 +138,8 @@ export default function TripShell({ params }: TripShellProps) {
             <TabsTrigger value="vehicle" className="flex items-center gap-1.5">
               <Car className="h-4 w-4" /> <span className="hidden sm:inline">Vehicle</span>
             </TabsTrigger>
-            <TabsTrigger value="budget" className="flex items-center gap-1.5">
-              <DollarSign className="h-4 w-4" /> <span className="hidden sm:inline">Budget</span>
+            <TabsTrigger value="costs" className="flex items-center gap-1.5">
+              <TrendingDown className="h-4 w-4" /> <span className="hidden sm:inline">Trip Costs</span>
             </TabsTrigger>
             <TabsTrigger value="journal" className="flex items-center gap-1.5">
               <BookOpen className="h-4 w-4" /> <span className="hidden sm:inline">Journal</span>
@@ -168,8 +168,8 @@ export default function TripShell({ params }: TripShellProps) {
               <VehicleTab tripId={trip.id} />
             </TabsContent>
 
-            <TabsContent value="budget" className="m-0">
-              <BudgetTab tripId={trip.id} />
+            <TabsContent value="costs" className="m-0">
+              <TripCostsTab tripId={trip.id} />
             </TabsContent>
 
             <TabsContent value="journal" className="m-0">

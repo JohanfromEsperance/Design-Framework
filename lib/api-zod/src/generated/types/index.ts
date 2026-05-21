@@ -12,6 +12,7 @@ export * from './budgetPlanInputMonths';
 export * from './budgetPlanMonths';
 export * from './budgetSummary';
 export * from './dashboardStats';
+export * from './globalBudgetSummary';
 export * from './gpsPoint';
 export * from './gpsPointInput';
 export * from './healthStatus';

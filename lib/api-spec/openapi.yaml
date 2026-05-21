@@ -268,6 +268,50 @@ paths:
                 items:
                   $ref: "#/components/schemas/Leg"
 
+  # ── Global Budget ───────────────────────────────────────────────────────────
+  /budget:
+    get:
+      operationId: getGlobalBudget
+      tags: [budget]
+      summary: Get the global (trip-independent) 60-month budget plan
+      responses:
+        "200":
+          description: Global budget plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetPlan"
+    put:
+      operationId: saveGlobalBudget
+      tags: [budget]
+      summary: Save/replace the global budget plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BudgetPlanInput"
+      responses:
+        "200":
+          description: Saved global budget plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetPlan"
+
+  /budget/summary:
+    get:
+      operationId: getGlobalBudgetSummary
+      tags: [budget]
+      summary: Get global budget totals and cashflow by month
+      responses:
+        "200":
+          description: Global budget summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlobalBudgetSummary"
+
   # ── Budget ─────────────────────────────────────────────────────────────────
   /trips/{tripId}/budget:
     get:
@@ -759,12 +803,12 @@ components:
 
     BudgetPlan:
       type: object
-      required: [id, tripId, year, months, updatedAt]
+      required: [id, year, months, updatedAt]
       properties:
         id:
           type: integer
         tripId:
-          type: integer
+          type: ["integer", "null"]
         year:
           type: string
         months:
@@ -829,6 +873,21 @@ components:
             $ref: "#/components/schemas/MonthBudget"
         rental:
           $ref: "#/components/schemas/RentalConfig"
+
+    GlobalBudgetSummary:
+      type: object
+      required: [totalExpenses, totalIncome, netCashflow, monthlyBreakdown]
+      properties:
+        totalExpenses:
+          type: number
+        totalIncome:
+          type: number
+        netCashflow:
+          type: number
+        monthlyBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonthCashflow"
 
     BudgetSummary:
       type: object

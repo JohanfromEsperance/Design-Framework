@@ -169,7 +169,8 @@ export type BudgetPlanMonths = {[key: string]: MonthBudget};
 
 export interface BudgetPlan {
   id: number;
-  tripId: number;
+  /** @nullable */
+  tripId?: number | null;
   year: string;
   /** Map of month index (0-11) to MonthBudget */
   months: BudgetPlanMonths;
@@ -190,6 +191,13 @@ export interface MonthCashflow {
   income: number;
   expenses: number;
   closing: number;
+}
+
+export interface GlobalBudgetSummary {
+  totalExpenses: number;
+  totalIncome: number;
+  netCashflow: number;
+  monthlyBreakdown: MonthCashflow[];
 }
 
 export interface BudgetSummary {

@@ -24,6 +24,7 @@ import type {
   BudgetPlanInput,
   BudgetSummary,
   DashboardStats,
+  GlobalBudgetSummary,
   GpsPoint,
   GpsPointInput,
   HealthStatus,
@@ -941,6 +942,231 @@ export const useReorderLegs = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getReorderLegsMutationOptions(options));
     }
+
+export const getGetGlobalBudgetUrl = () => {
+
+
+
+
+  return `/api/budget`
+}
+
+/**
+ * @summary Get the global (trip-independent) 60-month budget plan
+ */
+export const getGlobalBudget = async ( options?: RequestInit): Promise<BudgetPlan> => {
+
+  return customFetch<BudgetPlan>(getGetGlobalBudgetUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGlobalBudgetQueryKey = () => {
+    return [
+    `/api/budget`
+    ] as const;
+    }
+
+
+export const getGetGlobalBudgetQueryOptions = <TData = Awaited<ReturnType<typeof getGlobalBudget>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGlobalBudget>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGlobalBudgetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGlobalBudget>>> = ({ signal }) => getGlobalBudget({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGlobalBudget>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGlobalBudgetQueryResult = NonNullable<Awaited<ReturnType<typeof getGlobalBudget>>>
+export type GetGlobalBudgetQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the global (trip-independent) 60-month budget plan
+ */
+
+export function useGetGlobalBudget<TData = Awaited<ReturnType<typeof getGlobalBudget>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGlobalBudget>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGlobalBudgetQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getSaveGlobalBudgetUrl = () => {
+
+
+
+
+  return `/api/budget`
+}
+
+/**
+ * @summary Save/replace the global budget plan
+ */
+export const saveGlobalBudget = async (budgetPlanInput: BudgetPlanInput, options?: RequestInit): Promise<BudgetPlan> => {
+
+  return customFetch<BudgetPlan>(getSaveGlobalBudgetUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      budgetPlanInput,)
+  }
+);}
+
+
+
+
+export const getSaveGlobalBudgetMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveGlobalBudget>>, TError,{data: BodyType<BudgetPlanInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveGlobalBudget>>, TError,{data: BodyType<BudgetPlanInput>}, TContext> => {
+
+const mutationKey = ['saveGlobalBudget'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveGlobalBudget>>, {data: BodyType<BudgetPlanInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  saveGlobalBudget(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveGlobalBudgetMutationResult = NonNullable<Awaited<ReturnType<typeof saveGlobalBudget>>>
+    export type SaveGlobalBudgetMutationBody = BodyType<BudgetPlanInput>
+    export type SaveGlobalBudgetMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Save/replace the global budget plan
+ */
+export const useSaveGlobalBudget = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveGlobalBudget>>, TError,{data: BodyType<BudgetPlanInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveGlobalBudget>>,
+        TError,
+        {data: BodyType<BudgetPlanInput>},
+        TContext
+      > => {
+      return useMutation(getSaveGlobalBudgetMutationOptions(options));
+    }
+
+export const getGetGlobalBudgetSummaryUrl = () => {
+
+
+
+
+  return `/api/budget/summary`
+}
+
+/**
+ * @summary Get global budget totals and cashflow by month
+ */
+export const getGlobalBudgetSummary = async ( options?: RequestInit): Promise<GlobalBudgetSummary> => {
+
+  return customFetch<GlobalBudgetSummary>(getGetGlobalBudgetSummaryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGlobalBudgetSummaryQueryKey = () => {
+    return [
+    `/api/budget/summary`
+    ] as const;
+    }
+
+
+export const getGetGlobalBudgetSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getGlobalBudgetSummary>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGlobalBudgetSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGlobalBudgetSummaryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGlobalBudgetSummary>>> = ({ signal }) => getGlobalBudgetSummary({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGlobalBudgetSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGlobalBudgetSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getGlobalBudgetSummary>>>
+export type GetGlobalBudgetSummaryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get global budget totals and cashflow by month
+ */
+
+export function useGetGlobalBudgetSummary<TData = Awaited<ReturnType<typeof getGlobalBudgetSummary>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGlobalBudgetSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGlobalBudgetSummaryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetBudgetUrl = (tripId: number,) => {
 

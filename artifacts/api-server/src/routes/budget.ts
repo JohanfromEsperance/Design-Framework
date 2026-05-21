@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import { db, budgetPlansTable } from "@workspace/db";
 import { serialize } from "../lib/serialize";
 import {
@@ -10,9 +10,100 @@ import {
   GetBudgetResponse,
   SaveBudgetResponse,
   GetBudgetSummaryResponse,
+  GetGlobalBudgetResponse,
+  SaveGlobalBudgetBody,
+  SaveGlobalBudgetResponse,
+  GetGlobalBudgetSummaryResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
+
+// ── Global Budget (tripId = NULL) ─────────────────────────────────────────────
+
+router.get("/budget", async (req, res): Promise<void> => {
+  const [plan] = await db
+    .select()
+    .from(budgetPlansTable)
+    .where(isNull(budgetPlansTable.tripId));
+
+  if (!plan) {
+    res.json(GetGlobalBudgetResponse.parse({
+      id: 0,
+      tripId: null,
+      year: new Date().getFullYear().toString(),
+      months: {},
+      rental: {},
+      updatedAt: new Date().toISOString(),
+    }));
+    return;
+  }
+  res.json(GetGlobalBudgetResponse.parse(serialize(plan)));
+});
+
+router.put("/budget", async (req, res): Promise<void> => {
+  const parsed = SaveGlobalBudgetBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [existing] = await db
+    .select()
+    .from(budgetPlansTable)
+    .where(isNull(budgetPlansTable.tripId));
+
+  let plan;
+  if (existing) {
+    [plan] = await db
+      .update(budgetPlansTable)
+      .set({ ...parsed.data, updatedAt: new Date() })
+      .where(isNull(budgetPlansTable.tripId))
+      .returning();
+  } else {
+    [plan] = await db
+      .insert(budgetPlansTable)
+      .values({ ...parsed.data, tripId: null, updatedAt: new Date() })
+      .returning();
+  }
+  res.json(SaveGlobalBudgetResponse.parse(serialize(plan!)));
+});
+
+router.get("/budget/summary", async (req, res): Promise<void> => {
+  const [plan] = await db
+    .select()
+    .from(budgetPlansTable)
+    .where(isNull(budgetPlansTable.tripId));
+
+  const months = (plan?.months as Record<string, Record<string, number>>) || {};
+  const EXPENSE_KEYS = ["fuel", "accommodation", "food", "eatingOut", "entertainment",
+    "passesPermits", "ferries", "vehicleService", "caravanService", "tyresVehicle", "tyresCaravan",
+    "repairs", "starlink", "johanMobile", "zandraMobile", "medical", "prescriptions",
+    "apartmentInsurance", "vehicleLicence", "caravanLicence", "vehicleInsurance",
+    "caravanInsurance", "roadsideAssist", "superContribution", "savingsZandra", "savingsJohan"];
+  const INCOME_KEYS = ["rentalNet", "salary", "businessIncome", "refunds", "otherIncome1", "otherIncome2"];
+
+  const monthlyBreakdown = [];
+  let prevClosing = months["0"]?.openingBalance ?? 0;
+  for (let m = 0; m < 12; m++) {
+    const mData = months[m.toString()] || {};
+    const income = INCOME_KEYS.reduce((s, k) => s + (Number(mData[k]) || 0), 0);
+    const expenses = EXPENSE_KEYS.reduce((s, k) => s + (Number(mData[k]) || 0), 0);
+    const opening = m === 0 ? (Number(mData.openingBalance) || 0) : prevClosing;
+    const closing = opening + income - expenses;
+    prevClosing = closing;
+    monthlyBreakdown.push({ month: m, income, expenses, closing });
+  }
+  const totalIncome = monthlyBreakdown.reduce((s, r) => s + r.income, 0);
+  const totalExpenses = monthlyBreakdown.reduce((s, r) => s + r.expenses, 0);
+
+  res.json(GetGlobalBudgetSummaryResponse.parse({
+    totalExpenses,
+    totalIncome,
+    netCashflow: totalIncome - totalExpenses,
+    monthlyBreakdown,
+  }));
+});
+
+// ── Per-trip budget ───────────────────────────────────────────────────────────
 
 function parseTripId(raw: string | string[]): number {
   return parseInt(Array.isArray(raw) ? raw[0] : raw, 10);

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Compass, Map, Home, Menu, MessageSquare, Globe } from "lucide-react";
+import { Compass, Map, Home, Menu, MessageSquare, Globe, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -25,6 +25,7 @@ export function Layout({ children }: LayoutProps) {
   const navItems = [
     { href: "/", label: "Dashboard", icon: Home },
     { href: "/trips", label: "My Trips", icon: Map },
+    { href: "/budget", label: "Budget", icon: DollarSign },
   ];
 
   const SidebarContent = () => (

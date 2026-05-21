@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import TripsList from "@/pages/trips/index";
 import TripShell from "@/pages/trips/trip-shell";
+import BudgetPage from "@/pages/budget-page";
 
 const queryClient = new QueryClient();
 
@@ -15,6 +16,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/trips" component={TripsList} />
       <Route path="/trips/:tripId" component={TripShell} />
+      <Route path="/budget" component={BudgetPage} />
       <Route component={NotFound} />
     </Switch>
   );

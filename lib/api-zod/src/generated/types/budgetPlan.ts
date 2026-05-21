@@ -10,7 +10,8 @@ import type { RentalConfig } from './rentalConfig';
 
 export interface BudgetPlan {
   id: number;
-  tripId: number;
+  /** @nullable */
+  tripId?: number | null;
   year: string;
   /** Map of month index (0-11) to MonthBudget */
   months: BudgetPlanMonths;
