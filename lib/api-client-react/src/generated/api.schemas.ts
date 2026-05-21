@@ -139,7 +139,8 @@ export interface RentalConfig {
   div40Annual?: number;
   marginalTaxRate?: number;
   otherIncome?: number;
-}
+  [key: string]: unknown;
+ }
 
 export interface MonthBudget {
   fuel?: number;
@@ -160,12 +161,23 @@ export interface MonthBudget {
   otherIncome1?: number;
   otherIncome2?: number;
   openingBalance?: number;
-}
+  [key: string]: unknown;
+ }
 
 /**
  * Map of month index (0-59) to MonthBudget
  */
 export type BudgetPlanMonths = {[key: string]: MonthBudget};
+
+/**
+ * Global rig profile (weights, model, payload)
+ */
+export type BudgetPlanVehicleProfile = { [key: string]: unknown };
+
+/**
+ * Registration, licence, and insurance records
+ */
+export type BudgetPlanVehicleDocs = { [key: string]: unknown };
 
 export interface SuperAccount {
   id: string;
@@ -198,7 +210,8 @@ export interface SuperAccount {
 
 export interface SuperPortfolio {
   accounts?: SuperAccount[];
-}
+  [key: string]: unknown;
+ }
 
 export interface ShareHolding {
   id: string;
@@ -213,7 +226,8 @@ export interface ShareHolding {
 
 export interface SharesPortfolio {
   holdings?: ShareHolding[];
-}
+  [key: string]: unknown;
+ }
 
 /**
  * Map of month index (0-59) to {forecast, actual}
@@ -275,10 +289,24 @@ export interface BudgetPlan {
   shares?: SharesPortfolio;
   income?: IncomeWorksheet;
   tax?: TaxWorksheet;
+  /** Global rig profile (weights, model, payload) */
+  vehicleProfile?: BudgetPlanVehicleProfile;
+  /** Registration, licence, and insurance records */
+  vehicleDocs?: BudgetPlanVehicleDocs;
   updatedAt: string;
 }
 
 export type BudgetPlanInputMonths = {[key: string]: MonthBudget};
+
+/**
+ * Global rig profile (weights, model, payload)
+ */
+export type BudgetPlanInputVehicleProfile = { [key: string]: unknown };
+
+/**
+ * Registration, licence, and insurance records
+ */
+export type BudgetPlanInputVehicleDocs = { [key: string]: unknown };
 
 export interface BudgetPlanInput {
   year: string;
@@ -288,6 +316,10 @@ export interface BudgetPlanInput {
   shares?: SharesPortfolio;
   income?: IncomeWorksheet;
   tax?: TaxWorksheet;
+  /** Global rig profile (weights, model, payload) */
+  vehicleProfile?: BudgetPlanInputVehicleProfile;
+  /** Registration, licence, and insurance records */
+  vehicleDocs?: BudgetPlanInputVehicleDocs;
 }
 
 export interface MonthCashflow {

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Map, Home, Menu, MessageSquare, Globe, DollarSign, LogOut } from "lucide-react";
+import { Map, Home, Menu, MessageSquare, Globe, DollarSign, LogOut, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useClerk, useUser } from "@clerk/react";
@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/trips",     label: "My Trips",   icon: Map },
   { href: "/budget",   label: "Budget",     icon: DollarSign },
+  { href: "/vehicle",  label: "Rig & Vehicle", icon: Truck },
 ] as const;
 
 interface SidebarProps {

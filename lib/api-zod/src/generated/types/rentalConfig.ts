@@ -35,4 +35,5 @@ export interface RentalConfig {
   div40Annual?: number;
   marginalTaxRate?: number;
   otherIncome?: number;
-}
+  [key: string]: unknown;
+ }

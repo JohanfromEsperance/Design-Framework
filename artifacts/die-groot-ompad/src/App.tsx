@@ -12,6 +12,7 @@ import Dashboard from "@/pages/dashboard";
 import TripsList from "@/pages/trips/index";
 import TripShell from "@/pages/trips/trip-shell";
 import BudgetPage from "@/pages/budget-page";
+import VehiclePage from "@/pages/vehicle-page";
 
 // ── Clerk config ───────────────────────────────────────────────────────────────
 
@@ -313,6 +314,11 @@ function ClerkProviderWithRoutes() {
             <Route path="/budget">
               <ProtectedRoute>
                 <Layout><BudgetPage /></Layout>
+              </ProtectedRoute>
+            </Route>
+            <Route path="/vehicle">
+              <ProtectedRoute>
+                <Layout><VehiclePage /></Layout>
               </ProtectedRoute>
             </Route>
             <Route component={NotFound} />

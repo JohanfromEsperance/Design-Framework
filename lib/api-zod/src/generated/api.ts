@@ -369,6 +369,8 @@ export const GetGlobalBudgetResponse = zod.object({
   "useProposedNegGearing": zod.boolean().optional(),
   "useProposedCGT": zod.boolean().optional()
 }).optional(),
+  "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
+  "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records'),
   "updatedAt": zod.string()
 })
 
@@ -488,7 +490,9 @@ export const SaveGlobalBudgetBody = zod.object({
 })).optional(),
   "useProposedNegGearing": zod.boolean().optional(),
   "useProposedCGT": zod.boolean().optional()
-}).optional()
+}).optional(),
+  "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
+  "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records')
 })
 
 export const SaveGlobalBudgetResponse = zod.object({
@@ -606,6 +610,8 @@ export const SaveGlobalBudgetResponse = zod.object({
   "useProposedNegGearing": zod.boolean().optional(),
   "useProposedCGT": zod.boolean().optional()
 }).optional(),
+  "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
+  "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records'),
   "updatedAt": zod.string()
 })
 
@@ -748,6 +754,8 @@ export const GetBudgetResponse = zod.object({
   "useProposedNegGearing": zod.boolean().optional(),
   "useProposedCGT": zod.boolean().optional()
 }).optional(),
+  "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
+  "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records'),
   "updatedAt": zod.string()
 })
 
@@ -871,7 +879,9 @@ export const SaveBudgetBody = zod.object({
 })).optional(),
   "useProposedNegGearing": zod.boolean().optional(),
   "useProposedCGT": zod.boolean().optional()
-}).optional()
+}).optional(),
+  "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
+  "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records')
 })
 
 export const SaveBudgetResponse = zod.object({
@@ -989,6 +999,8 @@ export const SaveBudgetResponse = zod.object({
   "useProposedNegGearing": zod.boolean().optional(),
   "useProposedCGT": zod.boolean().optional()
 }).optional(),
+  "vehicleProfile": zod.record(zod.string(), zod.unknown()).optional().describe('Global rig profile (weights, model, payload)'),
+  "vehicleDocs": zod.record(zod.string(), zod.unknown()).optional().describe('Registration, licence, and insurance records'),
   "updatedAt": zod.string()
 })
 

@@ -25,4 +25,5 @@ export interface MonthBudget {
   otherIncome1?: number;
   otherIncome2?: number;
   openingBalance?: number;
-}
+  [key: string]: unknown;
+ }

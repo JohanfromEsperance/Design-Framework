@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BudgetPlanInputMonths } from './budgetPlanInputMonths';
+import type { BudgetPlanInputVehicleDocs } from './budgetPlanInputVehicleDocs';
+import type { BudgetPlanInputVehicleProfile } from './budgetPlanInputVehicleProfile';
 import type { IncomeWorksheet } from './incomeWorksheet';
 import type { RentalConfig } from './rentalConfig';
 import type { SharesPortfolio } from './sharesPortfolio';
@@ -20,4 +22,8 @@ export interface BudgetPlanInput {
   shares?: SharesPortfolio;
   income?: IncomeWorksheet;
   tax?: TaxWorksheet;
+  /** Global rig profile (weights, model, payload) */
+  vehicleProfile?: BudgetPlanInputVehicleProfile;
+  /** Registration, licence, and insurance records */
+  vehicleDocs?: BudgetPlanInputVehicleDocs;
 }

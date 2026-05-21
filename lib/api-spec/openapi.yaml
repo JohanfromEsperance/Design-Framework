@@ -773,6 +773,7 @@ components:
     # ── Budget ─────────────────────────────────────────────────────────────────
     RentalConfig:
       type: object
+      additionalProperties: true
       description: Australian rental property income and expense configuration
       properties:
         address: { type: string }
@@ -826,6 +827,14 @@ components:
           $ref: "#/components/schemas/IncomeWorksheet"
         tax:
           $ref: "#/components/schemas/TaxWorksheet"
+        vehicleProfile:
+          type: object
+          additionalProperties: true
+          description: Global rig profile (weights, model, payload)
+        vehicleDocs:
+          type: object
+          additionalProperties: true
+          description: Registration, licence, and insurance records
         updatedAt:
           type: string
 
@@ -877,6 +886,7 @@ components:
 
     SuperPortfolio:
       type: object
+      additionalProperties: true
       properties:
         accounts:
           type: array
@@ -905,6 +915,7 @@ components:
 
     SharesPortfolio:
       type: object
+      additionalProperties: true
       properties:
         holdings:
           type: array
@@ -913,6 +924,7 @@ components:
 
     MonthBudget:
       type: object
+      additionalProperties: true
       properties:
         fuel:
           type: number
@@ -1056,6 +1068,14 @@ components:
           $ref: "#/components/schemas/IncomeWorksheet"
         tax:
           $ref: "#/components/schemas/TaxWorksheet"
+        vehicleProfile:
+          type: object
+          additionalProperties: true
+          description: Global rig profile (weights, model, payload)
+        vehicleDocs:
+          type: object
+          additionalProperties: true
+          description: Registration, licence, and insurance records
 
     GlobalBudgetSummary:
       type: object

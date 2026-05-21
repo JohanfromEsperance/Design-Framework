@@ -5,9 +5,8 @@
  * Die Groot Ompad — Integrated Travel Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { SuperAccount } from './superAccount';
 
-export interface SuperPortfolio {
-  accounts?: SuperAccount[];
-  [key: string]: unknown;
- }
+/**
+ * Global rig profile (weights, model, payload)
+ */
+export type BudgetPlanInputVehicleProfile = { [key: string]: unknown };

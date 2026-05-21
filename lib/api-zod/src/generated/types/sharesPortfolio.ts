@@ -9,4 +9,5 @@ import type { ShareHolding } from './shareHolding';
 
 export interface SharesPortfolio {
   holdings?: ShareHolding[];
-}
+  [key: string]: unknown;
+ }
