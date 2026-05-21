@@ -1,7 +1,9 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
 import { db, vehicleProfilesTable } from "@workspace/db";
 import { serialize } from "../lib/serialize";
+import { assertTripOwner } from "../lib/assertTripOwner";
 import {
   GetVehicleProfileParams,
   SaveVehicleProfileParams,
@@ -17,9 +19,14 @@ function parseTripId(raw: string | string[]): number {
 }
 
 router.get("/trips/:tripId/vehicle", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const params = GetVehicleProfileParams.safeParse({ tripId: parseTripId(req.params.tripId) });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await assertTripOwner(params.data.tripId, userId!))) {
+    res.status(404).json({ error: "Trip not found" });
     return;
   }
   const [profile] = await db
@@ -62,9 +69,14 @@ router.get("/trips/:tripId/vehicle", async (req, res): Promise<void> => {
 });
 
 router.put("/trips/:tripId/vehicle", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const params = SaveVehicleProfileParams.safeParse({ tripId: parseTripId(req.params.tripId) });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await assertTripOwner(params.data.tripId, userId!))) {
+    res.status(404).json({ error: "Trip not found" });
     return;
   }
   const parsed = SaveVehicleProfileBody.safeParse(req.body);

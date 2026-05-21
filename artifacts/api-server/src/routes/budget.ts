@@ -1,7 +1,9 @@
 import { Router, type IRouter } from "express";
-import { eq, isNull } from "drizzle-orm";
+import { eq, isNull, and } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
 import { db, budgetPlansTable } from "@workspace/db";
 import { serialize } from "../lib/serialize";
+import { assertTripOwner } from "../lib/assertTripOwner";
 import {
   GetBudgetParams,
   SaveBudgetParams,
@@ -21,10 +23,11 @@ const router: IRouter = Router();
 // ── Global Budget (tripId = NULL) ─────────────────────────────────────────────
 
 router.get("/budget", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const [plan] = await db
     .select()
     .from(budgetPlansTable)
-    .where(isNull(budgetPlansTable.tripId));
+    .where(and(isNull(budgetPlansTable.tripId), eq(budgetPlansTable.userId, userId!)));
 
   if (!plan) {
     res.json(GetGlobalBudgetResponse.parse({
@@ -43,6 +46,7 @@ router.get("/budget", async (req, res): Promise<void> => {
 });
 
 router.put("/budget", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const parsed = SaveGlobalBudgetBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -51,29 +55,30 @@ router.put("/budget", async (req, res): Promise<void> => {
   const [existing] = await db
     .select()
     .from(budgetPlansTable)
-    .where(isNull(budgetPlansTable.tripId));
+    .where(and(isNull(budgetPlansTable.tripId), eq(budgetPlansTable.userId, userId!)));
 
   let plan;
   if (existing) {
     [plan] = await db
       .update(budgetPlansTable)
       .set({ ...parsed.data, updatedAt: new Date() })
-      .where(isNull(budgetPlansTable.tripId))
+      .where(and(isNull(budgetPlansTable.tripId), eq(budgetPlansTable.userId, userId!)))
       .returning();
   } else {
     [plan] = await db
       .insert(budgetPlansTable)
-      .values({ ...parsed.data, tripId: null, updatedAt: new Date() })
+      .values({ ...parsed.data, userId: userId!, tripId: null, updatedAt: new Date() })
       .returning();
   }
   res.json(SaveGlobalBudgetResponse.parse(serialize(plan!)));
 });
 
 router.get("/budget/summary", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const [plan] = await db
     .select()
     .from(budgetPlansTable)
-    .where(isNull(budgetPlansTable.tripId));
+    .where(and(isNull(budgetPlansTable.tripId), eq(budgetPlansTable.userId, userId!)));
 
   const months = (plan?.months as Record<string, Record<string, number>>) || {};
   const EXPENSE_KEYS = ["fuel", "accommodation", "food", "eatingOut", "entertainment",
@@ -112,9 +117,14 @@ function parseTripId(raw: string | string[]): number {
 }
 
 router.get("/trips/:tripId/budget", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const params = GetBudgetParams.safeParse({ tripId: parseTripId(req.params.tripId) });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await assertTripOwner(params.data.tripId, userId!))) {
+    res.status(404).json({ error: "Trip not found" });
     return;
   }
   const [plan] = await db
@@ -138,9 +148,14 @@ router.get("/trips/:tripId/budget", async (req, res): Promise<void> => {
 });
 
 router.put("/trips/:tripId/budget", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const params = SaveBudgetParams.safeParse({ tripId: parseTripId(req.params.tripId) });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await assertTripOwner(params.data.tripId, userId!))) {
+    res.status(404).json({ error: "Trip not found" });
     return;
   }
   const parsed = SaveBudgetBody.safeParse(req.body);
@@ -163,16 +178,21 @@ router.put("/trips/:tripId/budget", async (req, res): Promise<void> => {
   } else {
     [plan] = await db
       .insert(budgetPlansTable)
-      .values({ ...parsed.data, tripId: params.data.tripId, updatedAt: new Date() })
+      .values({ ...parsed.data, userId: userId!, tripId: params.data.tripId, updatedAt: new Date() })
       .returning();
   }
   res.json(SaveBudgetResponse.parse(serialize(plan)));
 });
 
 router.get("/trips/:tripId/budget/summary", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const params = GetBudgetSummaryParams.safeParse({ tripId: parseTripId(req.params.tripId) });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await assertTripOwner(params.data.tripId, userId!))) {
+    res.status(404).json({ error: "Trip not found" });
     return;
   }
   const [plan] = await db

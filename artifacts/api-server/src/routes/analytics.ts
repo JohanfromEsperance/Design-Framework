@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
 import { db, tripsTable, legsTable, journalEntriesTable } from "@workspace/db";
+import type { Leg, JournalEntry } from "@workspace/db";
 import { serialize } from "../lib/serialize";
 import { GetDashboardResponse } from "@workspace/api-zod";
 
@@ -10,12 +12,31 @@ const DEFAULT_FUEL_PRICE = 2.20;
 const CONSUMPTION_L_PER_100KM = 18;
 
 router.get("/analytics/dashboard", async (req, res): Promise<void> => {
-  const [tripsResult, allLegs, journalResult, recentTrips] = await Promise.all([
-    db.select().from(tripsTable),
-    db.select().from(legsTable),
-    db.select().from(journalEntriesTable),
-    db.select().from(tripsTable).orderBy(desc(tripsTable.updatedAt)).limit(5),
-  ]);
+  const { userId } = getAuth(req);
+
+  const tripsResult = await db
+    .select()
+    .from(tripsTable)
+    .where(eq(tripsTable.userId, userId!));
+
+  const tripIds = tripsResult.map(t => t.id);
+
+  let allLegs: Leg[] = [];
+  let journalResult: JournalEntry[] = [];
+
+  if (tripIds.length > 0) {
+    [allLegs, journalResult] = await Promise.all([
+      db.select().from(legsTable).where(inArray(legsTable.tripId, tripIds)),
+      db.select().from(journalEntriesTable).where(inArray(journalEntriesTable.tripId, tripIds)),
+    ]);
+  }
+
+  const recentTrips = await db
+    .select()
+    .from(tripsTable)
+    .where(eq(tripsTable.userId, userId!))
+    .orderBy(desc(tripsTable.updatedAt))
+    .limit(5);
 
   const totalKm = allLegs.reduce((s, l) => s + (l.actualKm ?? l.plannedKm ?? 0), 0);
   const totalFuelCost = allLegs.reduce((s, l) => {

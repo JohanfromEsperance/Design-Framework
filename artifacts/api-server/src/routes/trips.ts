@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
 import { db, tripsTable, legsTable } from "@workspace/db";
 import { serialize } from "../lib/serialize";
 import {
@@ -18,14 +19,17 @@ import {
 const router: IRouter = Router();
 
 router.get("/trips", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const trips = await db
     .select()
     .from(tripsTable)
+    .where(eq(tripsTable.userId, userId!))
     .orderBy(desc(tripsTable.updatedAt));
   res.json(ListTripsResponse.parse(serialize(trips)));
 });
 
 router.post("/trips", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const parsed = CreateTripBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -33,12 +37,13 @@ router.post("/trips", async (req, res): Promise<void> => {
   }
   const [trip] = await db
     .insert(tripsTable)
-    .values({ ...parsed.data, updatedAt: new Date() })
+    .values({ ...parsed.data, userId: userId!, updatedAt: new Date() })
     .returning();
   res.status(201).json(GetTripResponse.parse(serialize(trip)));
 });
 
 router.get("/trips/:tripId", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const raw = Array.isArray(req.params.tripId) ? req.params.tripId[0] : req.params.tripId;
   const params = GetTripParams.safeParse({ tripId: parseInt(raw, 10) });
   if (!params.success) {
@@ -48,7 +53,7 @@ router.get("/trips/:tripId", async (req, res): Promise<void> => {
   const [trip] = await db
     .select()
     .from(tripsTable)
-    .where(eq(tripsTable.id, params.data.tripId));
+    .where(and(eq(tripsTable.id, params.data.tripId), eq(tripsTable.userId, userId!)));
   if (!trip) {
     res.status(404).json({ error: "Trip not found" });
     return;
@@ -57,6 +62,7 @@ router.get("/trips/:tripId", async (req, res): Promise<void> => {
 });
 
 router.patch("/trips/:tripId", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const raw = Array.isArray(req.params.tripId) ? req.params.tripId[0] : req.params.tripId;
   const params = UpdateTripParams.safeParse({ tripId: parseInt(raw, 10) });
   if (!params.success) {
@@ -71,7 +77,7 @@ router.patch("/trips/:tripId", async (req, res): Promise<void> => {
   const [trip] = await db
     .update(tripsTable)
     .set({ ...parsed.data, updatedAt: new Date() })
-    .where(eq(tripsTable.id, params.data.tripId))
+    .where(and(eq(tripsTable.id, params.data.tripId), eq(tripsTable.userId, userId!)))
     .returning();
   if (!trip) {
     res.status(404).json({ error: "Trip not found" });
@@ -81,6 +87,7 @@ router.patch("/trips/:tripId", async (req, res): Promise<void> => {
 });
 
 router.delete("/trips/:tripId", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const raw = Array.isArray(req.params.tripId) ? req.params.tripId[0] : req.params.tripId;
   const params = DeleteTripParams.safeParse({ tripId: parseInt(raw, 10) });
   if (!params.success) {
@@ -89,7 +96,7 @@ router.delete("/trips/:tripId", async (req, res): Promise<void> => {
   }
   const [trip] = await db
     .delete(tripsTable)
-    .where(eq(tripsTable.id, params.data.tripId))
+    .where(and(eq(tripsTable.id, params.data.tripId), eq(tripsTable.userId, userId!)))
     .returning();
   if (!trip) {
     res.status(404).json({ error: "Trip not found" });
@@ -99,6 +106,7 @@ router.delete("/trips/:tripId", async (req, res): Promise<void> => {
 });
 
 router.get("/trips/:tripId/summary", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const raw = Array.isArray(req.params.tripId) ? req.params.tripId[0] : req.params.tripId;
   const params = GetTripSummaryParams.safeParse({ tripId: parseInt(raw, 10) });
   if (!params.success) {
@@ -106,6 +114,15 @@ router.get("/trips/:tripId/summary", async (req, res): Promise<void> => {
     return;
   }
   const tid = params.data.tripId;
+
+  const [trip] = await db
+    .select()
+    .from(tripsTable)
+    .where(and(eq(tripsTable.id, tid), eq(tripsTable.userId, userId!)));
+  if (!trip) {
+    res.status(404).json({ error: "Trip not found" });
+    return;
+  }
 
   const legs = await db
     .select()
@@ -116,8 +133,7 @@ router.get("/trips/:tripId/summary", async (req, res): Promise<void> => {
   const totalPlannedKm = legs.reduce((s, l) => s + (l.plannedKm || 0), 0);
   const totalActualKm = legs.reduce((s, l) => s + (l.actualKm || 0), 0);
 
-  const [trip] = await db.select().from(tripsTable).where(eq(tripsTable.id, tid));
-  const fuelPrice18 = trip?.fuelPrice18 ?? 3.8;
+  const fuelPrice18 = trip.fuelPrice18 ?? 3.8;
 
   const totalEstFuelCost18 = legs.reduce((s, l) => {
     const est18 = (l.plannedKm || 0) * 0.18;

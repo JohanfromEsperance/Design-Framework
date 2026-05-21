@@ -1,7 +1,9 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
 import { db, journalEntriesTable } from "@workspace/db";
 import { serialize } from "../lib/serialize";
+import { assertTripOwner } from "../lib/assertTripOwner";
 import {
   ListJournalEntriesParams,
   CreateJournalEntryParams,
@@ -20,9 +22,14 @@ function parseTripId(raw: string | string[]): number {
 }
 
 router.get("/trips/:tripId/journal", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const params = ListJournalEntriesParams.safeParse({ tripId: parseTripId(req.params.tripId) });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await assertTripOwner(params.data.tripId, userId!))) {
+    res.status(404).json({ error: "Trip not found" });
     return;
   }
   const entries = await db
@@ -34,9 +41,14 @@ router.get("/trips/:tripId/journal", async (req, res): Promise<void> => {
 });
 
 router.post("/trips/:tripId/journal", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const params = CreateJournalEntryParams.safeParse({ tripId: parseTripId(req.params.tripId) });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await assertTripOwner(params.data.tripId, userId!))) {
+    res.status(404).json({ error: "Trip not found" });
     return;
   }
   const parsed = CreateJournalEntryBody.safeParse(req.body);
@@ -56,12 +68,17 @@ router.post("/trips/:tripId/journal", async (req, res): Promise<void> => {
 });
 
 router.patch("/trips/:tripId/journal/:entryId", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const params = UpdateJournalEntryParams.safeParse({
     tripId: parseTripId(req.params.tripId),
     entryId: parseInt(Array.isArray(req.params.entryId) ? req.params.entryId[0] : req.params.entryId, 10),
   });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await assertTripOwner(params.data.tripId, userId!))) {
+    res.status(404).json({ error: "Trip not found" });
     return;
   }
   const parsed = UpdateJournalEntryBody.safeParse(req.body);
@@ -85,12 +102,17 @@ router.patch("/trips/:tripId/journal/:entryId", async (req, res): Promise<void> 
 });
 
 router.delete("/trips/:tripId/journal/:entryId", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const params = DeleteJournalEntryParams.safeParse({
     tripId: parseTripId(req.params.tripId),
     entryId: parseInt(Array.isArray(req.params.entryId) ? req.params.entryId[0] : req.params.entryId, 10),
   });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await assertTripOwner(params.data.tripId, userId!))) {
+    res.status(404).json({ error: "Trip not found" });
     return;
   }
   const [entry] = await db

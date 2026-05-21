@@ -1,7 +1,9 @@
 import { Router, type IRouter } from "express";
 import { eq, and, asc } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
 import { db, legsTable } from "@workspace/db";
 import { serialize } from "../lib/serialize";
+import { assertTripOwner } from "../lib/assertTripOwner";
 import {
   ListLegsParams,
   CreateLegParams,
@@ -23,9 +25,14 @@ function parseTripId(raw: string | string[]): number {
 }
 
 router.get("/trips/:tripId/legs", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const params = ListLegsParams.safeParse({ tripId: parseTripId(req.params.tripId) });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await assertTripOwner(params.data.tripId, userId!))) {
+    res.status(404).json({ error: "Trip not found" });
     return;
   }
   const legs = await db
@@ -37,9 +44,14 @@ router.get("/trips/:tripId/legs", async (req, res): Promise<void> => {
 });
 
 router.post("/trips/:tripId/legs", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const params = CreateLegParams.safeParse({ tripId: parseTripId(req.params.tripId) });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await assertTripOwner(params.data.tripId, userId!))) {
+    res.status(404).json({ error: "Trip not found" });
     return;
   }
   const parsed = CreateLegBody.safeParse(req.body);
@@ -68,12 +80,17 @@ router.post("/trips/:tripId/legs", async (req, res): Promise<void> => {
 });
 
 router.patch("/trips/:tripId/legs/:legId", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const params = UpdateLegParams.safeParse({
     tripId: parseTripId(req.params.tripId),
     legId: parseInt(Array.isArray(req.params.legId) ? req.params.legId[0] : req.params.legId, 10),
   });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await assertTripOwner(params.data.tripId, userId!))) {
+    res.status(404).json({ error: "Trip not found" });
     return;
   }
   const parsed = UpdateLegBody.safeParse(req.body);
@@ -94,12 +111,17 @@ router.patch("/trips/:tripId/legs/:legId", async (req, res): Promise<void> => {
 });
 
 router.delete("/trips/:tripId/legs/:legId", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const params = DeleteLegParams.safeParse({
     tripId: parseTripId(req.params.tripId),
     legId: parseInt(Array.isArray(req.params.legId) ? req.params.legId[0] : req.params.legId, 10),
   });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await assertTripOwner(params.data.tripId, userId!))) {
+    res.status(404).json({ error: "Trip not found" });
     return;
   }
   const [leg] = await db
@@ -114,9 +136,14 @@ router.delete("/trips/:tripId/legs/:legId", async (req, res): Promise<void> => {
 });
 
 router.post("/trips/:tripId/legs/reorder", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const params = ReorderLegsParams.safeParse({ tripId: parseTripId(req.params.tripId) });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await assertTripOwner(params.data.tripId, userId!))) {
+    res.status(404).json({ error: "Trip not found" });
     return;
   }
   const parsed = ReorderLegsBody.safeParse(req.body);

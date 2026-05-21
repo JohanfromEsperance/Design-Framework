@@ -1,7 +1,9 @@
 import { Router, type IRouter } from "express";
 import { eq, asc } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
 import { db, gpsPointsTable } from "@workspace/db";
 import { serialize } from "../lib/serialize";
+import { assertTripOwner } from "../lib/assertTripOwner";
 import {
   ListGpsPointsParams,
   LogGpsPointParams,
@@ -17,9 +19,14 @@ function parseTripId(raw: string | string[]): number {
 }
 
 router.get("/trips/:tripId/gps", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const params = ListGpsPointsParams.safeParse({ tripId: parseTripId(req.params.tripId) });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await assertTripOwner(params.data.tripId, userId!))) {
+    res.status(404).json({ error: "Trip not found" });
     return;
   }
   const points = await db
@@ -31,9 +38,14 @@ router.get("/trips/:tripId/gps", async (req, res): Promise<void> => {
 });
 
 router.post("/trips/:tripId/gps", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const params = LogGpsPointParams.safeParse({ tripId: parseTripId(req.params.tripId) });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await assertTripOwner(params.data.tripId, userId!))) {
+    res.status(404).json({ error: "Trip not found" });
     return;
   }
   const parsed = LogGpsPointBody.safeParse(req.body);
@@ -53,9 +65,14 @@ router.post("/trips/:tripId/gps", async (req, res): Promise<void> => {
 });
 
 router.delete("/trips/:tripId/gps", async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   const params = ClearGpsTrackParams.safeParse({ tripId: parseTripId(req.params.tripId) });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await assertTripOwner(params.data.tripId, userId!))) {
+    res.status(404).json({ error: "Trip not found" });
     return;
   }
   await db
