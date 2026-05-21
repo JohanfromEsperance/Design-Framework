@@ -21,6 +21,7 @@ import {
   Navigation,
   Loader2,
   ExternalLink,
+  GripVertical,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -63,16 +64,13 @@ async function getDrivingDistance(
 ): Promise<{ distanceKm: number; durationMin: number } | null> {
   const [fromCoords, toCoords] = await Promise.all([geocode(from), geocode(to)]);
   if (!fromCoords || !toCoords) return null;
-
   const [fLat, fLng] = fromCoords;
   const [tLat, tLng] = toCoords;
-
   const res = await fetch(
     `https://router.project-osrm.org/route/v1/driving/${fLng},${fLat};${tLng},${tLat}?overview=false`
   );
   const data = await res.json();
   if (data.code !== "Ok" || !data.routes?.length) return null;
-
   return {
     distanceKm: Math.round(data.routes[0].distance / 1000),
     durationMin: Math.round(data.routes[0].duration / 60),
@@ -101,10 +99,13 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
   const [calculatingDistance, setCalculatingDistance] = useState(false);
   const [routeInfo, setRouteInfo] = useState<{ distanceKm: number; durationMin: number } | null>(null);
 
+  // Drag-to-reorder state
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
   const sortedLegs = legs ? [...legs].sort((a, b) => a.sortOrder - b.sortOrder) : [];
   const activeLeg = sortedLegs[selectedIndex];
 
-  // Sync form when selection or legs change
   useEffect(() => {
     if (activeLeg) {
       setLegData({
@@ -123,12 +124,76 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
     }
   }, [selectedIndex, legs]);
 
-  // Auto-select newest leg when one is added from the map
   useEffect(() => {
     if (sortedLegs.length > 0 && selectedIndex >= sortedLegs.length) {
       setSelectedIndex(sortedLegs.length - 1);
     }
   }, [sortedLegs.length]);
+
+  // ── Drag handlers ──────────────────────────────────────────────────────────
+
+  const handleDragStart = (e: React.DragEvent, idx: number) => {
+    setDragIndex(idx);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverIndex !== idx) setDragOverIndex(idx);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIdx: number) => {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === targetIdx) {
+      setDragIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const newOrder = [...sortedLegs];
+    const [moved] = newOrder.splice(dragIndex, 1);
+    newOrder.splice(targetIdx, 0, moved);
+
+    // Batch PATCH sortOrder for all legs that shifted
+    newOrder.forEach((leg, i) => {
+      const newSort = i + 1;
+      if (leg.sortOrder !== newSort) {
+        updateLeg.mutate({
+          tripId: trip.id,
+          legId: leg.id,
+          data: {
+            fromPlace: leg.fromPlace || "",
+            toPlace: leg.toPlace || "",
+            plannedKm: leg.plannedKm || 0,
+            actualKm: leg.actualKm || 0,
+            actualLitres: leg.actualLitres || 0,
+            actualPricePerLitre: leg.actualPricePerLitre || 0,
+            notes: leg.notes || "",
+            sortOrder: newSort,
+          },
+        });
+      }
+    });
+
+    // Single query invalidation after all mutations queued
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: getListLegsQueryKey(trip.id) });
+    }, 700);
+
+    setSelectedIndex(targetIdx);
+    setDragIndex(null);
+    setDragOverIndex(null);
+
+    toast({ title: "Leg order updated" });
+  };
+
+  const handleDragEnd = () => {
+    setDragIndex(null);
+    setDragOverIndex(null);
+  };
+
+  // ── CRUD handlers ──────────────────────────────────────────────────────────
 
   const handleAddStop = () => {
     const newOrder =
@@ -184,11 +249,7 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
     try {
       const result = await getDrivingDistance(legData.fromPlace, legData.toPlace);
       if (!result) {
-        toast({
-          title: "Could not calculate route",
-          description: "Check the place names and try again.",
-          variant: "destructive",
-        });
+        toast({ title: "Could not calculate route", description: "Check place names and try again.", variant: "destructive" });
         return;
       }
       setLegData((d) => ({ ...d, plannedKm: result.distanceKm }));
@@ -214,9 +275,7 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
   const estCost20 = est20 * fuelPrice18;
   const actualFuelCost = (legData.actualLitres || 0) * (legData.actualPricePerLitre || 0);
   const kmPerL = legData.actualLitres ? (legData.actualKm || 0) / legData.actualLitres : 0;
-  const lPer100 = legData.actualKm
-    ? ((legData.actualLitres || 0) / legData.actualKm) * 100
-    : 0;
+  const lPer100 = legData.actualKm ? ((legData.actualLitres || 0) / legData.actualKm) * 100 : 0;
   const varianceCost = actualFuelCost - estCost18;
 
   const totalPlannedKm = sortedLegs.reduce((s, l) => s + (l.plannedKm || 0), 0);
@@ -247,6 +306,12 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
           </Button>
         </div>
 
+        {sortedLegs.length > 0 && (
+          <p className="px-3 py-1.5 text-[10px] text-muted-foreground/60 border-b border-border/40 flex items-center gap-1">
+            <GripVertical className="h-3 w-3" /> Drag to reorder
+          </p>
+        )}
+
         <div className="flex-1 overflow-y-auto">
           {sortedLegs.length === 0 ? (
             <div className="p-4 text-center text-xs text-muted-foreground leading-relaxed">
@@ -256,51 +321,65 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
             sortedLegs.map((leg, idx) => {
               const isActive = idx === selectedIndex;
               const hasActual = (leg.actualKm || 0) > 0;
+              const isDragOver = dragOverIndex === idx && dragIndex !== idx;
+              const isDragging = dragIndex === idx;
               return (
-                <button
+                <div
                   key={leg.id}
-                  onClick={() => setSelectedIndex(idx)}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDrop={(e) => handleDrop(e, idx)}
+                  onDragEnd={handleDragEnd}
                   className={cn(
-                    "w-full text-left px-3 py-2.5 border-b border-border/50 transition-colors",
-                    isActive
-                      ? "bg-primary/10 border-l-2 border-l-primary"
-                      : "hover:bg-muted/60"
+                    "flex items-center border-b border-border/50 transition-all select-none",
+                    isActive ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/60",
+                    isDragOver ? "border-t-2 border-t-primary" : "",
+                    isDragging ? "opacity-40" : ""
                   )}
                 >
-                  <div className="flex items-start gap-2">
-                    <span
-                      className={cn(
-                        "shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold",
-                        isActive
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground"
-                      )}
-                    >
-                      {idx + 1}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1 min-w-0">
-                        <span className="text-xs font-medium text-foreground truncate max-w-[62px]">
-                          {leg.fromPlace || "—"}
-                        </span>
-                        <ArrowRight className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
-                        <span className="text-xs font-medium text-foreground truncate max-w-[62px]">
-                          {leg.toPlace || "—"}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] text-muted-foreground">
-                          {leg.plannedKm ? `${leg.plannedKm.toLocaleString()} km` : "—"}
-                        </span>
-                        {hasActual && (
-                          <span className="text-[10px] text-primary font-medium">
-                            {leg.actualKm} actual
-                          </span>
+                  <div className="px-1.5 py-3 text-muted-foreground/30 hover:text-muted-foreground/70 cursor-grab active:cursor-grabbing transition-colors">
+                    <GripVertical className="h-3.5 w-3.5" />
+                  </div>
+                  <button
+                    onClick={() => setSelectedIndex(idx)}
+                    className="flex-1 text-left py-2.5 pr-3 min-w-0"
+                  >
+                    <div className="flex items-start gap-2">
+                      <span
+                        className={cn(
+                          "shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold",
+                          isActive
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground"
                         )}
+                      >
+                        {idx + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1 min-w-0">
+                          <span className="text-xs font-medium text-foreground truncate max-w-[55px]">
+                            {leg.fromPlace || "—"}
+                          </span>
+                          <ArrowRight className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
+                          <span className="text-xs font-medium text-foreground truncate max-w-[55px]">
+                            {leg.toPlace || "—"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] text-muted-foreground">
+                            {leg.plannedKm ? `${leg.plannedKm.toLocaleString()} km` : "—"}
+                          </span>
+                          {hasActual && (
+                            <span className="text-[10px] text-primary font-medium">
+                              {leg.actualKm} actual
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </button>
+                  </button>
+                </div>
               );
             })
           )}
@@ -326,7 +405,6 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
       <div className="flex-1 overflow-y-auto bg-background rounded-r-xl">
         {activeLeg ? (
           <div className="p-6 space-y-6">
-            {/* Header */}
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-foreground">
                 Leg {selectedIndex + 1} — {activeLeg.fromPlace} to {activeLeg.toPlace}
@@ -348,7 +426,6 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-              {/* Left: Route + Actual */}
               <div className="xl:col-span-2 space-y-6">
                 <Card className="bg-card">
                   <CardHeader className="pb-3">
@@ -358,37 +435,18 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label>From</Label>
-                        <VoiceField
-                          value={legData.fromPlace}
-                          onChange={(v) => setLegData({ ...legData, fromPlace: v })}
-                        >
-                          <Input
-                            value={legData.fromPlace}
-                            onChange={(e) =>
-                              setLegData({ ...legData, fromPlace: e.target.value })
-                            }
-                            placeholder="Departure town"
-                          />
+                        <VoiceField value={legData.fromPlace} onChange={(v) => setLegData({ ...legData, fromPlace: v })}>
+                          <Input value={legData.fromPlace} onChange={(e) => setLegData({ ...legData, fromPlace: e.target.value })} placeholder="Departure town" />
                         </VoiceField>
                       </div>
                       <div className="space-y-1.5">
                         <Label>To</Label>
-                        <VoiceField
-                          value={legData.toPlace}
-                          onChange={(v) => setLegData({ ...legData, toPlace: v })}
-                        >
-                          <Input
-                            value={legData.toPlace}
-                            onChange={(e) =>
-                              setLegData({ ...legData, toPlace: e.target.value })
-                            }
-                            placeholder="Destination town"
-                          />
+                        <VoiceField value={legData.toPlace} onChange={(v) => setLegData({ ...legData, toPlace: v })}>
+                          <Input value={legData.toPlace} onChange={(e) => setLegData({ ...legData, toPlace: e.target.value })} placeholder="Destination town" />
                         </VoiceField>
                       </div>
                     </div>
 
-                    {/* Distance section */}
                     <div className="border-t border-border pt-4 space-y-3">
                       <div className="flex items-end gap-3 flex-wrap">
                         <div className="space-y-1.5">
@@ -396,13 +454,10 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                           <Input
                             type="number"
                             value={legData.plannedKm}
-                            onChange={(e) =>
-                              setLegData({ ...legData, plannedKm: Number(e.target.value) })
-                            }
+                            onChange={(e) => setLegData({ ...legData, plannedKm: Number(e.target.value) })}
                             className="w-36"
                           />
                         </div>
-
                         <Button
                           type="button"
                           variant="outline"
@@ -418,7 +473,6 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                           )}
                           Get Driving Distance
                         </Button>
-
                         {legData.fromPlace && legData.toPlace && (
                           <a
                             href={googleMapsUrl(legData.fromPlace, legData.toPlace)}
@@ -431,36 +485,23 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                           </a>
                         )}
                       </div>
-
-                      {/* Route info pill */}
                       {routeInfo && (
-                        <div className="flex items-center gap-3 text-xs bg-primary/8 border border-primary/20 rounded-md px-3 py-2">
+                        <div className="flex items-center gap-3 text-xs bg-primary/5 border border-primary/20 rounded-md px-3 py-2">
                           <Navigation className="h-3.5 w-3.5 text-primary shrink-0" />
-                          <span className="text-primary font-semibold">
-                            {routeInfo.distanceKm.toLocaleString()} km driving
-                          </span>
+                          <span className="text-primary font-semibold">{routeInfo.distanceKm.toLocaleString()} km driving</span>
                           <span className="text-muted-foreground">·</span>
-                          <span className="text-muted-foreground">
-                            Est. {Math.floor(routeInfo.durationMin / 60)}h {routeInfo.durationMin % 60}m drive time
-                          </span>
+                          <span className="text-muted-foreground">Est. {Math.floor(routeInfo.durationMin / 60)}h {routeInfo.durationMin % 60}m drive time</span>
                         </div>
                       )}
                     </div>
 
                     <div className="space-y-1.5">
                       <Label>Notes</Label>
-                      <VoiceField
-                        value={legData.notes}
-                        onChange={(v) => setLegData({ ...legData, notes: v })}
-                        speakable
-                        appendMode
-                      >
+                      <VoiceField value={legData.notes} onChange={(v) => setLegData({ ...legData, notes: v })} speakable appendMode>
                         <Textarea
                           rows={4}
                           value={legData.notes}
-                          onChange={(e) =>
-                            setLegData({ ...legData, notes: e.target.value })
-                          }
+                          onChange={(e) => setLegData({ ...legData, notes: e.target.value })}
                           placeholder="Fuel stops, attractions, warnings, road conditions..."
                           className="resize-none"
                         />
@@ -477,51 +518,27 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                     <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-1.5">
                         <Label>Actual Km</Label>
-                        <Input
-                          type="number"
-                          value={legData.actualKm}
-                          onChange={(e) =>
-                            setLegData({ ...legData, actualKm: Number(e.target.value) })
-                          }
-                        />
+                        <Input type="number" value={legData.actualKm} onChange={(e) => setLegData({ ...legData, actualKm: Number(e.target.value) })} />
                       </div>
                       <div className="space-y-1.5">
                         <Label>Actual Litres</Label>
-                        <Input
-                          type="number"
-                          value={legData.actualLitres}
-                          onChange={(e) =>
-                            setLegData({ ...legData, actualLitres: Number(e.target.value) })
-                          }
-                        />
+                        <Input type="number" value={legData.actualLitres} onChange={(e) => setLegData({ ...legData, actualLitres: Number(e.target.value) })} />
                       </div>
                       <div className="space-y-1.5">
                         <Label>Price / Litre ($)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={legData.actualPricePerLitre}
-                          onChange={(e) =>
-                            setLegData({
-                              ...legData,
-                              actualPricePerLitre: Number(e.target.value),
-                            })
-                          }
-                        />
+                        <Input type="number" step="0.01" value={legData.actualPricePerLitre} onChange={(e) => setLegData({ ...legData, actualPricePerLitre: Number(e.target.value) })} />
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Right: Estimates + KPIs */}
               <div className="space-y-6">
                 <Card className="bg-card">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Fuel Estimates</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-0 divide-y divide-border">
-                    {/* 15 L/100km */}
                     <div className="flex items-center justify-between py-2.5 text-sm">
                       <div>
                         <span className="text-muted-foreground">15 L/100km</span>
@@ -529,7 +546,6 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                       </div>
                       <span className="text-muted-foreground">${estCost15.toFixed(2)}</span>
                     </div>
-                    {/* 18 L/100km — baseline */}
                     <div className="flex items-center justify-between py-2.5 text-sm bg-primary/5 px-2 rounded-sm font-semibold">
                       <div>
                         <span className="text-foreground">18 L/100km</span>
@@ -537,7 +553,6 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                       </div>
                       <span className="text-primary text-base">${estCost18.toFixed(2)}</span>
                     </div>
-                    {/* 20 L/100km */}
                     <div className="flex items-center justify-between py-2.5 text-sm">
                       <div>
                         <span className="text-muted-foreground">20 L/100km</span>
@@ -558,45 +573,25 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-3">
                     <div className="bg-muted p-3 rounded-lg">
-                      <span className="text-[10px] text-muted-foreground block uppercase tracking-wide">
-                        Actual Cost
-                      </span>
+                      <span className="text-[10px] text-muted-foreground block uppercase tracking-wide">Actual Cost</span>
                       <span className="font-bold text-sm">${actualFuelCost.toFixed(2)}</span>
                     </div>
                     <div className="bg-muted p-3 rounded-lg">
-                      <span className="text-[10px] text-muted-foreground block uppercase tracking-wide">
-                        vs Baseline
-                      </span>
-                      <span
-                        className={cn(
-                          "font-bold text-sm",
-                          actualFuelCost === 0
-                            ? "text-muted-foreground"
-                            : varianceCost > 0
-                            ? "text-destructive"
-                            : "text-primary"
-                        )}
-                      >
-                        {actualFuelCost === 0
-                          ? "—"
-                          : `${varianceCost > 0 ? "+" : ""}${varianceCost.toFixed(2)}`}
+                      <span className="text-[10px] text-muted-foreground block uppercase tracking-wide">vs Baseline</span>
+                      <span className={cn("font-bold text-sm",
+                        actualFuelCost === 0 ? "text-muted-foreground"
+                          : varianceCost > 0 ? "text-destructive" : "text-primary"
+                      )}>
+                        {actualFuelCost === 0 ? "—" : `${varianceCost > 0 ? "+" : ""}${varianceCost.toFixed(2)}`}
                       </span>
                     </div>
                     <div className="bg-muted p-3 rounded-lg">
-                      <span className="text-[10px] text-muted-foreground block uppercase tracking-wide">
-                        Km / L
-                      </span>
-                      <span className="font-bold text-sm">
-                        {kmPerL > 0 ? kmPerL.toFixed(2) : "—"}
-                      </span>
+                      <span className="text-[10px] text-muted-foreground block uppercase tracking-wide">Km / L</span>
+                      <span className="font-bold text-sm">{kmPerL > 0 ? kmPerL.toFixed(2) : "—"}</span>
                     </div>
                     <div className="bg-muted p-3 rounded-lg">
-                      <span className="text-[10px] text-muted-foreground block uppercase tracking-wide">
-                        L / 100km
-                      </span>
-                      <span className="font-bold text-sm">
-                        {lPer100 > 0 ? lPer100.toFixed(2) : "—"}
-                      </span>
+                      <span className="text-[10px] text-muted-foreground block uppercase tracking-wide">L / 100km</span>
+                      <span className="font-bold text-sm">{lPer100 > 0 ? lPer100.toFixed(2) : "—"}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -604,16 +599,10 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-center h-full min-h-[300px]">
-            <div className="text-center">
-              <Route className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-muted-foreground text-sm">
-                No stops yet. Add one using the{" "}
-                <Plus className="inline h-3 w-3" /> button,
-                <br />
-                or click any point on the Map tab.
-              </p>
-            </div>
+          <div className="flex flex-col items-center justify-center h-full text-center p-8 text-muted-foreground">
+            <Route className="h-12 w-12 mb-4 opacity-20" />
+            <p className="font-medium">Select a leg from the list</p>
+            <p className="text-sm mt-1">or add a new stop to begin planning</p>
           </div>
         )}
       </div>

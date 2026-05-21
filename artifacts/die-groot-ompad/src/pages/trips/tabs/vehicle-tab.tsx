@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Save, AlertTriangle, CheckCircle, AlertOctagon,
   Wrench, AlertCircle, Clock, DollarSign, ChevronDown, ChevronUp,
+  FileText, Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +17,7 @@ interface VehicleTabProps {
   tripId: number;
 }
 
-// ── Maintenance Plan Types ──────────────────────────────────────────────────
+// ── Maintenance Plan ─────────────────────────────────────────────────────────
 
 interface MaintenanceItem {
   id: string;
@@ -34,7 +35,6 @@ interface MaintenanceItem {
 const STORAGE_KEY = "maintenance_rig_v2";
 
 const DEFAULT_ITEMS: MaintenanceItem[] = [
-  // Vehicle drivetrain
   { id: "engine_oil", component: "Engine Oil & Filter", category: "vehicle", intervalKm: 10000, lastDoneKm: 0, lastDoneDate: "", estimatedCostAUD: 180, notes: "Shorten to 5,000 km on corrugated outback roads. Use manufacturer-spec synthetic diesel oil.", priority: "critical" },
   { id: "air_filter", component: "Air Filter", category: "vehicle", intervalKm: 10000, lastDoneKm: 0, lastDoneDate: "", estimatedCostAUD: 45, notes: "Check every 5,000 km in dusty outback. Blocked filter kills fuel economy and power.", priority: "high" },
   { id: "fuel_filter", component: "Fuel Filter", category: "vehicle", intervalKm: 20000, lastDoneKm: 0, lastDoneDate: "", estimatedCostAUD: 120, notes: "Poor fuel quality at remote stations. Critical for diesel injection systems.", priority: "high" },
@@ -46,18 +46,15 @@ const DEFAULT_ITEMS: MaintenanceItem[] = [
   { id: "brake_fluid", component: "Brake Fluid", category: "vehicle", intervalKm: 0, intervalMonths: 24, lastDoneKm: 0, lastDoneDate: "", estimatedCostAUD: 80, notes: "Moisture absorption reduces boiling point — critical when towing on ranges.", priority: "high" },
   { id: "suspension", component: "Suspension & Shock Absorbers", category: "vehicle", intervalKm: 40000, lastDoneKm: 0, lastDoneDate: "", estimatedCostAUD: 1200, notes: "Corrugated roads and heavy tow load destroy stock suspension. Upgrade to HD.", priority: "high" },
   { id: "battery_12v", component: "12V Cranking Battery", category: "vehicle", intervalKm: 0, intervalMonths: 36, lastDoneKm: 0, lastDoneDate: "", estimatedCostAUD: 280, notes: "Extreme heat degrades batteries. Test with load tester before remote sections.", priority: "high" },
-  // Caravan — CRITICAL
   { id: "van_bearings", component: "Caravan Wheel Bearings", category: "caravan", intervalKm: 10000, lastDoneKm: 0, lastDoneDate: "", estimatedCostAUD: 320, notes: "CRITICAL. Bearing failure = wheel separation at highway speed. Many blogs recommend 5,000 km on corrugated roads.", priority: "critical" },
   { id: "van_brakes", component: "Caravan Electric Brakes", category: "caravan", intervalKm: 10000, lastDoneKm: 0, lastDoneDate: "", estimatedCostAUD: 200, notes: "Adjust and inspect drums, shoes, and magnets every 10,000 km. Check controller gain settings.", priority: "critical" },
   { id: "van_hitch", component: "Hitch Coupling & Jockey Wheel", category: "caravan", intervalKm: 5000, lastDoneKm: 0, lastDoneDate: "", estimatedCostAUD: 25, notes: "Grease coupling ball and jockey wheel spindle every 5,000 km. Check coupling wear.", priority: "high" },
   { id: "van_roof_seals", component: "Roof & Window Seals", category: "caravan", intervalKm: 0, intervalMonths: 12, lastDoneKm: 0, lastDoneDate: "", estimatedCostAUD: 150, notes: "Annual inspection before wet season. Water ingress destroys internal lining and structure.", priority: "high" },
   { id: "van_gas", component: "Gas Regulator & Lines", category: "caravan", intervalKm: 0, intervalMonths: 12, lastDoneKm: 0, lastDoneDate: "", estimatedCostAUD: 90, notes: "Annual inspection required by Australian standards (AS 5601). Leaks are fire and explosion risk.", priority: "critical" },
   { id: "van_water", component: "Water Pump & Hoses", category: "caravan", intervalKm: 0, intervalMonths: 12, lastDoneKm: 0, lastDoneDate: "", estimatedCostAUD: 80, notes: "Flush and sanitise annually. Inspect hoses for UV cracking and fittings for weeping.", priority: "medium" },
-  // Tyres
   { id: "tyre_vehicle", component: "Tow Vehicle Tyres", category: "tyres", intervalKm: 50000, lastDoneKm: 0, lastDoneDate: "", estimatedCostAUD: 1800, notes: "LT-rated (Light Truck) tyres required for towing loads. Check pressure cold every morning on outback roads.", priority: "critical" },
   { id: "tyre_caravan", component: "Caravan Tyres", category: "tyres", intervalKm: 0, intervalMonths: 60, lastDoneKm: 0, lastDoneDate: "", estimatedCostAUD: 900, notes: "Replace at 5 years regardless of tread — UV and ozone crack sidewalls. Never run tyres older than 7 years.", priority: "critical" },
   { id: "tyre_rotation", component: "Tyre Rotation & Balance", category: "tyres", intervalKm: 10000, lastDoneKm: 0, lastDoneDate: "", estimatedCostAUD: 80, notes: "Rotate every 10,000 km for even wear. Check wheel alignment after long corrugated road sections.", priority: "medium" },
-  // Safety
   { id: "safety_chains", component: "Safety Chains & Breakaway", category: "safety", intervalKm: 10000, lastDoneKm: 0, lastDoneDate: "", estimatedCostAUD: 60, notes: "Inspect for corrosion, wear, and secure attachment. Test breakaway battery and brake activation.", priority: "critical" },
   { id: "electrical", component: "Electrical Connections", category: "safety", intervalKm: 10000, lastDoneKm: 0, lastDoneDate: "", estimatedCostAUD: 60, notes: "Check 7-pin plug, Anderson connectors, all earth straps. Vibration causes intermittent faults.", priority: "high" },
 ];
@@ -67,9 +64,8 @@ function loadMaintenance(): { odometer: number; items: MaintenanceItem[] } {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Merge saved items with defaults (in case new items added)
       const savedMap = new Map((parsed.items || []).map((i: MaintenanceItem) => [i.id, i]));
-      const merged = DEFAULT_ITEMS.map(def => savedMap.get(def.id) ? { ...def, ...(savedMap.get(def.id) as Partial<MaintenanceItem>) } : def);
+      const merged = DEFAULT_ITEMS.map(def => savedMap.has(def.id) ? { ...def, ...(savedMap.get(def.id) as Partial<MaintenanceItem>) } : def);
       return { odometer: parsed.odometer || 0, items: merged };
     }
   } catch {}
@@ -81,121 +77,160 @@ function saveMaintenance(odometer: number, items: MaintenanceItem[]) {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  vehicle: "Tow Vehicle",
-  caravan: "Caravan",
-  tyres: "Tyres",
-  safety: "Safety",
+  vehicle: "Tow Vehicle", caravan: "Caravan", tyres: "Tyres", safety: "Safety Systems",
 };
 
 const PRIORITY_COLOR: Record<string, string> = {
-  critical: "bg-destructive/10 text-destructive border-destructive/20",
-  high: "bg-[#d9b880]/15 text-[#b8943e] border-[#d9b880]/30",
-  medium: "bg-muted text-muted-foreground border-border",
+  critical: "border-destructive/40 text-destructive bg-destructive/10",
+  high: "border-[#d9b880]/40 text-[#b8943e] bg-[#d9b880]/10",
+  medium: "border-border text-muted-foreground bg-muted",
 };
 
+// ── Registration / Licensing / Insurance ────────────────────────────────────
+
+interface VehicleDocs {
+  regoNumber: string;
+  regoExpiry: string;
+  regoRenewalCost: string;
+  caravanRegoNumber: string;
+  caravanRegoExpiry: string;
+  licenceNumber: string;
+  licenceExpiry: string;
+  licenceState: string;
+  replacementVehicle: string;
+  replacementCaravan: string;
+  insuranceProvider: string;
+  insurancePolicy: string;
+  insuranceExpiry: string;
+  insuranceCost: string;
+}
+
+const DOCS_DEFAULTS: VehicleDocs = {
+  regoNumber: "", regoExpiry: "", regoRenewalCost: "",
+  caravanRegoNumber: "", caravanRegoExpiry: "",
+  licenceNumber: "", licenceExpiry: "", licenceState: "",
+  replacementVehicle: "", replacementCaravan: "",
+  insuranceProvider: "", insurancePolicy: "", insuranceExpiry: "", insuranceCost: "",
+};
+
+const docsKey = (tripId: number) => `vehicle_docs_${tripId}`;
+
+function loadDocs(tripId: number): VehicleDocs {
+  try {
+    const raw = localStorage.getItem(docsKey(tripId));
+    return raw ? { ...DOCS_DEFAULTS, ...JSON.parse(raw) } : DOCS_DEFAULTS;
+  } catch { return DOCS_DEFAULTS; }
+}
+
+function daysUntil(dateStr: string): number {
+  if (!dateStr) return 999;
+  return Math.round((new Date(dateStr).getTime() - Date.now()) / 86400000);
+}
+
+function dateAlarm(dateStr: string) {
+  if (!dateStr) return null;
+  const days = daysUntil(dateStr);
+  if (days < 0) return { label: "EXPIRED", color: "text-destructive", badgeCls: "text-destructive bg-destructive/10 border-destructive/30" };
+  if (days <= 30) return { label: `${days}d`, color: "text-destructive", badgeCls: "text-destructive bg-destructive/10 border-destructive/30" };
+  if (days <= 60) return { label: `${days}d`, color: "text-[#b8943e]", badgeCls: "text-[#b8943e] bg-[#d9b880]/10 border-[#d9b880]/30" };
+  return { label: new Date(dateStr).toLocaleDateString("en-AU", { month: "short", year: "numeric" }), color: "text-primary", badgeCls: "text-primary bg-primary/10 border-primary/20" };
+}
+
 export default function VehicleTab({ tripId }: VehicleTabProps) {
-  const { data: profile, isLoading } = useGetVehicleProfile(tripId);
+  const { data: vehicle, isLoading } = useGetVehicleProfile(tripId);
   const saveProfile = useSaveVehicleProfile();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const [formData, setFormData] = useState<any>({});
-  const [maintOpen, setMaintOpen] = useState(true);
+  const [formData, setFormData] = useState<Record<string, string | number>>({});
+  const [docs, setDocs] = useState<VehicleDocs>(() => loadDocs(tripId));
   const [odometer, setOdometer] = useState(0);
   const [maintItems, setMaintItems] = useState<MaintenanceItem[]>(DEFAULT_ITEMS);
+  const [maintOpen, setMaintOpen] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (profile) setFormData(profile);
-  }, [profile]);
+    if (vehicle) setFormData(vehicle as Record<string, string | number>);
+  }, [vehicle]);
 
   useEffect(() => {
-    const saved = loadMaintenance();
-    setOdometer(saved.odometer);
-    setMaintItems(saved.items);
+    const { odometer: od, items } = loadMaintenance();
+    setOdometer(od);
+    setMaintItems(items);
   }, []);
 
-  const handleChange = (field: string, value: any) => {
-    setFormData((prev: any) => ({ ...prev, [field]: value }));
-  };
+  const handleChange = (field: string, value: string | number) => setFormData(d => ({ ...d, [field]: value }));
 
   const handleSave = () => {
-    saveProfile.mutate({ tripId, data: formData }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetVehicleProfileQueryKey(tripId) });
-        toast({ title: "Vehicle profile saved" });
+    saveProfile.mutate(
+      { tripId, data: formData as Parameters<typeof saveProfile.mutate>[0]["data"] },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetVehicleProfileQueryKey(tripId) });
+          toast({ title: "Vehicle profile saved" });
+        },
       }
-    });
+    );
+  };
+
+  const handleDocsSave = () => {
+    localStorage.setItem(docsKey(tripId), JSON.stringify(docs));
+    toast({ title: "Documents saved" });
   };
 
   const handleMaintSave = () => {
     saveMaintenance(odometer, maintItems);
-    setEditingId(null);
     toast({ title: "Maintenance plan saved" });
   };
 
-  const updateItem = (id: string, field: keyof MaintenanceItem, value: any) => {
-    setMaintItems(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
+  const updateItem = (id: string, field: keyof MaintenanceItem, value: string | number) => {
+    setMaintItems(items => items.map(i => i.id === id ? { ...i, [field]: value } : i));
   };
 
   const markDone = (id: string) => {
-    setMaintItems(prev => prev.map(item => item.id === id
-      ? { ...item, lastDoneKm: odometer, lastDoneDate: new Date().toISOString().split("T")[0] }
-      : item
+    setMaintItems(items => items.map(i => i.id === id
+      ? { ...i, lastDoneKm: odometer, lastDoneDate: new Date().toISOString().split("T")[0] }
+      : i
     ));
-    saveMaintenance(odometer, maintItems);
-    toast({ title: "Marked as done", description: `at ${odometer.toLocaleString()} km` });
+    toast({ title: "Marked done at current odometer" });
   };
 
-  // Status logic
-  const getItemStatus = (item: MaintenanceItem) => {
+  const getItemStatus = (item: MaintenanceItem): { status: string; color: string; bg: string } => {
     if (item.intervalKm > 0) {
       const nextDue = item.lastDoneKm + item.intervalKm;
       const remaining = nextDue - odometer;
-      if (remaining <= 0) return { status: "OVERDUE", color: "text-destructive", bg: "bg-destructive/10" };
-      if (remaining <= item.intervalKm * 0.1) return { status: "DUE SOON", color: "text-[#b8943e]", bg: "bg-[#d9b880]/15" };
-      return { status: "OK", color: "text-primary", bg: "bg-primary/5", nextDueKm: nextDue };
+      if (remaining < 0) return { status: "OVERDUE", color: "text-destructive", bg: "bg-destructive/5" };
+      if (remaining < 1000) return { status: "DUE SOON", color: "text-[#b8943e]", bg: "bg-[#d9b880]/5" };
     }
-    return { status: "CHECK DATE", color: "text-muted-foreground", bg: "bg-muted" };
+    return { status: "OK", color: "text-primary", bg: "" };
   };
 
-  // Cost projection over next 50,000 km
-  const costProjection = useMemo(() => {
-    const horizon = 50000;
-    return maintItems
-      .filter(i => i.intervalKm > 0)
-      .map(item => {
-        const timesIn50k = Math.floor(horizon / item.intervalKm);
-        return { component: item.component, times: timesIn50k, total: timesIn50k * item.estimatedCostAUD };
-      })
-      .filter(i => i.total > 0)
-      .sort((a, b) => b.total - a.total);
-  }, [maintItems]);
-
-  const totalProjectedCost = costProjection.reduce((s, i) => s + i.total, 0);
-
-  // Due/overdue items for summary
   const urgentItems = maintItems.filter(item => {
     const s = getItemStatus(item);
     return s.status === "OVERDUE" || s.status === "DUE SOON";
   });
 
-  // Weight compliance
-  if (isLoading) return <div className="p-8 text-muted-foreground">Loading vehicle data...</div>;
+  const costProjection = useMemo(() => {
+    return maintItems
+      .filter(i => i.intervalKm > 0)
+      .map(i => ({
+        component: i.component,
+        times: Math.floor(50000 / i.intervalKm),
+        total: Math.floor(50000 / i.intervalKm) * i.estimatedCostAUD,
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [maintItems]);
 
-  const kerbWeight = Number(formData.kerbWeight) || 0;
-  const payloadPeople = Number(formData.payloadPeople) || 0;
-  const payloadFood = Number(formData.payloadFood) || 0;
-  const payloadRecovery = Number(formData.payloadRecovery) || 0;
-  const payloadTools = Number(formData.payloadTools) || 0;
-  const payloadFuel = Number(formData.payloadFuel) || 0;
-  const payloadOther = Number(formData.payloadOther) || 0;
-  const ballWeight = Number(formData.ballWeight) || 0;
-  const gvm = Number(formData.gvm) || 0;
-  const gcm = Number(formData.gcm) || 0;
-  const towRating = Number(formData.towRating) || 0;
-  const caravanAtm = Number(formData.caravanAtm) || 0;
-  const totalVehicleMass = kerbWeight + payloadPeople + payloadFood + payloadRecovery + payloadTools + payloadFuel + payloadOther + ballWeight;
+  const totalProjectedCost = costProjection.reduce((s, i) => s + i.total, 0);
+
+  const gvm = Number(formData.gvm || 0);
+  const gcm = Number(formData.gcm || 0);
+  const towRating = Number(formData.towRating || 0);
+  const kerbWeight = Number(formData.kerbWeight || 0);
+  const payloadTotal = ["payloadPeople", "payloadFood", "payloadRecovery", "payloadTools", "payloadFuel", "payloadOther"]
+    .reduce((s, k) => s + Number(formData[k] || 0), 0);
+  const totalVehicleMass = kerbWeight + payloadTotal;
+  const caravanAtm = Number(formData.caravanAtm || 0);
   const combinedMass = totalVehicleMass + caravanAtm;
 
   const getStatus = (value: number, limit: number) => {
@@ -217,6 +252,16 @@ export default function VehicleTab({ tripId }: VehicleTabProps) {
       return acc;
     }, {} as Record<string, MaintenanceItem[]>)
   );
+
+  // Date alarm summary for docs
+  const docAlarms = [
+    { label: "Vehicle Rego", date: docs.regoExpiry },
+    { label: "Caravan Rego", date: docs.caravanRegoExpiry },
+    { label: "Driver's Licence", date: docs.licenceExpiry },
+    { label: "Insurance", date: docs.insuranceExpiry },
+  ].filter(a => a.date && daysUntil(a.date) <= 60);
+
+  if (isLoading) return <div className="p-8 text-muted-foreground">Loading vehicle profile...</div>;
 
   return (
     <div className="space-y-6 pb-8">
@@ -329,6 +374,164 @@ export default function VehicleTab({ tripId }: VehicleTabProps) {
         </div>
       </div>
 
+      {/* ── Registration, Licensing & Insurance ─────────────────────────────── */}
+      <div className="border border-border rounded-xl overflow-hidden">
+        <div className="bg-muted/30 px-6 py-4 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <FileText className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-bold text-foreground">Registration, Licensing &amp; Insurance</h3>
+            {docAlarms.length > 0 && (
+              <p className="text-xs text-destructive font-medium mt-0.5">
+                {docAlarms.length} document{docAlarms.length > 1 ? "s" : ""} expiring within 60 days
+              </p>
+            )}
+          </div>
+          <Button size="sm" onClick={handleDocsSave}>
+            <Save className="mr-1.5 h-3.5 w-3.5" /> Save
+          </Button>
+        </div>
+
+        <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left: Vehicle + Licence */}
+          <div className="space-y-5">
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Tow Vehicle Registration</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Rego Plate</Label>
+                  <Input value={docs.regoNumber} onChange={e => setDocs(d => ({ ...d, regoNumber: e.target.value }))} placeholder="1ABC234" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-2">
+                    Rego Expiry
+                    {dateAlarm(docs.regoExpiry) && (
+                      <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full border", dateAlarm(docs.regoExpiry)!.badgeCls)}>
+                        {dateAlarm(docs.regoExpiry)!.label}
+                      </span>
+                    )}
+                  </Label>
+                  <Input type="date" value={docs.regoExpiry} onChange={e => setDocs(d => ({ ...d, regoExpiry: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Replacement Value ($)</Label>
+                  <Input value={docs.replacementVehicle} onChange={e => setDocs(d => ({ ...d, replacementVehicle: e.target.value }))} placeholder="85000" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Rego Renewal Cost ($)</Label>
+                  <Input value={docs.regoRenewalCost} onChange={e => setDocs(d => ({ ...d, regoRenewalCost: e.target.value }))} placeholder="850" />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Driver's Licence</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Licence Number</Label>
+                  <Input value={docs.licenceNumber} onChange={e => setDocs(d => ({ ...d, licenceNumber: e.target.value }))} placeholder="Licence #" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-2">
+                    Licence Expiry
+                    {dateAlarm(docs.licenceExpiry) && (
+                      <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full border", dateAlarm(docs.licenceExpiry)!.badgeCls)}>
+                        {dateAlarm(docs.licenceExpiry)!.label}
+                      </span>
+                    )}
+                  </Label>
+                  <Input type="date" value={docs.licenceExpiry} onChange={e => setDocs(d => ({ ...d, licenceExpiry: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Issuing State</Label>
+                  <Input value={docs.licenceState} onChange={e => setDocs(d => ({ ...d, licenceState: e.target.value }))} placeholder="WA, NSW, QLD..." />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Caravan + Insurance */}
+          <div className="space-y-5">
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Caravan Registration</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Caravan Rego Plate</Label>
+                  <Input value={docs.caravanRegoNumber} onChange={e => setDocs(d => ({ ...d, caravanRegoNumber: e.target.value }))} placeholder="5XYZ789" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-2">
+                    Caravan Rego Expiry
+                    {dateAlarm(docs.caravanRegoExpiry) && (
+                      <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full border", dateAlarm(docs.caravanRegoExpiry)!.badgeCls)}>
+                        {dateAlarm(docs.caravanRegoExpiry)!.label}
+                      </span>
+                    )}
+                  </Label>
+                  <Input type="date" value={docs.caravanRegoExpiry} onChange={e => setDocs(d => ({ ...d, caravanRegoExpiry: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Caravan Replacement Value ($)</Label>
+                  <Input value={docs.replacementCaravan} onChange={e => setDocs(d => ({ ...d, replacementCaravan: e.target.value }))} placeholder="95000" />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
+                <Shield className="h-3.5 w-3.5" /> Insurance
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Provider</Label>
+                  <Input value={docs.insuranceProvider} onChange={e => setDocs(d => ({ ...d, insuranceProvider: e.target.value }))} placeholder="NRMA, Shannons..." />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Policy Number</Label>
+                  <Input value={docs.insurancePolicy} onChange={e => setDocs(d => ({ ...d, insurancePolicy: e.target.value }))} placeholder="Policy #" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-2">
+                    Insurance Expiry
+                    {dateAlarm(docs.insuranceExpiry) && (
+                      <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full border", dateAlarm(docs.insuranceExpiry)!.badgeCls)}>
+                        {dateAlarm(docs.insuranceExpiry)!.label}
+                      </span>
+                    )}
+                  </Label>
+                  <Input type="date" value={docs.insuranceExpiry} onChange={e => setDocs(d => ({ ...d, insuranceExpiry: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Annual Premium ($)</Label>
+                  <Input value={docs.insuranceCost} onChange={e => setDocs(d => ({ ...d, insuranceCost: e.target.value }))} placeholder="2400" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Document alarm banner */}
+        {docAlarms.length > 0 && (
+          <div className="mx-6 mb-6 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-destructive flex items-center gap-1.5 mb-2">
+              <AlertCircle className="h-3.5 w-3.5" /> Documents Expiring Soon
+            </p>
+            <div className="space-y-1">
+              {docAlarms.map(a => {
+                const alarm = dateAlarm(a.date)!;
+                return (
+                  <div key={a.label} className="flex items-center justify-between text-sm">
+                    <span className="text-foreground">{a.label}</span>
+                    <span className={cn("text-xs font-bold", alarm.color)}>{alarm.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* ── Maintenance Planner ── */}
       <div className="border-2 border-[#d9b880]/40 rounded-xl overflow-hidden">
         <button
@@ -354,7 +557,7 @@ export default function VehicleTab({ tripId }: VehicleTabProps) {
         {maintOpen && (
           <div className="p-6 space-y-6 bg-background">
 
-            {/* Odometer + save */}
+            {/* Odometer */}
             <div className="flex items-end gap-4 flex-wrap">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wide">Current Odometer (km)</Label>
@@ -384,8 +587,7 @@ export default function VehicleTab({ tripId }: VehicleTabProps) {
                       <span className={cn("font-medium", s.color)}>{item.component}</span>
                       <div className="flex items-center gap-3">
                         <span className={cn("text-xs font-bold", s.color)}>{s.status}</span>
-                        <Button size="sm" variant="outline" className="h-6 text-xs px-2"
-                          onClick={() => markDone(item.id)}>
+                        <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => markDone(item.id)}>
                           Mark Done
                         </Button>
                       </div>
@@ -395,7 +597,7 @@ export default function VehicleTab({ tripId }: VehicleTabProps) {
               </div>
             )}
 
-            {/* Per-category item tables */}
+            {/* Per-category — 2-column layout */}
             <div className="space-y-6">
               {groupedItems.map(([category, items]) => (
                 <div key={category}>
@@ -404,17 +606,14 @@ export default function VehicleTab({ tripId }: VehicleTabProps) {
                     {CATEGORY_LABELS[category] || category}
                     <span className="h-px flex-1 bg-border" />
                   </h4>
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                     {items.map(item => {
                       const s = getItemStatus(item);
                       const nextDueKm = item.intervalKm > 0 ? item.lastDoneKm + item.intervalKm : null;
                       const kmRemaining = nextDueKm ? nextDueKm - odometer : null;
                       const isEditing = editingId === item.id;
                       return (
-                        <div key={item.id} className={cn(
-                          "rounded-lg border p-3 transition-colors",
-                          s.bg, "border-border/50"
-                        )}>
+                        <div key={item.id} className={cn("rounded-lg border p-3 transition-colors", s.bg, "border-border/50")}>
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
@@ -426,14 +625,14 @@ export default function VehicleTab({ tripId }: VehicleTabProps) {
                                   {s.status}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
+                              <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
                                 {item.intervalKm > 0 && <span>Every {item.intervalKm.toLocaleString()} km</span>}
-                                {item.intervalMonths && <span>/ {item.intervalMonths} months</span>}
+                                {item.intervalMonths && <span>/ {item.intervalMonths} mo</span>}
                                 {item.lastDoneKm > 0 && <span>Last: {item.lastDoneKm.toLocaleString()} km</span>}
                                 {nextDueKm && <span className="font-medium">Next: {nextDueKm.toLocaleString()} km</span>}
                                 {kmRemaining !== null && (
                                   <span className={cn("font-semibold", kmRemaining < 0 ? "text-destructive" : kmRemaining < 1000 ? "text-[#b8943e]" : "text-muted-foreground")}>
-                                    {kmRemaining < 0 ? `${Math.abs(kmRemaining).toLocaleString()} km overdue` : `${kmRemaining.toLocaleString()} km remaining`}
+                                    {kmRemaining < 0 ? `${Math.abs(kmRemaining).toLocaleString()} km overdue` : `${kmRemaining.toLocaleString()} km left`}
                                   </span>
                                 )}
                                 <span className="flex items-center gap-0.5">
@@ -441,7 +640,7 @@ export default function VehicleTab({ tripId }: VehicleTabProps) {
                                 </span>
                               </div>
                             </div>
-                            <div className="flex gap-1.5 shrink-0">
+                            <div className="flex gap-1 shrink-0">
                               <Button size="sm" variant="ghost" className="h-7 text-xs px-2"
                                 onClick={() => setEditingId(isEditing ? null : item.id)}>
                                 {isEditing ? "Close" : "Edit"}
@@ -453,14 +652,12 @@ export default function VehicleTab({ tripId }: VehicleTabProps) {
                             </div>
                           </div>
 
-                          {/* Notes row */}
                           {item.notes && !isEditing && (
-                            <p className="text-[10px] text-muted-foreground mt-1.5 border-t border-border/50 pt-1.5">{item.notes}</p>
+                            <p className="text-[10px] text-muted-foreground mt-1.5 border-t border-border/50 pt-1.5 leading-relaxed">{item.notes}</p>
                           )}
 
-                          {/* Edit panel */}
                           {isEditing && (
-                            <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-2 gap-3">
                               <div className="space-y-1">
                                 <Label className="text-[10px]">Last Done (km)</Label>
                                 <Input type="number" className="h-7 text-xs"
@@ -480,7 +677,7 @@ export default function VehicleTab({ tripId }: VehicleTabProps) {
                                   onChange={e => updateItem(item.id, "intervalKm", Number(e.target.value))} />
                               </div>
                               <div className="space-y-1">
-                                <Label className="text-[10px]">Est. Cost ($AUD)</Label>
+                                <Label className="text-[10px]">Est. Cost ($)</Label>
                                 <Input type="number" className="h-7 text-xs"
                                   value={item.estimatedCostAUD}
                                   onChange={e => updateItem(item.id, "estimatedCostAUD", Number(e.target.value))} />
@@ -506,11 +703,11 @@ export default function VehicleTab({ tripId }: VehicleTabProps) {
                   Total: ${totalProjectedCost.toLocaleString()} AUD
                 </span>
               </div>
-              <div className="divide-y divide-border/50">
-                {costProjection.slice(0, 10).map(item => (
-                  <div key={item.component} className="flex items-center justify-between px-4 py-2 text-sm hover:bg-muted/20">
+              <div className="grid grid-cols-1 xl:grid-cols-2 divide-y xl:divide-y-0 divide-border/50">
+                {costProjection.slice(0, 14).map(item => (
+                  <div key={item.component} className="flex items-center justify-between px-4 py-2 text-sm hover:bg-muted/20 border-b border-border/30">
                     <span className="text-foreground">{item.component}</span>
-                    <div className="flex items-center gap-6 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span>{item.times}× services</span>
                       <span className="font-semibold text-foreground w-20 text-right">${item.total.toLocaleString()}</span>
                     </div>

@@ -1,7 +1,7 @@
-import { useListLegs, useGetTripSummary } from "@workspace/api-client-react";
+import { useListLegs, useGetTripSummary, useGetTrip } from "@workspace/api-client-react";
 import { useMemo, useState } from "react";
 import {
-  BarChart, Bar, LineChart, Line, AreaChart, Area,
+  BarChart, Bar, LineChart, Line, AreaChart, Area, ComposedChart,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, ReferenceLine,
 } from "recharts";
@@ -149,6 +149,65 @@ export default function AnalysisTab({ tripId }: AnalysisTabProps) {
       optimal: Math.round(cOpt),
     });
   }
+
+  // ── 24-month cost forecast ─────────────────────────────────────────────────
+  const { data: trip } = useGetTrip(tripId);
+
+  const forecast24 = useMemo(() => {
+    const startDate = trip?.startDate ? new Date(trip.startDate) : new Date();
+    const endDate = trip?.endDate ? new Date(trip.endDate) : new Date(startDate.getTime() + 90 * 24 * 60 * 60 * 1000);
+    const tripMs = endDate.getTime() - startDate.getTime();
+    const tripMonths = Math.max(1, tripMs / (30.44 * 24 * 60 * 60 * 1000));
+    const monthlyKm = totalPlanned / tripMonths;
+
+    // Load maintenance data for monthly cost estimate
+    let monthlyMaint = 200;
+    try {
+      const raw = localStorage.getItem("maintenance_rig_v2");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const items = parsed.items || [];
+        const per50k = items.reduce((s: number, it: { intervalKm: number; estimatedCostAUD: number }) => {
+          if (it.intervalKm > 0) return s + Math.floor(50000 / it.intervalKm) * (it.estimatedCostAUD || 0);
+          return s;
+        }, 0);
+        monthlyMaint = Math.round((monthlyKm * 12 / 50000) * per50k / 12);
+      }
+    } catch { /* use default */ }
+
+    const months: Array<{
+      month: string; fuel: number; maintenance: number; total: number;
+      cumOpt: number; cumBase: number; cumAdv: number; inTrip: boolean;
+    }> = [];
+    let cumOpt = 0, cumBase = 0, cumAdv = 0;
+
+    for (let i = 0; i < 24; i++) {
+      const d = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
+      const dEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      const inTrip = d <= endDate && dEnd >= startDate;
+      const km = inTrip ? monthlyKm : 0;
+
+      const baseFuel = (km * learnedL100 / 100) * avgPricePerL;
+      const optFuel = baseFuel * 0.8;
+      const advFuel = baseFuel * 1.35;
+
+      cumOpt += optFuel + monthlyMaint;
+      cumBase += baseFuel + monthlyMaint;
+      cumAdv += advFuel + monthlyMaint;
+
+      months.push({
+        month: d.toLocaleDateString("en-AU", { month: "short", year: "2-digit" }),
+        fuel: Math.round(baseFuel),
+        maintenance: monthlyMaint,
+        total: Math.round(baseFuel + monthlyMaint),
+        cumOpt: Math.round(cumOpt),
+        cumBase: Math.round(cumBase),
+        cumAdv: Math.round(cumAdv),
+        inTrip,
+      });
+    }
+    return months;
+  }, [trip, totalPlanned, learnedL100, avgPricePerL]);
 
   if (isLoading) return <div className="p-8 text-muted-foreground">Loading analysis...</div>;
 
@@ -492,6 +551,109 @@ export default function AnalysisTab({ tripId }: AnalysisTabProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── 24-Month Cost Forecast ── */}
+      <div className="rounded-xl border-2 border-primary/20 bg-card overflow-hidden">
+        <div className="bg-muted/30 px-6 py-4 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <TrendingUp className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-bold text-foreground">24-Month Cost Forecast</h3>
+            <p className="text-xs text-muted-foreground">
+              Monthly fuel + maintenance estimate · {forecast24.filter(m => m.inTrip).length} trip months highlighted ·
+              Based on {learnedL100.toFixed(1)} L/100km @ ${avgPricePerL.toFixed(2)}/L
+            </p>
+          </div>
+          <div className="ml-auto text-right shrink-0">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">24-mo baseline total</p>
+            <p className="text-lg font-bold text-foreground">
+              ${forecast24.reduce((s, m) => s + m.total, 0).toLocaleString()}
+            </p>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Monthly stacked bar */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Monthly Spend — Fuel + Maintenance</p>
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={forecast24} margin={{ top: 4, right: 4, left: -16, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.12} />
+                  <XAxis dataKey="month" tick={{ fontSize: 9 }} />
+                  <YAxis tick={{ fontSize: 9 }} tickFormatter={v => `$${v}`} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", fontSize: 11 }}
+                    formatter={(v: number, name: string) => [`$${v}`, name]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  <Bar dataKey="fuel" name="Fuel" stackId="a" fill="#1f6f5f" fillOpacity={0.85} />
+                  <Bar dataKey="maintenance" name="Maintenance" stackId="a" fill="#d9b880" fillOpacity={0.75} radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Cumulative 3-scenario line */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Cumulative Spend — Optimal / Baseline / Adverse</p>
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={forecast24} margin={{ top: 4, right: 4, left: -10, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.12} />
+                  <XAxis dataKey="month" tick={{ fontSize: 9 }} />
+                  <YAxis tick={{ fontSize: 9 }} tickFormatter={v => `$${(v / 1000).toFixed(1)}k`} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", fontSize: 11 }}
+                    formatter={(v: number, name: string) => [`$${v.toLocaleString()}`, name]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  <Line dataKey="cumOpt" name="Optimal" stroke="#1f6f5f" strokeWidth={2} strokeDasharray="5 3" dot={false} />
+                  <Line dataKey="cumBase" name="Baseline" stroke="#b8943e" strokeWidth={2.5} dot={false} />
+                  <Line dataKey="cumAdv" name="Adverse" stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Monthly breakdown table */}
+          <div className="border border-border rounded-lg overflow-hidden">
+            <div className="bg-muted/40 grid grid-cols-6 text-[10px] font-bold uppercase tracking-wide text-muted-foreground px-4 py-2.5">
+              <span>Month</span>
+              <span className="text-right">Km Est.</span>
+              <span className="text-right">Fuel</span>
+              <span className="text-right">Maint.</span>
+              <span className="text-right">Total</span>
+              <span className="text-right">Cumulative</span>
+            </div>
+            <div className="divide-y divide-border/40 max-h-72 overflow-y-auto">
+              {forecast24.map((m, i) => {
+                const tripMonthCount = forecast24.filter(x => x.inTrip).length;
+                const monthlyKmEst = tripMonthCount > 0 ? Math.round(totalPlanned / tripMonthCount) : 0;
+                return (
+                  <div key={i} className={cn(
+                    "grid grid-cols-6 px-4 py-2 text-xs transition-colors",
+                    m.inTrip ? "bg-primary/5 border-l-2 border-l-primary" : "hover:bg-muted/20"
+                  )}>
+                    <span className={cn("font-medium", m.inTrip ? "text-primary" : "text-foreground")}>
+                      {m.month}
+                      {m.inTrip && <span className="ml-1 text-[9px] text-primary/60">TRIP</span>}
+                    </span>
+                    <span className="text-right text-muted-foreground">
+                      {m.inTrip ? `${monthlyKmEst.toLocaleString()} km` : "—"}
+                    </span>
+                    <span className="text-right text-foreground">{m.fuel > 0 ? `$${m.fuel}` : "—"}</span>
+                    <span className="text-right text-[#b8943e]">${m.maintenance}</span>
+                    <span className="text-right font-semibold text-foreground">${m.total}</span>
+                    <span className="text-right text-muted-foreground">${m.cumBase.toLocaleString()}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
 
     </div>
   );
