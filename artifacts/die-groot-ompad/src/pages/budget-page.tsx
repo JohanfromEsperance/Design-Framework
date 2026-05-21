@@ -291,8 +291,9 @@ export default function BudgetPage() {
     // from a background refetch — local edits and imports must not be clobbered.
     if (budgetSynced.current) return;
 
-    // Inject computed rentalNet from the rental config into every month so the
-    // budget grid and overview always stay in sync with the Rental sub-page.
+    // ── Sub-page injection helpers ───────────────────────────────────────────
+
+    // Rental sub-page is authoritative for rentalNet.
     const withRentalNet = (months: Record<string, any>, rental: any): Record<string, any> => {
       const net = computeMonthlyRentalNet(rental);
       if (net === 0) return months;
@@ -303,27 +304,78 @@ export default function BudgetPage() {
       return out;
     };
 
+    // Super sub-page is authoritative for superContribution.
+    // Sum personalRate * grossSalary / 12 across all accounts.
+    const withSuperContribution = (months: Record<string, any>, superData: any): Record<string, any> => {
+      const accounts = (superData?.accounts ?? []) as { personalRate: number; grossSalary: number }[];
+      const monthly = accounts.reduce((sum, acc) => {
+        if (!acc.personalRate || !acc.grossSalary) return sum;
+        return sum + Math.round((acc.personalRate / 100) * acc.grossSalary / 12);
+      }, 0);
+      if (monthly === 0) return months;
+      const out: Record<string, any> = {};
+      for (let i = 0; i < 60; i++) {
+        out[i.toString()] = { ...(months[i.toString()] ?? {}), superContribution: monthly };
+      }
+      return out;
+    };
+
+    // Income sub-page is authoritative for salary/dividends/etc.
+    // Re-sync on load so the grid always reflects saved income worksheet data.
+    const withIncomeSync = (months: Record<string, any>, incomeData: any): Record<string, any> => {
+      const sources = (incomeData?.sources ?? []) as { id: string; months?: Record<string, { forecast: number; actual: number }> }[];
+      if (sources.length === 0) return months;
+      const out = { ...months };
+      for (let i = 0; i < 60; i++) {
+        const m = { ...(out[i.toString()] ?? {}) };
+        let customIncome = 0;
+        for (const src of sources) {
+          const entry = src.months?.[i.toString()] ?? { forecast: 0, actual: 0 };
+          const v = entry.actual > 0 ? entry.actual : entry.forecast;
+          const key = INCOME_SYNC_MAP[src.id as keyof typeof INCOME_SYNC_MAP];
+          if (key) {
+            m[key] = v;
+          } else if (src.id !== "rental") {
+            customIncome += v;
+          }
+        }
+        if (customIncome > 0) m.customIncome = customIncome;
+        out[i.toString()] = m;
+      }
+      return out;
+    };
+
+    // ── Merge DB data with defaults ───────────────────────────────────────────
+    // Always start from build60MonthDefaults() so every key has a sensible
+    // baseline, then overlay saved DB values on top. This means:
+    //   - New fields added to the template automatically appear with their default.
+    //   - User-set values (including explicit 0s) always win.
+
+    const applySubPageSyncs = (months: Record<string, any>): Record<string, any> => {
+      let m = months;
+      m = withRentalNet(m, budget?.rental);
+      m = withSuperContribution(m, budget?.super);
+      m = withIncomeSync(m, budget?.income);
+      return m;
+    };
+
     if (budget && budget.months && Object.keys(budget.months).length > 0) {
       const existing = budget.months as Record<string, any>;
-      const count = Object.keys(existing).length;
-      let months: Record<string, any>;
-      if (count >= 60) {
-        months = existing;
-      } else {
-        const defaults = build60MonthDefaults();
-        months = {};
-        for (let i = 0; i < 60; i++) {
-          months[i.toString()] = existing[i.toString()] ?? existing[i] ?? defaults[i.toString()];
-        }
+      const defaults = build60MonthDefaults();
+      const months: Record<string, any> = {};
+      for (let i = 0; i < 60; i++) {
+        const dbMonth = existing[i.toString()] ?? existing[i] ?? {};
+        // Defaults supply the base; DB values take precedence including explicit 0s.
+        months[i.toString()] = { ...defaults[i.toString()], ...dbMonth };
       }
-      setBudgetData({ ...budget, months: withRentalNet(months, budget.rental) });
+      setBudgetData({ ...budget, months: applySubPageSyncs(months) });
       budgetSynced.current = true;
     } else {
-      // No server data yet (new user or auth error) — show defaults but keep
-      // trying on subsequent budget refetches (don't mark synced).
+      // No server data yet (new user / auth pending) — show defaults.
+      // Don't mark synced so we pick up real data when auth resolves.
       setBudgetData({
         year: new Date().getFullYear().toString(),
-        months: withRentalNet(build60MonthDefaults(), budget?.rental),
+        months: applySubPageSyncs(build60MonthDefaults()),
       });
     }
   }, [budget, isLoading]);
@@ -407,11 +459,22 @@ export default function BudgetPage() {
     };
   }, [register, unregister]);
 
-  // ── Super change ─────────────────────────────────────────────────────────
+  // ── Super change — syncs SPA contribution to months grid ─────────────────
 
   const handleSuperChange = (superData: SuperPortfolio) => {
     setBudgetData((prev: any) => {
-      const newData = { ...prev, super: superData };
+      // Compute total monthly SPA contribution across all accounts.
+      const monthly = (superData.accounts ?? []).reduce((sum, acc: any) => {
+        if (!acc.personalRate || !acc.grossSalary) return sum;
+        return sum + Math.round((acc.personalRate / 100) * acc.grossSalary / 12);
+      }, 0);
+      const newMonths: Record<string, any> = { ...prev.months };
+      if (monthly > 0) {
+        for (let i = 0; i < 60; i++) {
+          newMonths[i.toString()] = { ...(newMonths[i.toString()] ?? {}), superContribution: monthly };
+        }
+      }
+      const newData = { ...prev, super: superData, months: newMonths };
       triggerSave(newData);
       return newData;
     });
@@ -573,7 +636,8 @@ export default function BudgetPage() {
       const fixed   = sectionTotal(m, FIXED_BILLS);
       const annual  = sectionTotal(m, ANNUAL_COSTS);
       const super_  = sectionTotal(m, SUPER_SAVINGS);
-      const totalExp = travel + vehicle + fixed + annual + super_;
+      const family  = sectionTotal(m, FAMILY_COSTS);
+      const totalExp = travel + vehicle + fixed + annual + super_ + family;
       const totalInc = sectionTotal(m, INCOME_ITEMS);
       const closing  = opening + totalInc - totalExp;
       balance = closing;
@@ -582,7 +646,7 @@ export default function BudgetPage() {
         label: monthLabel(i, "long"),
         month: i,
         openingBalance: opening,
-        travel, vehicle, fixed, annual, super: super_,
+        travel, vehicle, fixed, annual, super: super_, family,
         totalExpenses: totalExp,
         totalIncome: totalInc,
         net: totalInc - totalExp,
