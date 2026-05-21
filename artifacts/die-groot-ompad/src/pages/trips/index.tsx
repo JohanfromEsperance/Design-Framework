@@ -1,4 +1,3 @@
-import { Layout } from "@/components/layout";
 import { useListTrips, useCreateTrip, useDeleteTrip, getListTripsQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -68,20 +67,17 @@ export default function TripsList() {
 
   if (isLoading) {
     return (
-      <Layout>
-        <div className="space-y-6">
-          <Skeleton className="h-10 w-48" />
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map(i => <Skeleton key={i} className="h-48 w-full" />)}
-          </div>
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-48" />
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-48 w-full" />)}
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="flex flex-col space-y-8">
+    <div className="flex flex-col space-y-8">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground">Expeditions</h1>
@@ -170,7 +166,6 @@ export default function TripsList() {
             </div>
           )}
         </div>
-      </div>
-    </Layout>
+    </div>
   );
 }

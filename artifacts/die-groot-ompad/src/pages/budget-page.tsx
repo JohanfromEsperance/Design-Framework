@@ -5,7 +5,6 @@ import RentalSub, { DEFAULT_RENTAL, type RentalConfig } from "./trips/tabs/renta
 import PlanningSub from "./trips/tabs/planning-sub";
 import SuperSub, { DEFAULT_SUPER, type SuperPortfolio } from "./trips/tabs/super-sub";
 import SharesSub, { DEFAULT_SHARES, type SharesPortfolio } from "./trips/tabs/shares-sub";
-import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -545,9 +544,7 @@ export default function BudgetPage() {
 
   if (isLoading || !budgetData) {
     return (
-      <Layout>
-        <div className="p-8 text-muted-foreground">Loading budget...</div>
-      </Layout>
+      <div className="p-8 text-muted-foreground">Loading budget...</div>
     );
   }
 
@@ -563,8 +560,7 @@ export default function BudgetPage() {
   };
 
   return (
-    <Layout>
-      <div className="space-y-6 pb-8">
+    <div className="space-y-6 pb-8">
 
         {/* ── Page header ── */}
         <div>
@@ -1050,7 +1046,6 @@ export default function BudgetPage() {
         </Dialog>
 
         </React.Fragment>}
-      </div>
-    </Layout>
+    </div>
   );
 }

@@ -1,4 +1,3 @@
-import { Layout } from "@/components/layout";
 import { useGetTrip, useUpdateTrip, getGetTripQueryKey } from "@workspace/api-client-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -53,23 +52,19 @@ export default function TripShell({ params }: TripShellProps) {
 
   if (isLoading) {
     return (
-      <Layout>
-        <div className="space-y-6">
-          <Skeleton className="h-10 w-64" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-96 w-full" />
-        </div>
-      </Layout>
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-96 w-full" />
+      </div>
     );
   }
 
   if (!trip) {
     return (
-      <Layout>
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-bold text-foreground">Trip not found</h2>
-        </div>
-      </Layout>
+      <div className="text-center py-12">
+        <h2 className="text-2xl font-bold text-foreground">Trip not found</h2>
+      </div>
     );
   }
 
@@ -77,8 +72,7 @@ export default function TripShell({ params }: TripShellProps) {
     d ? new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : null;
 
   return (
-    <Layout>
-      <div className="flex flex-col space-y-6">
+    <div className="flex flex-col space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h1 className="text-3xl font-bold tracking-tight text-foreground">{trip.name}</h1>
@@ -189,7 +183,6 @@ export default function TripShell({ params }: TripShellProps) {
             </TabsContent>
           </div>
         </Tabs>
-      </div>
-    </Layout>
+    </div>
   );
 }
