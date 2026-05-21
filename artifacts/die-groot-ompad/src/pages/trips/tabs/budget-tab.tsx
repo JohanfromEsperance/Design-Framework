@@ -2,7 +2,7 @@ import { useGetBudget, useSaveBudget, getGetBudgetQueryKey } from "@workspace/ap
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Save } from "lucide-react";
+import { Save, Download } from "lucide-react";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +37,12 @@ const INCOME = [
   { key: "otherIncome2", label: "Other Income 2" }
 ];
 
+const ALL_CATEGORIES = [
+  ...ROAD_EXPENSES.map(i => ({ ...i, section: "Road Expenses" })),
+  ...BILLS.map(i => ({ ...i, section: "Bills" })),
+  ...INCOME.map(i => ({ ...i, section: "Income" })),
+];
+
 export default function BudgetTab({ tripId }: BudgetTabProps) {
   const { data: budget, isLoading } = useGetBudget(tripId);
   const saveBudget = useSaveBudget();
@@ -44,7 +50,7 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
   const { toast } = useToast();
   
   const [budgetData, setBudgetData] = useState<any>(null);
-  const saveTimerRef = useRef<NodeJS.Timeout>();
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   
   useEffect(() => {
     if (budget) {
@@ -66,18 +72,9 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
 
   const triggerSave = (data: any) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    
     saveTimerRef.current = setTimeout(() => {
-      saveBudget.mutate({
-        tripId,
-        data: {
-          year: data.year,
-          months: data.months
-        }
-      }, {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetBudgetQueryKey(tripId) });
-        }
+      saveBudget.mutate({ tripId, data: { year: data.year, months: data.months } }, {
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: getGetBudgetQueryKey(tripId) }); }
       });
     }, 1000);
   };
@@ -95,14 +92,7 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
   const handleManualSave = () => {
     if (!budgetData) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    
-    saveBudget.mutate({
-      tripId,
-      data: {
-        year: budgetData.year,
-        months: budgetData.months
-      }
-    }, {
+    saveBudget.mutate({ tripId, data: { year: budgetData.year, months: budgetData.months } }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetBudgetQueryKey(tripId) });
         toast({ title: "Budget saved" });
@@ -110,33 +100,61 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
     });
   };
 
+  const handleDownloadCSV = () => {
+    if (!budgetData) return;
+
+    const monthHeaders = Array.from({ length: 12 }, (_, i) => `Month ${i + 1} (${budgetData.year})`);
+    const rows: string[][] = [];
+
+    rows.push(["Category", "Section", ...monthHeaders]);
+    rows.push(["Opening Balance", "Balance", ...Array.from({ length: 12 }, (_, i) =>
+      i === 0 ? String(budgetData.months[0]?.openingBalance || 0) : String(computedTotals[i]?.openingBalance.toFixed(2) || "0")
+    )]);
+
+    for (const cat of ALL_CATEGORIES) {
+      rows.push([
+        cat.label, cat.section,
+        ...Array.from({ length: 12 }, (_, i) => String(budgetData.months[i]?.[cat.key] || 0))
+      ]);
+    }
+
+    rows.push(["Total Expenses", "Summary", ...Array.from({ length: 12 }, (_, i) =>
+      String(computedTotals[i]?.totalExpenses.toFixed(2) || "0")
+    )]);
+    rows.push(["Total Income", "Summary", ...Array.from({ length: 12 }, (_, i) =>
+      String(computedTotals[i]?.totalIncome.toFixed(2) || "0")
+    )]);
+    rows.push(["Net Cashflow", "Summary", ...Array.from({ length: 12 }, (_, i) =>
+      String((computedTotals[i]?.totalIncome - computedTotals[i]?.totalExpenses).toFixed(2) || "0")
+    )]);
+    rows.push(["Closing Balance", "Summary", ...Array.from({ length: 12 }, (_, i) =>
+      String(computedTotals[i]?.closingBalance.toFixed(2) || "0")
+    )]);
+
+    const csv = rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `budget-${budgetData.year}-trip${tripId}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "CSV downloaded", description: `budget-${budgetData.year}-trip${tripId}.csv` });
+  };
+
   const computedTotals = useMemo(() => {
     if (!budgetData) return [];
-    
     const results = [];
     let currentBalance = 0;
-
     for (let i = 0; i < 12; i++) {
       const monthData = budgetData.months[i] || {};
-      
       const monthOpening = i === 0 ? (Number(monthData.openingBalance) || 0) : currentBalance;
-      
       const totalExpenses = [...ROAD_EXPENSES, ...BILLS].reduce((sum, item) => sum + (Number(monthData[item.key]) || 0), 0);
       const totalIncome = INCOME.reduce((sum, item) => sum + (Number(monthData[item.key]) || 0), 0);
-      
       const closing = monthOpening + totalIncome - totalExpenses;
       currentBalance = closing;
-      
-      results.push({
-        month: i + 1,
-        name: `Month ${i+1}`,
-        openingBalance: monthOpening,
-        totalExpenses,
-        totalIncome,
-        closingBalance: closing
-      });
+      results.push({ month: i + 1, name: `Month ${i+1}`, openingBalance: monthOpening, totalExpenses, totalIncome, closingBalance: closing });
     }
-    
     return results;
   }, [budgetData]);
 
@@ -146,15 +164,18 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
     <div className="space-y-6 pb-8">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-foreground">12-Month Planner</h2>
-        <Button onClick={handleManualSave} disabled={saveBudget.isPending}>
-          <Save className="mr-2 h-4 w-4" /> Save Spreadsheet
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleDownloadCSV}>
+            <Download className="mr-2 h-4 w-4" /> Download CSV
+          </Button>
+          <Button onClick={handleManualSave} disabled={saveBudget.isPending}>
+            <Save className="mr-2 h-4 w-4" /> Save Spreadsheet
+          </Button>
+        </div>
       </div>
 
       <Card className="bg-card">
-        <CardHeader>
-          <CardTitle>Cashflow Projection</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Cashflow Projection</CardTitle></CardHeader>
         <CardContent className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={computedTotals} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -258,7 +279,7 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
           <div className="grid grid-cols-[200px_repeat(12,minmax(80px,1fr))] border-b-2 border-border bg-muted font-bold text-foreground">
             <div className="p-3 border-r border-border sticky left-0 bg-muted z-10">Closing Balance</div>
             {Array.from({length: 12}).map((_, i) => (
-              <div key={i} className="p-3 border-r border-border last:border-r-0 flex items-center justify-end">
+              <div key={i} className={`p-3 border-r border-border last:border-r-0 flex items-center justify-end ${(computedTotals[i]?.closingBalance || 0) < 0 ? "text-destructive" : ""}`}>
                 {computedTotals[i]?.closingBalance.toFixed(0)}
               </div>
             ))}
