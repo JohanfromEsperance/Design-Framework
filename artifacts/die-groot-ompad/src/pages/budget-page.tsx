@@ -90,9 +90,9 @@ const INCOME_ITEMS = [
 ];
 
 // Maps income sub-page source id → months key for dashboard sync
+// NOTE: "rental" is intentionally excluded — the Rental sub-page owns rentalNet
 const INCOME_SYNC_MAP: Record<string, string> = {
   salary:       "salary",
-  rental:       "rentalNet",
   business:     "businessIncome",
   dividends:    "dividends",
   cgt:          "cgt",
@@ -102,6 +102,22 @@ const INCOME_SYNC_MAP: Record<string, string> = {
   other1:       "otherIncome1",
   other2:       "otherIncome2",
 };
+
+// Compute monthly net cash from a rental config (mirrors the calc in rental-sub.tsx)
+function computeMonthlyRentalNet(rental: any): number {
+  if (!rental) return 0;
+  const cfg = { ...DEFAULT_RENTAL, ...rental } as RentalConfig;
+  const grossRent     = cfg.weeklyRent * (52 - cfg.vacancyWeeks);
+  const mgmtFees      = (cfg.managementFeeRate / 100) * grossRent;
+  const lettingFees   = cfg.lettingFeeWeeks * cfg.weeklyRent;
+  const interestExp   = (cfg.loanBalance * cfg.interestRate) / 100;
+  const cashDeductions =
+    cfg.councilRates + cfg.waterRates + cfg.landlordInsurance +
+    cfg.strataLevies + cfg.landTax + mgmtFees + lettingFees +
+    cfg.repairs + cfg.advertising + cfg.accountingFees +
+    cfg.legalFees + cfg.bankCharges + interestExp;
+  return Math.round((grossRent - cashDeductions) / 12);
+}
 
 const EXPENSE_SECTIONS = [
   { title: "Travel & Road",             items: TRAVEL_EXPENSES, color: "#1f6f5f" },
@@ -231,21 +247,38 @@ export default function BudgetPage() {
 
   useEffect(() => {
     if (isLoading) return;
+
+    // Inject computed rentalNet from the rental config into every month so the
+    // budget grid and overview always stay in sync with the Rental sub-page.
+    const withRentalNet = (months: Record<string, any>, rental: any): Record<string, any> => {
+      const net = computeMonthlyRentalNet(rental);
+      if (net === 0) return months;
+      const out: Record<string, any> = {};
+      for (let i = 0; i < 60; i++) {
+        out[i.toString()] = { ...(months[i.toString()] ?? {}), rentalNet: net };
+      }
+      return out;
+    };
+
     if (budget && budget.months && Object.keys(budget.months).length > 0) {
       const existing = budget.months as Record<string, any>;
       const count = Object.keys(existing).length;
+      let months: Record<string, any>;
       if (count >= 60) {
-        setBudgetData(budget);
+        months = existing;
       } else {
         const defaults = build60MonthDefaults();
-        const expanded: Record<string, any> = {};
+        months = {};
         for (let i = 0; i < 60; i++) {
-          expanded[i.toString()] = existing[i.toString()] ?? existing[i] ?? defaults[i.toString()];
+          months[i.toString()] = existing[i.toString()] ?? existing[i] ?? defaults[i.toString()];
         }
-        setBudgetData({ ...budget, months: expanded });
       }
+      setBudgetData({ ...budget, months: withRentalNet(months, budget.rental) });
     } else {
-      setBudgetData({ year: new Date().getFullYear().toString(), months: build60MonthDefaults() });
+      setBudgetData({
+        year: new Date().getFullYear().toString(),
+        months: withRentalNet(build60MonthDefaults(), budget?.rental),
+      });
     }
   }, [budget, isLoading]);
 
@@ -377,11 +410,19 @@ export default function BudgetPage() {
           if (key) {
             m[key] = v;
           } else {
+            // "rental" source and any other unmapped sources go to customIncome
             customIncome += v;
           }
         }
         if (customIncome > 0) m.customIncome = customIncome;
         newMonths[i.toString()] = m;
+      }
+      // Rental sub-page is authoritative for rentalNet — always re-assert after income sync
+      const rentalNet = computeMonthlyRentalNet(prev.rental);
+      if (rentalNet !== 0) {
+        for (let i = 0; i < 60; i++) {
+          newMonths[i.toString()] = { ...newMonths[i.toString()], rentalNet };
+        }
       }
       const newData = { ...prev, income: incomeData, months: newMonths };
       triggerSave(newData);

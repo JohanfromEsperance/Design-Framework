@@ -216,6 +216,67 @@ function TextField({
   );
 }
 
+function DateField({
+  label, value, onChange,
+}: {
+  label: string; value: string; onChange: (v: string) => void;
+}) {
+  const toDisplay = (iso: string) => {
+    if (!iso) return "";
+    const [y, m, d] = iso.split("-");
+    if (y && m && d) return `${d}/${m}/${y}`;
+    return iso;
+  };
+  const toIso = (display: string) => {
+    const parts = display.trim().split("/");
+    if (parts.length === 3) {
+      const [d, m, y] = parts;
+      if (d && m && y && y.length === 4) {
+        return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+      }
+    }
+    return "";
+  };
+
+  const [local, setLocal] = useState(toDisplay(value));
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) setLocal(toDisplay(value));
+  }, [value, focused]);
+
+  const commit = (raw: string) => {
+    const iso = toIso(raw);
+    if (iso || raw === "") onChange(iso);
+  };
+
+  return (
+    <div className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/20 mt-1">
+      <span className="text-sm text-foreground w-44 shrink-0">{label}</span>
+      <input
+        type="text"
+        value={local}
+        placeholder="DD/MM/YYYY"
+        onChange={e => setLocal(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={e => { setFocused(false); commit(e.target.value); }}
+        onKeyDown={e => {
+          if (e.key === "Enter") {
+            commit((e.target as HTMLInputElement).value);
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        className="w-36 bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 text-sm"
+      />
+      {value && (
+        <span className="text-xs text-muted-foreground">
+          {new Date(value + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function SectionHeader({ label, color = "#1f6f5f" }: { label: string; color?: string }) {
   return (
     <div className="px-2 py-1.5 font-bold text-xs uppercase tracking-wide border-b border-border/40"
@@ -373,21 +434,11 @@ export default function RentalSub({ config, onChange }: RentalSubProps) {
                 <FieldRow label="Construction cost (Div 43)" hint="for depreciation" value={config.constructionCost} onChange={v => set("constructionCost", v)} step={1000} />
                 <FieldRow label="Year built" value={config.yearBuilt} onChange={v => set("yearBuilt", v)} prefix="" step={1} min={1900} />
               </div>
-              {/* Lease Signing Date (SISNING) */}
-              <div className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/20 mt-1">
-                <span className="text-sm text-foreground w-44 shrink-0">Lease Signing Date (SISNING)</span>
-                <input
-                  type="date"
-                  value={config.leaseSigningDate ?? ""}
-                  onChange={e => set("leaseSigningDate", e.target.value)}
-                  className="flex-1 bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 text-sm max-w-[180px]"
-                />
-                {config.leaseSigningDate && (
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(config.leaseSigningDate).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}
-                  </span>
-                )}
-              </div>
+              <DateField
+                label="Lease Signing Date (SISNING)"
+                value={config.leaseSigningDate ?? ""}
+                onChange={v => set("leaseSigningDate", v)}
+              />
               <div className="mt-2 px-2 py-1.5 text-xs text-muted-foreground border border-border/40 rounded bg-muted/20">
                 Capital growth: {calc.capitalGrowth >= 0 ? "+" : ""}${calc.capitalGrowth.toLocaleString()} since purchase
                 &nbsp;·&nbsp; Div 43 suggestion: ${Math.round(config.constructionCost * 0.025).toLocaleString()}/yr (2.5% of construction cost)
