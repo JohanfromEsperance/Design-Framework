@@ -2,7 +2,7 @@ import { useGetTrip, useUpdateTrip, getGetTripQueryKey } from "@workspace/api-cl
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Map, Route, Car, TrendingDown, BookOpen, BarChart3, CalendarCheck, Award, Pencil, X, Check } from "lucide-react";
+import { Map, Route, Car, TrendingDown, BookOpen, BarChart3, CalendarCheck, Pencil, X, Check } from "lucide-react";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import PlannerTab from "./tabs/planner-tab";
@@ -12,7 +12,6 @@ import TripCostsTab from "./tabs/trip-costs-tab";
 import JournalTab from "./tabs/journal-tab";
 import AnalysisTab from "./tabs/analysis-tab";
 import BookingsTab from "./tabs/bookings-tab";
-import MembershipsTab from "./tabs/memberships-tab";
 
 interface TripShellProps {
   params: {
@@ -122,7 +121,7 @@ export default function TripShell({ params }: TripShellProps) {
         </div>
 
         <Tabs defaultValue="planner" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 mb-8">
+          <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 mb-8">
             <TabsTrigger value="planner" className="flex items-center gap-1.5">
               <Route className="h-4 w-4" /> <span className="hidden sm:inline">Planner</span>
             </TabsTrigger>
@@ -133,7 +132,7 @@ export default function TripShell({ params }: TripShellProps) {
               <Car className="h-4 w-4" /> <span className="hidden sm:inline">Vehicle</span>
             </TabsTrigger>
             <TabsTrigger value="costs" className="flex items-center gap-1.5">
-              <TrendingDown className="h-4 w-4" /> <span className="hidden sm:inline">Trip Costs</span>
+              <TrendingDown className="h-4 w-4" /> <span className="hidden sm:inline">Costs</span>
             </TabsTrigger>
             <TabsTrigger value="journal" className="flex items-center gap-1.5">
               <BookOpen className="h-4 w-4" /> <span className="hidden sm:inline">Journal</span>
@@ -143,9 +142,6 @@ export default function TripShell({ params }: TripShellProps) {
             </TabsTrigger>
             <TabsTrigger value="bookings" className="flex items-center gap-1.5">
               <CalendarCheck className="h-4 w-4" /> <span className="hidden sm:inline">Bookings</span>
-            </TabsTrigger>
-            <TabsTrigger value="memberships" className="flex items-center gap-1.5">
-              <Award className="h-4 w-4" /> <span className="hidden sm:inline">Members</span>
             </TabsTrigger>
           </TabsList>
 
@@ -176,10 +172,6 @@ export default function TripShell({ params }: TripShellProps) {
 
             <TabsContent value="bookings" className="m-0">
               <BookingsTab tripId={trip.id} />
-            </TabsContent>
-
-            <TabsContent value="memberships" className="m-0">
-              <MembershipsTab />
             </TabsContent>
           </div>
         </Tabs>

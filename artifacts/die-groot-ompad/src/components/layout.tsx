@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Map, Home, Menu, MessageSquare, Globe, DollarSign, LogOut, Truck, ClipboardCheck, Download, Save } from "lucide-react";
+import { Map, Home, Menu, MessageSquare, Globe, DollarSign, LogOut, Truck, ClipboardCheck, Download, Save, CalendarCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useClerk, useUser } from "@clerk/react";
@@ -21,11 +21,12 @@ function openJohan() {
 }
 
 const MAIN_NAV = [
-  { href: "/dashboard", label: "Dashboard",    icon: Home },
-  { href: "/trips",     label: "My Trips",     icon: Map },
-  { href: "/budget",   label: "Budget",        icon: DollarSign },
-  { href: "/vehicle",  label: "Rig & Vehicle", icon: Truck },
-  { href: "/export",   label: "Export Data",   icon: Download },
+  { href: "/dashboard",          label: "Dashboard",         icon: Home },
+  { href: "/trips",              label: "My Trips",          icon: Map },
+  { href: "/advance-bookings",   label: "Advance Bookings",  icon: CalendarCheck },
+  { href: "/budget",             label: "Budget",            icon: DollarSign },
+  { href: "/vehicle",            label: "Rig & Vehicle",     icon: Truck },
+  { href: "/export",             label: "Export Data",       icon: Download },
 ] as const;
 
 const CHECKLIST_NAV = [
@@ -41,11 +42,12 @@ interface SidebarProps {
   initials: string;
   email: string | undefined;
   onSignOut: () => void;
+  onNav?: () => void;
 }
 
-function NavItem({ href, label, Icon, isActive }: { href: string; label: string; Icon: React.ElementType; isActive: boolean }) {
+function NavItem({ href, label, Icon, isActive, onNav }: { href: string; label: string; Icon: React.ElementType; isActive: boolean; onNav?: () => void }) {
   return (
-    <Link href={href}>
+    <Link href={href} onClick={onNav}>
       <div
         className={`flex cursor-pointer items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
           isActive
@@ -64,7 +66,7 @@ function NavItem({ href, label, Icon, isActive }: { href: string; label: string;
   );
 }
 
-function Sidebar({ location, firstName, initials, email, onSignOut }: SidebarProps) {
+function Sidebar({ location, firstName, initials, email, onSignOut, onNav }: SidebarProps) {
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       {/* Brand / logo header */}
@@ -92,7 +94,7 @@ function Sidebar({ location, firstName, initials, email, onSignOut }: SidebarPro
             location === item.href ||
             (item.href !== "/dashboard" && location.startsWith(item.href));
           return (
-            <NavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} isActive={isActive} />
+            <NavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} isActive={isActive} onNav={onNav} />
           );
         })}
 
@@ -105,7 +107,7 @@ function Sidebar({ location, firstName, initials, email, onSignOut }: SidebarPro
         {CHECKLIST_NAV.map((item) => {
           const isActive = location === item.href || location.startsWith(item.href);
           return (
-            <NavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} isActive={isActive} />
+            <NavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} isActive={isActive} onNav={onNav} />
           );
         })}
       </nav>
@@ -182,13 +184,16 @@ export function Layout({ children }: LayoutProps) {
     signOut({ redirectUrl: `${basePath}/sign-in` });
   }
 
-  const sidebarProps: SidebarProps = { location, firstName, initials, email, onSignOut: handleSignOut };
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const closeMenu = () => setMobileOpen(false);
+
+  const sidebarProps: SidebarProps = { location, firstName, initials, email, onSignOut: handleSignOut, onNav: closeMenu };
 
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile hamburger + slide-out drawer (hidden on md+) */}
       <div className="md:hidden">
-        <Sheet>
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="absolute top-4 left-4 z-50">
               <Menu className="h-6 w-6" />
@@ -209,7 +214,7 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Main content — offset by sidebar width on md+ */}
       <div className="md:pl-52">
-        <main className="flex-1 p-6 md:p-8">{children}</main>
+        <main className="flex-1 p-3 sm:p-5 md:p-8 overflow-x-hidden">{children}</main>
       </div>
 
       {/* Hard Save button — fixed top-right, only shown when a page has registered a save function */}

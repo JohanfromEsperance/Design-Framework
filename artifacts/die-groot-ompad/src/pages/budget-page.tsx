@@ -4,6 +4,7 @@ import {
 import { useSaveContext } from "@/lib/save-context";
 import RentalSub, { DEFAULT_RENTAL, type RentalConfig } from "./trips/tabs/rental-sub";
 import PlanningSub from "./trips/tabs/planning-sub";
+import MembershipsTab from "./trips/tabs/memberships-tab";
 import SuperSub, { DEFAULT_SUPER, type SuperPortfolio } from "./trips/tabs/super-sub";
 import PensionSub, { DEFAULT_PENSION, type PensionWorksheet } from "./trips/tabs/pension-sub";
 import SharesSub, { DEFAULT_SHARES, type SharesPortfolio } from "./trips/tabs/shares-sub";
@@ -195,7 +196,7 @@ export default function BudgetPage() {
   const [customFrom, setCustomFrom] = useState(0);
   const [customTo, setCustomTo] = useState(11);
 
-  const [subPage, setSubPage] = useState<"overview" | "rental" | "planning" | "super" | "pension" | "shares" | "income" | "tax">("overview");
+  const [subPage, setSubPage] = useState<"overview" | "rental" | "planning" | "super" | "pension" | "shares" | "income" | "tax" | "memberships">("overview");
 
   const [cpiDialogOpen, setCpiDialogOpen] = useState(false);
   const [cpiRate, setCpiRate] = useState(2.5);
@@ -640,14 +641,15 @@ export default function BudgetPage() {
         {/* ── Sub-page nav ── */}
         <div className="flex gap-0.5 border-b border-border pb-0 flex-wrap">
           {([
-            { key: "overview", label: "Overview" },
-            { key: "income",   label: "Income" },
-            { key: "tax",      label: "Tax" },
-            { key: "rental",   label: "Rental Property" },
-            { key: "planning", label: "Trip Planning" },
-            { key: "super",    label: "Superannuation" },
-            { key: "pension",  label: "Age Pension" },
-            { key: "shares",   label: "Shares" },
+            { key: "overview",     label: "Overview" },
+            { key: "income",       label: "Income" },
+            { key: "tax",          label: "Tax" },
+            { key: "rental",       label: "Rental Property" },
+            { key: "planning",     label: "Trip Planning" },
+            { key: "super",        label: "Superannuation" },
+            { key: "pension",      label: "Age Pension" },
+            { key: "shares",       label: "Shares" },
+            { key: "memberships",  label: "Memberships" },
           ] as const).map(({ key, label }) => (
             <button key={key} onClick={() => setSubPage(key)}
               className={cn(
@@ -695,6 +697,9 @@ export default function BudgetPage() {
             onChange={handlePlanningChange}
           />
         )}
+
+        {/* ── Memberships sub-page ── */}
+        {subPage === "memberships" && <MembershipsTab />}
 
         {/* ── Superannuation sub-page ── */}
         {subPage === "super" && (

@@ -23,11 +23,19 @@ import {
   ExternalLink,
   GripVertical,
   Upload,
+  CalendarCheck,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { VoiceField } from "@/components/voice-button";
 import { cn } from "@/lib/utils";
+import {
+  loadAdvanceBookings, bookingStatus, outstandingAmount,
+  ADV_TYPE_LABELS, ADV_TYPE_COLORS,
+} from "@/lib/advance-bookings-store";
 
 interface PlannerTabProps {
   trip: Trip;
@@ -325,8 +333,18 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
 
   if (isLoading) return <div className="p-8 text-muted-foreground">Loading planner...</div>;
 
+  const allAdvBookings = loadAdvanceBookings();
+  const tripBookings = allAdvBookings.filter(b =>
+    b.tripName && b.tripName.toLowerCase() === trip.name.toLowerCase()
+  );
+  const upcomingBookings = tripBookings.length > 0 ? tripBookings : allAdvBookings.filter(b => {
+    if (!b.stayDate) return false;
+    return new Date(b.stayDate + "T12:00:00") >= new Date();
+  }).slice(0, 5);
+
   return (
-    <div className="flex gap-0 h-full" style={{ minHeight: "calc(100vh - 220px)" }}>
+    <div className="flex flex-col gap-4">
+    <div className="flex gap-0 h-full" style={{ minHeight: "calc(100vh - 280px)" }}>
       {/* ── Stop list panel ── */}
       <div className="w-64 shrink-0 flex flex-col border-r border-border bg-card rounded-l-xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -658,6 +676,61 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
           </div>
         )}
       </div>
+    </div>
+
+    {/* ── Advance Bookings Panel ── */}
+    {upcomingBookings.length > 0 && (
+      <div className="border border-border rounded-xl bg-card overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <div className="flex items-center gap-2">
+            <CalendarCheck className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold text-foreground">
+              Advance Bookings
+              {tripBookings.length > 0
+                ? ` — ${trip.name}`
+                : " — Upcoming (all trips)"}
+            </span>
+          </div>
+          <a href="/advance-bookings" className="text-[11px] text-primary hover:underline flex items-center gap-1">
+            <ExternalLink className="h-3 w-3" /> Manage
+          </a>
+        </div>
+        <div className="divide-y divide-border/50">
+          {upcomingBookings.map(b => {
+            const st = bookingStatus(b);
+            const owed = outstandingAmount(b);
+            return (
+              <div key={b.id} className="flex items-center gap-3 px-4 py-2.5">
+                <div className="shrink-0">
+                  {st === "paid"        ? <CheckCircle2 className="h-4 w-4 text-primary" />
+                    : st === "partial"  ? <Clock className="h-4 w-4 text-[#b8943e]" />
+                    : <AlertCircle className="h-4 w-4 text-destructive" />}
+                </div>
+                <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0", ADV_TYPE_COLORS[b.type])}>
+                  {ADV_TYPE_LABELS[b.type]}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{b.name}</p>
+                  {b.stayDate && (
+                    <p className="text-[10px] text-muted-foreground">
+                      {new Date(b.stayDate + "T12:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
+                    </p>
+                  )}
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-bold text-foreground">
+                    ${b.cost.toLocaleString("en-AU", { maximumFractionDigits: 0 })}
+                  </p>
+                  {owed > 0 && (
+                    <p className="text-[10px] text-destructive">${owed.toLocaleString("en-AU", { maximumFractionDigits: 0 })} owed</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    )}
     </div>
   );
 }

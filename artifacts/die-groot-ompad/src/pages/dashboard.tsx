@@ -51,34 +51,55 @@ function dobTo67MonthIndex(dob: string): number | null {
 }
 
 // ── Budget category keys (must match budget-page.tsx definitions) ─────────────
-const INCOME_KEYS = ["salary", "rentalNet", "businessIncome", "refunds", "otherIncome1", "otherIncome2"] as const;
+const INCOME_KEYS = ["rentalNet", "salary", "businessIncome", "refunds", "otherIncome1", "otherIncome2"] as const;
 const EXPENSE_KEYS = [
-  "fuel", "accommodation", "activities", "food", "groceries",
-  "maintenance", "registration", "insurance", "phonePlan",
-  "electricity", "rates", "strataLevies", "mortgageRepayment",
-  "medicalPharmacy", "clothing", "entertainment", "personalCare",
-  "superContribution", "annualCar", "annualCaravan",
+  // Travel & Road
+  "fuel", "accommodation", "food", "eatingOut", "entertainment", "passesPermits", "ferries",
+  // Vehicle & Rig
+  "vehicleService", "caravanService", "tyresVehicle", "tyresCaravan", "repairs",
+  // Fixed Monthly Bills
+  "starlink", "johanMobile", "zandraMobile", "medical", "prescriptions", "apartmentInsurance",
+  // Annual — Rego & Insurance
+  "vehicleLicence", "caravanLicence", "vehicleInsurance", "caravanInsurance", "roadsideAssist",
+  // Super & Savings
+  "superContribution", "savingsZandra", "savingsJohan",
 ] as const;
 
 const INCOME_LABELS: Record<string, string> = {
-  salary: "Salary", rentalNet: "Rental Net", businessIncome: "Business",
+  rentalNet: "Rental Net", salary: "Salary", businessIncome: "Business",
   refunds: "Refunds", otherIncome1: "Other Income 1", otherIncome2: "Other Income 2",
 };
 const EXPENSE_LABELS: Record<string, string> = {
-  fuel: "Fuel", accommodation: "Accommodation", activities: "Activities",
-  food: "Food", groceries: "Groceries", maintenance: "Maintenance",
-  registration: "Registration", insurance: "Insurance", phonePlan: "Phone",
-  electricity: "Electricity", rates: "Rates", strataLevies: "Strata",
-  mortgageRepayment: "Mortgage", medicalPharmacy: "Medical", clothing: "Clothing",
-  entertainment: "Entertainment", personalCare: "Personal Care",
-  superContribution: "Super", annualCar: "Car (Annual)", annualCaravan: "Caravan (Annual)",
+  // Travel
+  fuel: "Fuel", accommodation: "Parks & Acc.", food: "Food & Groceries",
+  eatingOut: "Eating Out", entertainment: "Entertainment", passesPermits: "Passes & Permits", ferries: "Ferries",
+  // Vehicle
+  vehicleService: "Vehicle Service", caravanService: "Caravan Service",
+  tyresVehicle: "Tyres — Vehicle", tyresCaravan: "Tyres — Caravan", repairs: "Repairs",
+  // Fixed
+  starlink: "Starlink", johanMobile: "Johan Mobile", zandraMobile: "Zandra Mobile",
+  medical: "BUPA Medical", prescriptions: "Prescriptions", apartmentInsurance: "Apt Insurance",
+  // Annual
+  vehicleLicence: "Vehicle Licence", caravanLicence: "Caravan Licence",
+  vehicleInsurance: "Vehicle Insurance", caravanInsurance: "Caravan Insurance", roadsideAssist: "Roadside",
+  // Super
+  superContribution: "Super SPA", savingsZandra: "Savings Zandra", savingsJohan: "Savings Johan",
 };
 
-// Colour palette for income/expense stacks
-const INCOME_PALETTE = ["#1f6f5f", "#2a8a76", "#3aab92", "#4a7f6f", "#155040", "#0e3d2e"];
-const EXPENSE_PALETTE = ["#d9b880", "#c9a060", "#b97e30", "#e8d098", "#f0a040", "#e07020",
-  "#a06020", "#906010", "#803010", "#702010", "#602000", "#501000",
-  "#f0c080", "#d0a060", "#c09050", "#b08040", "#a07030", "#907020", "#806010", "#705000"];
+// Colour palette for income/expense stacks — enough for 27 expense keys
+const INCOME_PALETTE = ["#1f6f5f", "#2a8a76", "#3aab92", "#4abf8a", "#155040", "#0e3d2e"];
+const EXPENSE_PALETTE = [
+  // Travel (green-amber spectrum)
+  "#d9b880", "#c9a060", "#b97e30", "#e8c870", "#f0a040", "#d89030", "#c07820",
+  // Vehicle (warm brown)
+  "#a06020", "#904810", "#803808", "#703010", "#602808",
+  // Fixed (blue-grey)
+  "#60a5fa", "#3b82f6", "#2563eb", "#1d4ed8", "#1e40af", "#1e3a8a",
+  // Annual (red spectrum)
+  "#ef4444", "#dc2626", "#b91c1c", "#991b1b", "#7f1d1d",
+  // Super (purple)
+  "#a78bfa", "#8b5cf6", "#7c3aed",
+];
 
 // ── Number formatters ─────────────────────────────────────────────────────────
 function fmtKm(n: number) {
