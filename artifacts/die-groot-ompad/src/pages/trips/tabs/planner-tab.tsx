@@ -12,7 +12,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Save, ArrowRight, Route } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Save,
+  ArrowRight,
+  Route,
+  Navigation,
+  Loader2,
+  ExternalLink,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { VoiceField } from "@/components/voice-button";
@@ -32,6 +41,53 @@ const defaultLegState = {
   notes: "",
 };
 
+async function geocode(place: string): Promise<[number, number] | null> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+        place + ", Australia"
+      )}&format=json&limit=1`,
+      { headers: { "Accept-Language": "en" } }
+    );
+    const data = await res.json();
+    if (data[0]) return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function getDrivingDistance(
+  from: string,
+  to: string
+): Promise<{ distanceKm: number; durationMin: number } | null> {
+  const [fromCoords, toCoords] = await Promise.all([geocode(from), geocode(to)]);
+  if (!fromCoords || !toCoords) return null;
+
+  const [fLat, fLng] = fromCoords;
+  const [tLat, tLng] = toCoords;
+
+  const res = await fetch(
+    `https://router.project-osrm.org/route/v1/driving/${fLng},${fLat};${tLng},${tLat}?overview=false`
+  );
+  const data = await res.json();
+  if (data.code !== "Ok" || !data.routes?.length) return null;
+
+  return {
+    distanceKm: Math.round(data.routes[0].distance / 1000),
+    durationMin: Math.round(data.routes[0].duration / 60),
+  };
+}
+
+function googleMapsUrl(from: string, to: string) {
+  return (
+    `https://www.google.com/maps/dir/?api=1` +
+    `&origin=${encodeURIComponent(from + ", Australia")}` +
+    `&destination=${encodeURIComponent(to + ", Australia")}` +
+    `&travelmode=driving`
+  );
+}
+
 export default function PlannerTab({ trip }: PlannerTabProps) {
   const { data: legs, isLoading } = useListLegs(trip.id);
   const createLeg = useCreateLeg();
@@ -42,6 +98,8 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
 
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [legData, setLegData] = useState(defaultLegState);
+  const [calculatingDistance, setCalculatingDistance] = useState(false);
+  const [routeInfo, setRouteInfo] = useState<{ distanceKm: number; durationMin: number } | null>(null);
 
   const sortedLegs = legs ? [...legs].sort((a, b) => a.sortOrder - b.sortOrder) : [];
   const activeLeg = sortedLegs[selectedIndex];
@@ -58,12 +116,14 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
         actualPricePerLitre: activeLeg.actualPricePerLitre || 0,
         notes: activeLeg.notes || "",
       });
+      setRouteInfo(null);
     } else {
       setLegData(defaultLegState);
+      setRouteInfo(null);
     }
   }, [selectedIndex, legs]);
 
-  // When new legs arrive (e.g. from Map tab), auto-select the newest one
+  // Auto-select newest leg when one is added from the map
   useEffect(() => {
     if (sortedLegs.length > 0 && selectedIndex >= sortedLegs.length) {
       setSelectedIndex(sortedLegs.length - 1);
@@ -115,12 +175,43 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
     );
   };
 
+  const handleCalculateDistance = async () => {
+    if (!legData.fromPlace.trim() || !legData.toPlace.trim()) {
+      toast({ title: "Enter both From and To first", variant: "destructive" });
+      return;
+    }
+    setCalculatingDistance(true);
+    try {
+      const result = await getDrivingDistance(legData.fromPlace, legData.toPlace);
+      if (!result) {
+        toast({
+          title: "Could not calculate route",
+          description: "Check the place names and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setLegData((d) => ({ ...d, plannedKm: result.distanceKm }));
+      setRouteInfo(result);
+      toast({
+        title: `${result.distanceKm} km driving distance`,
+        description: `Est. ${Math.floor(result.durationMin / 60)}h ${result.durationMin % 60}m — ${legData.fromPlace} → ${legData.toPlace}`,
+      });
+    } catch {
+      toast({ title: "Distance calculation failed", variant: "destructive" });
+    } finally {
+      setCalculatingDistance(false);
+    }
+  };
+
   const fuelPrice18 = trip.fuelPrice18 || 1.5;
   const plannedKm = legData.plannedKm || 0;
   const est15 = plannedKm * 0.15;
   const est18 = plannedKm * 0.18;
   const est20 = plannedKm * 0.2;
+  const estCost15 = est15 * fuelPrice18;
   const estCost18 = est18 * fuelPrice18;
+  const estCost20 = est20 * fuelPrice18;
   const actualFuelCost = (legData.actualLitres || 0) * (legData.actualPricePerLitre || 0);
   const kmPerL = legData.actualLitres ? (legData.actualKm || 0) / legData.actualLitres : 0;
   const lPer100 = legData.actualKm
@@ -137,7 +228,6 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
     <div className="flex gap-0 h-full" style={{ minHeight: "calc(100vh - 220px)" }}>
       {/* ── Stop list panel ── */}
       <div className="w-64 shrink-0 flex flex-col border-r border-border bg-card rounded-l-xl overflow-hidden">
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <Route className="h-4 w-4 text-primary" />
@@ -157,7 +247,6 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
           </Button>
         </div>
 
-        {/* Leg rows */}
         <div className="flex-1 overflow-y-auto">
           {sortedLegs.length === 0 ? (
             <div className="p-4 text-center text-xs text-muted-foreground leading-relaxed">
@@ -179,7 +268,6 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                   )}
                 >
                   <div className="flex items-start gap-2">
-                    {/* Number badge */}
                     <span
                       className={cn(
                         "shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold",
@@ -191,24 +279,22 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                       {idx + 1}
                     </span>
                     <div className="min-w-0 flex-1">
-                      {/* From → To */}
                       <div className="flex items-center gap-1 min-w-0">
-                        <span className="text-xs font-medium text-foreground truncate max-w-[70px]">
+                        <span className="text-xs font-medium text-foreground truncate max-w-[62px]">
                           {leg.fromPlace || "—"}
                         </span>
                         <ArrowRight className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
-                        <span className="text-xs font-medium text-foreground truncate max-w-[70px]">
+                        <span className="text-xs font-medium text-foreground truncate max-w-[62px]">
                           {leg.toPlace || "—"}
                         </span>
                       </div>
-                      {/* Distance row */}
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[10px] text-muted-foreground">
-                          {leg.plannedKm ? `${leg.plannedKm} km planned` : "0 km"}
+                          {leg.plannedKm ? `${leg.plannedKm.toLocaleString()} km` : "—"}
                         </span>
                         {hasActual && (
                           <span className="text-[10px] text-primary font-medium">
-                            {leg.actualKm} km actual
+                            {leg.actualKm} actual
                           </span>
                         )}
                       </div>
@@ -220,7 +306,6 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
           )}
         </div>
 
-        {/* Trip totals footer */}
         {sortedLegs.length > 0 && (
           <div className="px-4 py-3 border-t border-border bg-muted/40 space-y-1">
             <div className="flex justify-between text-xs">
@@ -241,7 +326,7 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
       <div className="flex-1 overflow-y-auto bg-background rounded-r-xl">
         {activeLeg ? (
           <div className="p-6 space-y-6">
-            {/* Editor header */}
+            {/* Header */}
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-foreground">
                 Leg {selectedIndex + 1} — {activeLeg.fromPlace} to {activeLeg.toPlace}
@@ -303,17 +388,63 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                       </div>
                     </div>
 
-                    <div className="border-t border-border pt-4">
-                      <div className="space-y-1.5 max-w-[160px]">
-                        <Label>Planned Km</Label>
-                        <Input
-                          type="number"
-                          value={legData.plannedKm}
-                          onChange={(e) =>
-                            setLegData({ ...legData, plannedKm: Number(e.target.value) })
-                          }
-                        />
+                    {/* Distance section */}
+                    <div className="border-t border-border pt-4 space-y-3">
+                      <div className="flex items-end gap-3 flex-wrap">
+                        <div className="space-y-1.5">
+                          <Label>Planned Km</Label>
+                          <Input
+                            type="number"
+                            value={legData.plannedKm}
+                            onChange={(e) =>
+                              setLegData({ ...legData, plannedKm: Number(e.target.value) })
+                            }
+                            className="w-36"
+                          />
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCalculateDistance}
+                          disabled={calculatingDistance || !legData.fromPlace || !legData.toPlace}
+                          className="border-primary/40 text-primary hover:bg-primary/10 mb-0.5"
+                        >
+                          {calculatingDistance ? (
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Navigation className="mr-1.5 h-3.5 w-3.5" />
+                          )}
+                          Get Driving Distance
+                        </Button>
+
+                        {legData.fromPlace && legData.toPlace && (
+                          <a
+                            href={googleMapsUrl(legData.fromPlace, legData.toPlace)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors mb-1"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            View in Google Maps
+                          </a>
+                        )}
                       </div>
+
+                      {/* Route info pill */}
+                      {routeInfo && (
+                        <div className="flex items-center gap-3 text-xs bg-primary/8 border border-primary/20 rounded-md px-3 py-2">
+                          <Navigation className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span className="text-primary font-semibold">
+                            {routeInfo.distanceKm.toLocaleString()} km driving
+                          </span>
+                          <span className="text-muted-foreground">·</span>
+                          <span className="text-muted-foreground">
+                            Est. {Math.floor(routeInfo.durationMin / 60)}h {routeInfo.durationMin % 60}m drive time
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">
@@ -330,7 +461,7 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                           onChange={(e) =>
                             setLegData({ ...legData, notes: e.target.value })
                           }
-                          placeholder="Fuel stops, attractions, warnings..."
+                          placeholder="Fuel stops, attractions, warnings, road conditions..."
                           className="resize-none"
                         />
                       </VoiceField>
@@ -389,29 +520,41 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Fuel Estimates</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">15 L/100km</span>
-                      <span className="font-medium">{est15.toFixed(1)} L</span>
+                  <CardContent className="space-y-0 divide-y divide-border">
+                    {/* 15 L/100km */}
+                    <div className="flex items-center justify-between py-2.5 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">15 L/100km</span>
+                        <span className="ml-2 font-medium">{est15.toFixed(1)} L</span>
+                      </div>
+                      <span className="text-muted-foreground">${estCost15.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-sm font-semibold bg-muted px-2 py-1.5 rounded">
-                      <span>18 L/100km (Base)</span>
-                      <span>{est18.toFixed(1)} L</span>
+                    {/* 18 L/100km — baseline */}
+                    <div className="flex items-center justify-between py-2.5 text-sm bg-primary/5 px-2 rounded-sm font-semibold">
+                      <div>
+                        <span className="text-foreground">18 L/100km</span>
+                        <span className="ml-2">{est18.toFixed(1)} L</span>
+                      </div>
+                      <span className="text-primary text-base">${estCost18.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">20 L/100km</span>
-                      <span className="font-medium">{est20.toFixed(1)} L</span>
+                    {/* 20 L/100km */}
+                    <div className="flex items-center justify-between py-2.5 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">20 L/100km</span>
+                        <span className="ml-2 font-medium">{est20.toFixed(1)} L</span>
+                      </div>
+                      <span className="text-muted-foreground">${estCost20.toFixed(2)}</span>
                     </div>
-                    <div className="pt-3 border-t border-border flex justify-between items-center">
-                      <span className="text-sm font-medium">Est. Cost</span>
-                      <span className="font-bold text-lg">${estCost18.toFixed(2)}</span>
+                    <div className="pt-3 flex justify-between items-center text-xs text-muted-foreground">
+                      <span>Fuel price used</span>
+                      <span>${fuelPrice18.toFixed(2)}/L</span>
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card className="bg-card">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">KPIs</CardTitle>
+                    <CardTitle className="text-base">Actual KPIs</CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-3">
                     <div className="bg-muted p-3 rounded-lg">
@@ -422,29 +565,38 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                     </div>
                     <div className="bg-muted p-3 rounded-lg">
                       <span className="text-[10px] text-muted-foreground block uppercase tracking-wide">
-                        Variance
+                        vs Baseline
                       </span>
                       <span
                         className={cn(
                           "font-bold text-sm",
-                          varianceCost > 0 ? "text-destructive" : "text-primary"
+                          actualFuelCost === 0
+                            ? "text-muted-foreground"
+                            : varianceCost > 0
+                            ? "text-destructive"
+                            : "text-primary"
                         )}
                       >
-                        {varianceCost > 0 ? "+" : ""}
-                        {varianceCost.toFixed(2)}
+                        {actualFuelCost === 0
+                          ? "—"
+                          : `${varianceCost > 0 ? "+" : ""}${varianceCost.toFixed(2)}`}
                       </span>
                     </div>
                     <div className="bg-muted p-3 rounded-lg">
                       <span className="text-[10px] text-muted-foreground block uppercase tracking-wide">
                         Km / L
                       </span>
-                      <span className="font-bold text-sm">{kmPerL.toFixed(2)}</span>
+                      <span className="font-bold text-sm">
+                        {kmPerL > 0 ? kmPerL.toFixed(2) : "—"}
+                      </span>
                     </div>
                     <div className="bg-muted p-3 rounded-lg">
                       <span className="text-[10px] text-muted-foreground block uppercase tracking-wide">
                         L / 100km
                       </span>
-                      <span className="font-bold text-sm">{lPer100.toFixed(2)}</span>
+                      <span className="font-bold text-sm">
+                        {lPer100 > 0 ? lPer100.toFixed(2) : "—"}
+                      </span>
                     </div>
                   </CardContent>
                 </Card>
@@ -456,7 +608,9 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
             <div className="text-center">
               <Route className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-muted-foreground text-sm">
-                No stops yet. Add one using the <Plus className="inline h-3 w-3" /> button,<br />
+                No stops yet. Add one using the{" "}
+                <Plus className="inline h-3 w-3" /> button,
+                <br />
                 or click any point on the Map tab.
               </p>
             </div>
