@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
+import { SaveProvider } from "@/lib/save-context";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import TripsList from "@/pages/trips/index";
@@ -291,6 +292,7 @@ function ClerkProviderWithRoutes() {
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <QueryClientProvider client={queryClient}>
+        <SaveProvider>
         <TooltipProvider>
           <ClerkQueryClientCacheInvalidator />
           <Switch>
@@ -353,6 +355,7 @@ function ClerkProviderWithRoutes() {
           </Switch>
           <Toaster />
         </TooltipProvider>
+        </SaveProvider>
       </QueryClientProvider>
     </ClerkProvider>
   );

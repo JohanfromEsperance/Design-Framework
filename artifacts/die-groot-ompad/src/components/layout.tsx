@@ -1,8 +1,10 @@
 import { Link, useLocation } from "wouter";
-import { Map, Home, Menu, MessageSquare, Globe, DollarSign, LogOut, Truck, ClipboardCheck, Download } from "lucide-react";
+import { Map, Home, Menu, MessageSquare, Globe, DollarSign, LogOut, Truck, ClipboardCheck, Download, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useClerk, useUser } from "@clerk/react";
+import { useSaveContext } from "@/lib/save-context";
+import { useState } from "react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -162,6 +164,15 @@ export function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const { signOut } = useClerk();
   const { user } = useUser();
+  const { save, hasSaveFn } = useSaveContext();
+  const [saving, setSaving] = useState(false);
+
+  const handleHardSave = () => {
+    if (!hasSaveFn) return;
+    setSaving(true);
+    save();
+    setTimeout(() => setSaving(false), 1800);
+  };
 
   const firstName = user?.firstName ?? user?.primaryEmailAddress?.emailAddress?.split("@")[0] ?? "Explorer";
   const initials = firstName.slice(0, 2).toUpperCase();
@@ -200,6 +211,24 @@ export function Layout({ children }: LayoutProps) {
       <div className="md:pl-52">
         <main className="flex-1 p-6 md:p-8">{children}</main>
       </div>
+
+      {/* Hard Save button — fixed top-right, only shown when a page has registered a save function */}
+      {hasSaveFn && (
+        <button
+          onClick={handleHardSave}
+          disabled={saving}
+          className="fixed top-4 right-4 z-40 flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold shadow-md transition-all hover:scale-105 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+          style={{
+            background: saving ? "#165a4c" : "#1f6f5f",
+            color: "#f6f1e7",
+            boxShadow: "0 2px 12px rgba(31,111,95,0.35)",
+          }}
+          title="Hard Save — commit all changes to the database now"
+        >
+          <Save className="h-3.5 w-3.5 shrink-0" />
+          <span>{saving ? "Saving..." : "Hard Save"}</span>
+        </button>
+      )}
 
       {/* Floating Johan button */}
       <button

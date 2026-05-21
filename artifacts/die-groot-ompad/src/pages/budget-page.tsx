@@ -1,6 +1,7 @@
 import {
   useGetGlobalBudget, useSaveGlobalBudget, getGetGlobalBudgetQueryKey,
 } from "@workspace/api-client-react";
+import { useSaveContext } from "@/lib/save-context";
 import RentalSub, { DEFAULT_RENTAL, type RentalConfig } from "./trips/tabs/rental-sub";
 import PlanningSub from "./trips/tabs/planning-sub";
 import SuperSub, { DEFAULT_SUPER, type SuperPortfolio } from "./trips/tabs/super-sub";
@@ -163,6 +164,7 @@ export default function BudgetPage() {
   const saveGlobalBudget = useSaveGlobalBudget();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { register, unregister } = useSaveContext();
 
   // Read insurance policy names from vehicleDocs for grid hints
   const vehicleDocs = (budget?.vehicleDocs ?? {}) as Record<string, string>;
@@ -255,6 +257,8 @@ export default function BudgetPage() {
     });
   };
 
+  const handleManualSaveRef = useRef<() => void>(() => {});
+
   const handleManualSave = () => {
     if (!budgetData) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -268,6 +272,15 @@ export default function BudgetPage() {
       }
     );
   };
+
+  // Keep ref fresh so the registered save function always calls latest handleManualSave
+  handleManualSaveRef.current = handleManualSave;
+
+  // Register with global SaveContext (Hard Save button)
+  useEffect(() => {
+    register(() => handleManualSaveRef.current());
+    return () => unregister();
+  }, [register, unregister]);
 
   // ── Super change ─────────────────────────────────────────────────────────
 

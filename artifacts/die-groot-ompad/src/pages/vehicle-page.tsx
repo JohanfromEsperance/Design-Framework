@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useSaveContext } from "@/lib/save-context";
 import {
   AlertTriangle, CheckCircle, AlertOctagon,
   Wrench, AlertCircle, Clock, DollarSign, ChevronDown, ChevronUp,
@@ -189,14 +190,72 @@ export default function VehiclePage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const budgetRef = useRef<any>(null);
 
+  // Refs to track latest state (for force-save without stale closures)
+  const profileRef = useRef<Record<string, string | number>>({});
+  const docsRef = useRef<VehicleDocs>(DOCS_DEFAULTS);
+  const isDirtyRef = useRef(false);
+
+  // Force-save impl (no debounce) — reads from refs so always fresh
+  const forceSaveImpl = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    forceSaveImpl.current = () => {
+      if (!isDirtyRef.current) return;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      const base = budgetRef.current ?? {};
+      setSaveState("saving");
+      saveBudget.mutate(
+        {
+          data: {
+            year: base.year ?? new Date().getFullYear().toString(),
+            months: base.months ?? {},
+            rental: base.rental,
+            super: base.super,
+            shares: base.shares,
+            income: base.income,
+            tax: base.tax,
+            vehicleProfile: profileRef.current as Record<string, unknown>,
+            vehicleDocs: docsRef.current as unknown as Record<string, unknown>,
+          },
+        },
+        {
+          onSuccess: (saved) => {
+            budgetRef.current = { ...base, ...saved };
+            queryClient.invalidateQueries({ queryKey: getGetGlobalBudgetQueryKey() });
+            isDirtyRef.current = false;
+            setSaveState("saved");
+            setTimeout(() => setSaveState("idle"), 2500);
+          },
+          onError: () => setSaveState("error"),
+        }
+      );
+    };
+  }, [saveBudget, queryClient]);
+
+  // Register force-save with global SaveContext; flush on page unmount
+  const { register, unregister } = useSaveContext();
+  const stableSave = useCallback(() => forceSaveImpl.current(), []);
+  useEffect(() => {
+    register(stableSave);
+    return () => {
+      // Flush any unsaved changes when navigating away
+      if (isDirtyRef.current) forceSaveImpl.current();
+      unregister();
+    };
+  }, [register, unregister, stableSave]);
+
   useEffect(() => {
     if (globalBudget) {
       budgetRef.current = globalBudget;
       if (globalBudget.vehicleProfile && typeof globalBudget.vehicleProfile === "object") {
-        setProfile(globalBudget.vehicleProfile as Record<string, string | number>);
+        const p = globalBudget.vehicleProfile as Record<string, string | number>;
+        setProfile(p);
+        profileRef.current = p;
       }
       if (globalBudget.vehicleDocs && typeof globalBudget.vehicleDocs === "object") {
-        setDocs({ ...DOCS_DEFAULTS, ...(globalBudget.vehicleDocs as Partial<VehicleDocs>) });
+        const d = { ...DOCS_DEFAULTS, ...(globalBudget.vehicleDocs as Partial<VehicleDocs>) };
+        setDocs(d);
+        docsRef.current = d;
       }
     }
   }, [globalBudget]);
@@ -230,6 +289,7 @@ export default function VehiclePage() {
           onSuccess: (saved) => {
             budgetRef.current = { ...base, ...saved };
             queryClient.invalidateQueries({ queryKey: getGetGlobalBudgetQueryKey() });
+            isDirtyRef.current = false;
             setSaveState("saved");
             setTimeout(() => setSaveState("idle"), 2500);
           },
@@ -244,7 +304,9 @@ export default function VehiclePage() {
   const handleProfileChange = (field: string, value: string | number) => {
     setProfile(prev => {
       const next = { ...prev, [field]: value };
-      triggerSave(next, docs);
+      profileRef.current = next;
+      isDirtyRef.current = true;
+      triggerSave(next, docsRef.current);
       return next;
     });
   };
@@ -252,7 +314,9 @@ export default function VehiclePage() {
   const handleDocsChange = (patch: Partial<VehicleDocs>) => {
     setDocs(prev => {
       const next = { ...prev, ...patch };
-      triggerSave(profile, next);
+      docsRef.current = next;
+      isDirtyRef.current = true;
+      triggerSave(profileRef.current, next);
       return next;
     });
   };
