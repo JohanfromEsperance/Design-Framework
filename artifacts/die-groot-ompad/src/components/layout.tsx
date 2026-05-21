@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Compass, Map, Home, Menu, MessageSquare } from "lucide-react";
+import { Compass, Map, Home, Menu, MessageSquare, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -59,11 +59,21 @@ export function Layout({ children }: LayoutProps) {
         })}
       </nav>
 
-      {/* Johan button in sidebar */}
-      <div className="p-4 border-t border-border space-y-4">
+      {/* Sidebar footer buttons */}
+      <div className="p-4 border-t border-border space-y-2">
+        <a
+          href="https://adventure-analytics-australia.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold transition-colors hover:opacity-90"
+          style={{ background: "#d9b880", color: "#1a1a1a" }}
+        >
+          <Globe className="h-4 w-4 shrink-0" />
+          <span>Adventure Analytics</span>
+        </a>
         <button
           onClick={openJohan}
-          className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold transition-colors"
+          className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold transition-colors hover:opacity-90"
           style={{
             background: "linear-gradient(135deg, #1f6f5f, #2a8a76)",
             color: "#f6f1e7",
