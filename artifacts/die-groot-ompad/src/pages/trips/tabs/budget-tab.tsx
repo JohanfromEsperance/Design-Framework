@@ -2,21 +2,26 @@ import {
   useGetBudget, useSaveBudget, getGetBudgetQueryKey, useGetTrip,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Download, Upload, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
-import { useState, useEffect, useMemo, useRef } from "react";
 import {
-  ComposedChart, BarChart, Bar, Line, Area, AreaChart,
+  Save, Download, Upload, TrendingUp, TrendingDown, DollarSign,
+  AlertTriangle, CheckCircle2, Lightbulb, TrendingUp as CpiIcon,
+  ChevronLeft, ChevronRight,
+} from "lucide-react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import {
+  BarChart, Bar, AreaChart, Area, ComposedChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   Legend, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-interface BudgetTabProps {
-  tripId: number;
-}
+interface BudgetTabProps { tripId: number; }
 
 // ── Category definitions ─────────────────────────────────────────────────────
 
@@ -71,21 +76,23 @@ const INCOME_ITEMS = [
 ];
 
 const EXPENSE_SECTIONS = [
-  { title: "Travel & Road",           items: TRAVEL_EXPENSES, color: "#1f6f5f" },
-  { title: "Vehicle & Rig",           items: VEHICLE_COSTS,   color: "#d9b880" },
-  { title: "Fixed Monthly Bills",     items: FIXED_BILLS,     color: "#60a5fa" },
-  { title: "Annual — Rego & Insurance", items: ANNUAL_COSTS,  color: "#ef4444" },
-  { title: "Super & Savings",         items: SUPER_SAVINGS,   color: "#a78bfa" },
+  { title: "Travel & Road",             items: TRAVEL_EXPENSES, color: "#1f6f5f" },
+  { title: "Vehicle & Rig",             items: VEHICLE_COSTS,   color: "#d9b880" },
+  { title: "Fixed Monthly Bills",       items: FIXED_BILLS,     color: "#60a5fa" },
+  { title: "Annual — Rego & Insurance", items: ANNUAL_COSTS,    color: "#ef4444" },
+  { title: "Super & Savings",           items: SUPER_SAVINGS,   color: "#a78bfa" },
 ];
+
+const ALL_EXPENSE_KEYS = [
+  ...TRAVEL_EXPENSES, ...VEHICLE_COSTS, ...FIXED_BILLS, ...ANNUAL_COSTS, ...SUPER_SAVINGS,
+].map(i => i.key);
 
 const ALL_KEYS = [
   ...TRAVEL_EXPENSES, ...VEHICLE_COSTS, ...FIXED_BILLS,
   ...ANNUAL_COSTS, ...SUPER_SAVINGS, ...INCOME_ITEMS,
 ];
 
-// ── Default data from TTR-JJS1 workbook ─────────────────────────────────────
-// Months 0-11 = March (D) through February (D+11)
-// Fuel: 20L/100km @$3/L; Accommodation & Food: $50/day; Super SPA: $1161/mo; Rental net: $1611/mo
+// ── Default 12-month pattern (Year 1) ────────────────────────────────────────
 
 const BASE_BILLS = {
   starlink: 80, johanMobile: 60, zandraMobile: 60,
@@ -96,40 +103,44 @@ const BASE_BILLS = {
   rentalNet: 1611, salary: 0, businessIncome: 0, refunds: 0, otherIncome1: 0, otherIncome2: 0,
 };
 
-const DEFAULT_MONTHS: Record<string, any>[] = [
-  // Month 0 — March (Perth–Northam, 31 days, 700km)
+const Y1_MONTHS: Record<string, any>[] = [
   { ...BASE_BILLS, openingBalance: 47607, fuel: 420, accommodation: 1550, food: 1550, eatingOut: 150, entertainment: 100, passesPermits: 0,   ferries: 0 },
-  // Month 1 — April (Shark Bay, 30 days, 800km)
   { ...BASE_BILLS, fuel: 480,  accommodation: 1500, food: 1500, eatingOut: 150, entertainment: 100, passesPermits: 0,   ferries: 0 },
-  // Month 2 — May (Exmouth, 31 days, 700km)
   { ...BASE_BILLS, fuel: 420,  accommodation: 1550, food: 1550, eatingOut: 150, entertainment: 100, passesPermits: 50,  ferries: 0 },
-  // Month 3 — June (80 Mile Beach, 30 days, 700km)
   { ...BASE_BILLS, fuel: 420,  accommodation: 1500, food: 1500, eatingOut: 100, entertainment: 100, passesPermits: 0,   ferries: 0 },
-  // Month 4 — July (Broome, 31 days, 600km)
   { ...BASE_BILLS, fuel: 360,  accommodation: 1550, food: 1550, eatingOut: 150, entertainment: 150, passesPermits: 0,   ferries: 0 },
-  // Month 5 — August (Gibb River Road, 31 days, 700km)
   { ...BASE_BILLS, fuel: 420,  accommodation: 1550, food: 1550, eatingOut: 100, entertainment: 100, passesPermits: 0,   ferries: 0 },
-  // Month 6 — September (Darwin, 30 days, 900km)
   { ...BASE_BILLS, fuel: 540,  accommodation: 1500, food: 1500, eatingOut: 200, entertainment: 200, passesPermits: 100, ferries: 0 },
-  // Month 7 — October (Darwin → Alice → Adelaide, 31 days, 3000km + ferry)
   { ...BASE_BILLS, fuel: 1800, accommodation: 1550, food: 1550, eatingOut: 200, entertainment: 150, passesPermits: 0,   ferries: 4500 },
-  // Month 8 — November (Tasmania, 30 days, 1000km) — ANNUAL COSTS MONTH
   { ...BASE_BILLS, fuel: 600,  accommodation: 1500, food: 1500, eatingOut: 200, entertainment: 200, passesPermits: 0,   ferries: 0,
     vehicleLicence: 1200, caravanLicence: 300, vehicleInsurance: 1850, caravanInsurance: 1350, roadsideAssist: 400 },
-  // Month 9 — December (service month, 31 days, 300km)
   { ...BASE_BILLS, fuel: 180,  accommodation: 1550, food: 1550, eatingOut: 300, entertainment: 200, passesPermits: 0,   ferries: 0,
     vehicleService: 1500, tyresVehicle: 1800, tyresCaravan: 600 },
-  // Month 10 — January (31 days, 300km)
   { ...BASE_BILLS, fuel: 180,  accommodation: 1550, food: 1550, eatingOut: 200, entertainment: 150, passesPermits: 0,   ferries: 0 },
-  // Month 11 — February (29 days, 300km)
   { ...BASE_BILLS, fuel: 180,  accommodation: 1450, food: 1450, eatingOut: 150, entertainment: 100, passesPermits: 0,   ferries: 0 },
 ];
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Build 60-month defaults (5 years, 2.5% CPI applied year-over-year) ───────
 
-function buildEmptyMonths(): Record<string, Record<string, any>> {
+function build60MonthDefaults(): Record<string, Record<string, any>> {
   const m: Record<string, Record<string, any>> = {};
-  for (let i = 0; i < 12; i++) m[i] = { ...DEFAULT_MONTHS[i] };
+  for (let i = 0; i < 60; i++) {
+    const year = Math.floor(i / 12);
+    const monthInYear = i % 12;
+    const cpi = Math.pow(1.025, year);
+    const base = Y1_MONTHS[monthInYear];
+    const month: Record<string, any> = {};
+    for (const key of Object.keys(base)) {
+      if (key === "openingBalance") {
+        month[key] = i === 0 ? (base[key] || 0) : 0;
+      } else if (typeof base[key] === "number" && base[key] > 0) {
+        month[key] = Math.round(Number(base[key]) * cpi);
+      } else {
+        month[key] = base[key];
+      }
+    }
+    m[i.toString()] = month;
+  }
   return m;
 }
 
@@ -150,22 +161,61 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const importRef = useRef<HTMLInputElement>(null);
 
+  // View state — which 12 months to show (0=Year1 .. 4=Year5)
+  const [viewYear, setViewYear] = useState(0);
+  const [customMode, setCustomMode] = useState(false);
+  const [customFrom, setCustomFrom] = useState(0);
+  const [customTo, setCustomTo] = useState(11);
+
+  // CPI dialog state
+  const [cpiDialogOpen, setCpiDialogOpen] = useState(false);
+  const [cpiRate, setCpiRate] = useState(2.5);
+  const [cpiFromMonth, setCpiFromMonth] = useState(0);
+
+  // Derived view range
+  const viewStart = customMode ? customFrom : viewYear * 12;
+  const viewEnd   = customMode ? Math.max(customFrom, customTo) : viewYear * 12 + 11;
+  const visibleCount = viewEnd - viewStart + 1;
+
+  // ── Init / expand DB months to 60 ──────────────────────────────────────────
+
   useEffect(() => {
+    if (isLoading) return;
     if (budget && budget.months && Object.keys(budget.months).length > 0) {
-      setBudgetData(budget);
-    } else if (!isLoading) {
-      setBudgetData({ year: new Date().getFullYear().toString(), months: buildEmptyMonths() });
+      const existing = budget.months as Record<string, any>;
+      const count = Object.keys(existing).length;
+      if (count >= 60) {
+        setBudgetData(budget);
+      } else {
+        const defaults = build60MonthDefaults();
+        const expanded: Record<string, any> = {};
+        for (let i = 0; i < 60; i++) {
+          expanded[i.toString()] = existing[i.toString()] ?? existing[i] ?? defaults[i.toString()];
+        }
+        setBudgetData({ ...budget, months: expanded });
+      }
+    } else {
+      setBudgetData({ year: new Date().getFullYear().toString(), months: build60MonthDefaults() });
     }
   }, [budget, isLoading]);
 
-  // Month label helpers
-  const monthLabel = (i: number, short = false): string => {
+  // ── Month label ────────────────────────────────────────────────────────────
+
+  const monthLabel = (i: number, fmt: "short" | "medium" | "long" = "medium"): string => {
     const base = trip?.startDate ? new Date(trip.startDate) : new Date(2026, 2, 1);
     const d = new Date(base.getFullYear(), base.getMonth() + i, 1);
-    return short
-      ? d.toLocaleDateString("en-AU", { month: "short" })
-      : d.toLocaleDateString("en-AU", { month: "short", year: "2-digit" });
+    if (fmt === "short") return d.toLocaleDateString("en-AU", { month: "short" });
+    if (fmt === "long")  return d.toLocaleDateString("en-AU", { month: "long", year: "numeric" });
+    return d.toLocaleDateString("en-AU", { month: "short", year: "2-digit" });
   };
+
+  const yearRangeLabel = (yr: number) => {
+    const s = monthLabel(yr * 12, "long");
+    const e = monthLabel(yr * 12 + 11, "long");
+    return `Year ${yr + 1}  (${s} – ${e})`;
+  };
+
+  // ── Auto-save ──────────────────────────────────────────────────────────────
 
   const triggerSave = (data: any) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -200,13 +250,45 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
     );
   };
 
-  // ── Computed totals ────────────────────────────────────────────────────────
+  // ── CPI Apply ──────────────────────────────────────────────────────────────
+
+  const handleApplyCPI = () => {
+    if (!budgetData) return;
+    setBudgetData((prev: any) => {
+      const newMonths = { ...prev.months };
+      // Base period: months cpiFromMonth..cpiFromMonth+11 (the first full year)
+      for (let i = cpiFromMonth; i < 60; i++) {
+        const yearsAhead = Math.floor((i - cpiFromMonth) / 12);
+        const multiplier = Math.pow(1 + cpiRate / 100, yearsAhead);
+        const baseMonthIdx = cpiFromMonth + ((i - cpiFromMonth) % 12);
+        const base = newMonths[baseMonthIdx.toString()] || newMonths[baseMonthIdx] || {};
+        const current = { ...(newMonths[i.toString()] || newMonths[i] || {}) };
+        for (const key of ALL_EXPENSE_KEYS) {
+          const bv = Number(base[key]);
+          if (bv > 0) current[key] = Math.round(bv * multiplier);
+        }
+        // Also CPI income
+        for (const inc of INCOME_ITEMS) {
+          const bv = Number(base[inc.key]);
+          if (bv > 0) current[inc.key] = Math.round(bv * multiplier);
+        }
+        newMonths[i.toString()] = current;
+      }
+      const newData = { ...prev, months: newMonths };
+      triggerSave(newData);
+      return newData;
+    });
+    setCpiDialogOpen(false);
+    toast({ title: "CPI indexing applied", description: `${cpiRate}% pa compounded from ${monthLabel(cpiFromMonth, "long")}` });
+  };
+
+  // ── Computed totals — all 60 months ────────────────────────────────────────
 
   const computedTotals = useMemo(() => {
     if (!budgetData) return [];
     let balance = 0;
-    return Array.from({ length: 12 }, (_, i) => {
-      const m = budgetData.months[i] || {};
+    return Array.from({ length: 60 }, (_, i) => {
+      const m = budgetData.months[i.toString()] ?? budgetData.months[i] ?? {};
       const opening = i === 0 ? (Number(m.openingBalance) || 0) : balance;
       const travel  = sectionTotal(m, TRAVEL_EXPENSES);
       const vehicle = sectionTotal(m, VEHICLE_COSTS);
@@ -215,12 +297,12 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
       const super_  = sectionTotal(m, SUPER_SAVINGS);
       const totalExp = travel + vehicle + fixed + annual + super_;
       const totalInc = sectionTotal(m, INCOME_ITEMS);
-      const closing = opening + totalInc - totalExp;
+      const closing  = opening + totalInc - totalExp;
       balance = closing;
       return {
-        name: monthLabel(i, true),
-        label: monthLabel(i),
-        month: i + 1,
+        name: monthLabel(i, "short"),
+        label: monthLabel(i, "long"),
+        month: i,
         openingBalance: opening,
         travel, vehicle, fixed, annual, super: super_,
         totalExpenses: totalExp,
@@ -231,49 +313,163 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
     });
   }, [budgetData, trip]);
 
-  // ── CSV Export ─────────────────────────────────────────────────────────────
+  // Visible slice for charts/grid
+  const visibleTotals = useMemo(
+    () => computedTotals.slice(viewStart, viewEnd + 1),
+    [computedTotals, viewStart, viewEnd]
+  );
+
+  // 60-month running balance for overview chart
+  const balanceOverview = useMemo(() =>
+    computedTotals.map((t, i) => ({
+      name: i % 12 === 0 ? `Y${Math.floor(i / 12) + 1}` : "",
+      balance: t.closingBalance,
+      year: Math.floor(i / 12),
+    })),
+    [computedTotals]
+  );
+
+  // ── Insights ───────────────────────────────────────────────────────────────
+
+  const insights = useMemo(() => {
+    if (!computedTotals.length || !budgetData) return [];
+    const items: { type: "red" | "amber" | "green" | "tip"; title: string; body: string }[] = [];
+
+    // Red: negative balance
+    const negMonths = computedTotals.filter(t => t.closingBalance < 0);
+    if (negMonths.length > 0) {
+      const first = negMonths[0];
+      items.push({
+        type: "red",
+        title: `Balance turns negative — ${first.label}`,
+        body: `Shortfall of $${Math.abs(first.closingBalance).toLocaleString()} in Month ${first.month + 1}. ${negMonths.length} months total in deficit. Inject savings or reduce spending before this point.`,
+      });
+    }
+
+    // Amber: consecutive negative cashflow streak
+    let maxStreak = 0, streak = 0, streakStart = -1, maxStreakStart = -1;
+    for (const t of computedTotals) {
+      if (t.net < 0) {
+        if (streak === 0) streakStart = t.month;
+        streak++;
+        if (streak > maxStreak) { maxStreak = streak; maxStreakStart = streakStart; }
+      } else { streak = 0; }
+    }
+    if (maxStreak >= 3) {
+      items.push({
+        type: "amber",
+        title: `${maxStreak}-month cashflow burn starting ${monthLabel(maxStreakStart, "long")}`,
+        body: `Expenses exceed income for ${maxStreak} consecutive months. Build a dedicated buffer of $${Math.round(
+          computedTotals.slice(maxStreakStart, maxStreakStart + maxStreak).reduce((s, t) => s + Math.abs(t.net), 0)
+        ).toLocaleString()} before this period.`,
+      });
+    }
+
+    // Amber: peak expense month
+    const peakExp = computedTotals.reduce((a, b) => a.totalExpenses > b.totalExpenses ? a : b);
+    items.push({
+      type: "amber",
+      title: `Peak spend month — ${peakExp.label}: $${peakExp.totalExpenses.toLocaleString()}`,
+      body: `Annual rego, insurance and/or vehicle service spike. Ensure $${Math.round(peakExp.totalExpenses * 1.1).toLocaleString()} available in that month (10% buffer).`,
+    });
+
+    // Green: 5-year picture
+    const totalInc5 = computedTotals.reduce((s, t) => s + t.totalIncome, 0);
+    const totalExp5 = computedTotals.reduce((s, t) => s + t.totalExpenses, 0);
+    const finalBal  = computedTotals[59]?.closingBalance ?? 0;
+    items.push({
+      type: finalBal >= 0 ? "green" : "red",
+      title: `5-year closing balance: ${finalBal >= 0 ? "+" : ""}$${finalBal.toLocaleString()}`,
+      body: `Total income $${totalInc5.toLocaleString()} vs total outgoings $${totalExp5.toLocaleString()} across 60 months.`,
+    });
+
+    // Green: rental coverage
+    const avgExp = computedTotals.reduce((s, t) => s + t.totalExpenses, 0) / 60;
+    const rental  = Number(budgetData.months["0"]?.rentalNet || budgetData.months[0]?.rentalNet || 0);
+    if (rental > 0) {
+      const pct = ((rental / avgExp) * 100).toFixed(0);
+      items.push({
+        type: "green",
+        title: `Rental income covers ${pct}% of average monthly costs`,
+        body: `Net rental $${rental.toLocaleString()}/mo vs avg monthly spend $${Math.round(avgExp).toLocaleString()}. Strong passive income base.`,
+      });
+    }
+
+    // Tips
+    const m0 = budgetData.months["0"] || budgetData.months[0] || {};
+    const fuelM0  = Number(m0.fuel || 0);
+    const accomM0 = Number(m0.accommodation || 0);
+
+    if (fuelM0 > 300) {
+      const saving5yr = fuelM0 * 0.10 * 12 * 5;
+      items.push({
+        type: "tip",
+        title: "Fuel — drop from 20 to 18 L/100km (10% saving)",
+        body: `Use cruise control, 90–95 km/h, shade tyres. Saves ~$${Math.round(saving5yr).toLocaleString()} over 5 years at current fuel spend.`,
+      });
+    }
+    if (accomM0 > 1000) {
+      const saving5yr = accomM0 * 0.15 * 12 * 5;
+      items.push({
+        type: "tip",
+        title: "Accommodation — add 1–2 free camp nights per week",
+        body: `WikiCamps, Camplify, and National Parks free zones. ~15% reduction saves ~$${Math.round(saving5yr).toLocaleString()} over 5 years.`,
+      });
+    }
+    items.push({
+      type: "tip",
+      title: "Lock in annual insurance before the November spike",
+      body: "Paying annual rego and insurance in one hit avoids instalment fees ($100–200 per policy). Budget the lump sum in October.",
+    });
+    items.push({
+      type: "tip",
+      title: "Use the CPI button each year to stay ahead of inflation",
+      body: "RBA target is 2–3%. Apply 2.5% at the start of each year to auto-scale all expense categories forward.",
+    });
+
+    return items;
+  }, [computedTotals, budgetData, trip]);
+
+  // ── CSV Export / Import ────────────────────────────────────────────────────
 
   const handleDownloadCSV = () => {
     if (!budgetData) return;
-    const headers = ["Category", "Section", ...Array.from({ length: 12 }, (_, i) => monthLabel(i))];
+    const ncols = 60;
+    const headers = ["Category", "Section", ...Array.from({ length: ncols }, (_, i) => monthLabel(i))];
     const rows: string[][] = [headers];
     rows.push(["Opening Balance", "Balance",
-      ...Array.from({ length: 12 }, (_, i) => i === 0
-        ? String(budgetData.months[0]?.openingBalance || 0)
-        : computedTotals[i]?.openingBalance.toFixed(2) || "0"
-      )
+      ...Array.from({ length: ncols }, (_, i) => {
+        if (i === 0) return String(budgetData.months["0"]?.openingBalance || budgetData.months[0]?.openingBalance || 0);
+        return computedTotals[i]?.openingBalance.toFixed(2) || "0";
+      })
     ]);
     for (const section of EXPENSE_SECTIONS) {
       for (const cat of section.items) {
         rows.push([cat.label, section.title,
-          ...Array.from({ length: 12 }, (_, i) => String(budgetData.months[i]?.[cat.key] || 0))
+          ...Array.from({ length: ncols }, (_, i) => String((budgetData.months[i.toString()] ?? budgetData.months[i])?.[cat.key] || 0))
         ]);
       }
     }
     for (const cat of INCOME_ITEMS) {
       rows.push([cat.label, "Income",
-        ...Array.from({ length: 12 }, (_, i) => String(budgetData.months[i]?.[cat.key] || 0))
+        ...Array.from({ length: ncols }, (_, i) => String((budgetData.months[i.toString()] ?? budgetData.months[i])?.[cat.key] || 0))
       ]);
     }
-    rows.push(["Total Expenses", "Summary", ...computedTotals.map(t => t.totalExpenses.toFixed(2))]);
-    rows.push(["Total Income", "Summary",  ...computedTotals.map(t => t.totalIncome.toFixed(2))]);
-    rows.push(["Net Cashflow", "Summary",  ...computedTotals.map(t => t.net.toFixed(2))]);
-    rows.push(["Closing Balance", "Summary", ...computedTotals.map(t => t.closingBalance.toFixed(2))]);
-
+    rows.push(["Total Expenses", "Summary",  ...computedTotals.map(t => t.totalExpenses.toFixed(2))]);
+    rows.push(["Total Income",   "Summary",  ...computedTotals.map(t => t.totalIncome.toFixed(2))]);
+    rows.push(["Net Cashflow",   "Summary",  ...computedTotals.map(t => t.net.toFixed(2))]);
+    rows.push(["Closing Balance","Summary",  ...computedTotals.map(t => t.closingBalance.toFixed(2))]);
     const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url;
-    a.download = `budget-${budgetData.year}-trip${tripId}.csv`; a.click();
+    a.download = `budget-5yr-trip${tripId}.csv`; a.click();
     URL.revokeObjectURL(url);
-    toast({ title: "CSV downloaded" });
+    toast({ title: "CSV exported (60 months)" });
   };
 
-  // ── CSV Import ─────────────────────────────────────────────────────────────
-
   const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
@@ -281,41 +477,44 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
         const lines = text.trim().split("\n").map(l =>
           l.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c => c.replace(/^"|"$/g, "").replace(/""/g, '"'))
         );
+        const ncols = lines[0].length - 2;
         const newMonths: Record<string, any> = {};
-        for (let i = 0; i < 12; i++) newMonths[i] = { ...DEFAULT_MONTHS[i] };
-
+        for (let i = 0; i < ncols; i++) newMonths[i.toString()] = { ...(Y1_MONTHS[i % 12]) };
         for (const row of lines.slice(1)) {
           const label = row[0];
           const cat = ALL_KEYS.find(c => c.label === label);
           if (cat) {
-            for (let i = 0; i < 12; i++) {
+            for (let i = 0; i < ncols; i++) {
               const val = parseFloat(row[i + 2]);
-              if (!isNaN(val)) newMonths[i][cat.key] = val;
+              if (!isNaN(val)) newMonths[i.toString()][cat.key] = val;
             }
           }
           if (label === "Opening Balance") {
             const val = parseFloat(row[2]);
-            if (!isNaN(val)) newMonths[0].openingBalance = val;
+            if (!isNaN(val)) { newMonths["0"].openingBalance = val; }
           }
         }
         const newData = { ...budgetData, months: newMonths };
-        setBudgetData(newData);
-        triggerSave(newData);
-        toast({ title: "Budget data imported", description: `Loaded ${file.name}` });
+        setBudgetData(newData); triggerSave(newData);
+        toast({ title: "Budget imported", description: file.name });
       } catch {
         toast({ title: "Import failed — check CSV format", variant: "destructive" });
       }
     };
-    reader.readAsText(file);
-    e.target.value = "";
+    reader.readAsText(file); e.target.value = "";
   };
 
   if (isLoading || !budgetData) return <div className="p-8 text-muted-foreground">Loading budget...</div>;
 
-  const totals12 = {
-    totalExpenses: computedTotals.reduce((s, t) => s + t.totalExpenses, 0),
-    totalIncome:   computedTotals.reduce((s, t) => s + t.totalIncome, 0),
-    closingBalance: computedTotals[11]?.closingBalance || 0,
+  const totalVisible = {
+    totalExpenses:  visibleTotals.reduce((s, t) => s + t.totalExpenses, 0),
+    totalIncome:    visibleTotals.reduce((s, t) => s + t.totalIncome, 0),
+    closingBalance: computedTotals[viewEnd]?.closingBalance ?? 0,
+  };
+  const total60 = {
+    totalExpenses:  computedTotals.reduce((s, t) => s + t.totalExpenses, 0),
+    totalIncome:    computedTotals.reduce((s, t) => s + t.totalIncome, 0),
+    closingBalance: computedTotals[59]?.closingBalance ?? 0,
   };
 
   return (
@@ -323,14 +522,21 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
 
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-bold text-foreground">12-Month Travel Budget Planner</h2>
-        <div className="flex gap-2 flex-wrap">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">5-Year Travel Budget — 60 Months</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Viewing {visibleCount} months · {monthLabel(viewStart, "long")} – {monthLabel(viewEnd, "long")}</p>
+        </div>
+        <div className="flex gap-2 flex-wrap items-center">
           <input ref={importRef} type="file" accept=".csv" className="hidden" onChange={handleImportCSV} />
           <Button variant="outline" size="sm" onClick={() => importRef.current?.click()}>
-            <Upload className="mr-1.5 h-4 w-4" /> Import CSV
+            <Upload className="mr-1.5 h-4 w-4" /> Import
           </Button>
           <Button variant="outline" size="sm" onClick={handleDownloadCSV}>
-            <Download className="mr-1.5 h-4 w-4" /> Export CSV
+            <Download className="mr-1.5 h-4 w-4" /> Export
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => { setCpiFromMonth(viewStart); setCpiDialogOpen(true); }}
+            className="border-[#d9b880] text-[#b8943e] hover:bg-[#d9b880]/10">
+            <CpiIcon className="mr-1.5 h-4 w-4" /> CPI Index
           </Button>
           <Button size="sm" onClick={handleManualSave} disabled={saveBudget.isPending}>
             <Save className="mr-1.5 h-4 w-4" /> Save
@@ -338,12 +544,69 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
         </div>
       </div>
 
+      {/* ── Date range filter ── */}
+      <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">View Period:</span>
+        {[0, 1, 2, 3, 4].map(yr => (
+          <button key={yr}
+            onClick={() => { setViewYear(yr); setCustomMode(false); }}
+            className={cn(
+              "px-3 py-1.5 rounded text-xs font-semibold transition-colors border",
+              !customMode && viewYear === yr
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}>
+            Year {yr + 1}
+          </button>
+        ))}
+        <button
+          onClick={() => setCustomMode(true)}
+          className={cn(
+            "px-3 py-1.5 rounded text-xs font-semibold transition-colors border",
+            customMode
+              ? "bg-[#d9b880] text-[#5a3a00] border-[#d9b880]"
+              : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}>
+          Custom
+        </button>
+        {customMode && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <select value={customFrom} onChange={e => setCustomFrom(Number(e.target.value))}
+              className="border border-border rounded px-2 py-1 text-xs bg-card text-foreground">
+              {Array.from({ length: 60 }, (_, i) => (
+                <option key={i} value={i}>M{i + 1} — {monthLabel(i, "long")}</option>
+              ))}
+            </select>
+            <span className="text-xs text-muted-foreground">to</span>
+            <select value={customTo} onChange={e => setCustomTo(Number(e.target.value))}
+              className="border border-border rounded px-2 py-1 text-xs bg-card text-foreground">
+              {Array.from({ length: 60 }, (_, i) => (
+                <option key={i} value={i} disabled={i < customFrom}>M{i + 1} — {monthLabel(i, "long")}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div className="ml-auto flex items-center gap-3">
+          <button onClick={() => { if (!customMode && viewYear > 0) setViewYear(v => v - 1); }}
+            disabled={customMode || viewYear === 0}
+            className="p-1 rounded hover:bg-muted disabled:opacity-30 transition-colors">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button onClick={() => { if (!customMode && viewYear < 4) setViewYear(v => v + 1); }}
+            disabled={customMode || viewYear === 4}
+            className="p-1 rounded hover:bg-muted disabled:opacity-30 transition-colors">
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
       {/* ── KPI strip ── */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "12-Month Total Spend", value: `$${totals12.totalExpenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: TrendingDown, color: "text-destructive" },
-          { label: "12-Month Total Income", value: `$${totals12.totalIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: TrendingUp, color: "text-primary" },
-          { label: "Projected End Balance", value: `$${totals12.closingBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: DollarSign, color: totals12.closingBalance < 0 ? "text-destructive" : "text-foreground" },
+          { label: `${visibleCount}-Month Spend`, value: `$${totalVisible.totalExpenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: TrendingDown, color: "text-destructive" },
+          { label: `${visibleCount}-Month Income`, value: `$${totalVisible.totalIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: TrendingUp, color: "text-primary" },
+          { label: "Balance at Period End", value: `$${totalVisible.closingBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: DollarSign, color: totalVisible.closingBalance < 0 ? "text-destructive" : "text-foreground" },
+          { label: "5-Year End Balance", value: `$${total60.closingBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: DollarSign, color: total60.closingBalance < 0 ? "text-destructive" : "text-primary" },
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label} className="bg-card">
             <CardContent className="pt-4 pb-3">
@@ -360,243 +623,330 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
       {/* ── Charts ── */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
-        {/* Stacked expense breakdown */}
+        {/* Stacked expense breakdown — visible period */}
         <Card className="bg-card">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Monthly Expense Breakdown</CardTitle>
+            <CardTitle className="text-sm">Monthly Expense Breakdown — Selected Period</CardTitle>
           </CardHeader>
           <CardContent className="h-60">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={computedTotals} margin={{ top: 4, right: 4, left: -20, bottom: 4 }}>
+              <BarChart data={visibleTotals} margin={{ top: 4, right: 4, left: -20, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.12} />
-                <XAxis dataKey="name" tick={{ fontSize: 9 }} />
+                <XAxis dataKey="name" tick={{ fontSize: 8 }} />
                 <YAxis tick={{ fontSize: 9 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-                <RechartsTooltip
-                  contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", fontSize: 10 }}
-                  formatter={(v: number, name: string) => [`$${v.toLocaleString()}`, name]}
-                />
+                <RechartsTooltip contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", fontSize: 10 }}
+                  formatter={(v: number, n: string) => [`$${v.toLocaleString()}`, n]} />
                 <Legend wrapperStyle={{ fontSize: 9 }} />
-                <Bar dataKey="travel"  name="Travel"   stackId="a" fill="#1f6f5f" />
-                <Bar dataKey="vehicle" name="Vehicle"  stackId="a" fill="#d9b880" />
-                <Bar dataKey="fixed"   name="Fixed"    stackId="a" fill="#60a5fa" />
-                <Bar dataKey="annual"  name="Annual"   stackId="a" fill="#ef4444" />
+                <Bar dataKey="travel"  name="Travel"    stackId="a" fill="#1f6f5f" />
+                <Bar dataKey="vehicle" name="Vehicle"   stackId="a" fill="#d9b880" />
+                <Bar dataKey="fixed"   name="Fixed"     stackId="a" fill="#60a5fa" />
+                <Bar dataKey="annual"  name="Annual"    stackId="a" fill="#ef4444" />
                 <Bar dataKey="super"   name="Super/Sav" stackId="a" fill="#a78bfa" radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {/* Cashflow balance trend */}
+        {/* 60-month running balance overview */}
         <Card className="bg-card">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Running Balance</CardTitle>
+            <CardTitle className="text-sm">60-Month Running Balance Overview</CardTitle>
           </CardHeader>
           <CardContent className="h-60">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={computedTotals} margin={{ top: 4, right: 4, left: -10, bottom: 4 }}>
+              <AreaChart data={balanceOverview} margin={{ top: 4, right: 4, left: -10, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.12} />
-                <XAxis dataKey="name" tick={{ fontSize: 9 }} />
+                <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={11} />
                 <YAxis tick={{ fontSize: 9 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-                <RechartsTooltip
-                  contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", fontSize: 10 }}
-                  formatter={(v: number, name: string) => [`$${v.toLocaleString()}`, name]}
-                />
-                <Legend wrapperStyle={{ fontSize: 9 }} />
-                <ReferenceLine y={0} stroke="hsl(var(--destructive))" strokeDasharray="4 2" />
-                <Area dataKey="openingBalance" name="Opening" fill="#1f6f5f" fillOpacity={0.08} stroke="#1f6f5f" strokeWidth={1.5} dot={false} />
-                <Line dataKey="closingBalance" name="Closing Balance" stroke="#d9b880" strokeWidth={2.5} dot={{ r: 3, fill: "#d9b880" }} />
-                <Bar dataKey="net" name="Net" fill="#1f6f5f"
-                  radius={[2, 2, 0, 0]}
-                  // Conditionally red when negative — recharts uses fixed fill, so we use a colour that works:
-                  fillOpacity={0.6}
-                />
-              </ComposedChart>
+                <RechartsTooltip contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", fontSize: 10 }}
+                  formatter={(v: number) => [`$${v.toLocaleString()}`, "Balance"]} />
+                <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 2" strokeWidth={1.5} />
+                <Area dataKey="balance" name="Balance" type="monotone"
+                  fill="#1f6f5f" fillOpacity={0.18} stroke="#1f6f5f" strokeWidth={2} />
+              </AreaChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
+        {/* Income vs Expenses — visible period */}
+        <Card className="bg-card xl:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Income vs Expenses — Selected Period</CardTitle>
+          </CardHeader>
+          <CardContent className="h-60">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={visibleTotals} margin={{ top: 4, right: 4, left: -10, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.12} />
+                <XAxis dataKey="name" tick={{ fontSize: 8 }} />
+                <YAxis tick={{ fontSize: 9 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+                <RechartsTooltip contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", fontSize: 10 }}
+                  formatter={(v: number, n: string) => [`$${v.toLocaleString()}`, n]} />
+                <Legend wrapperStyle={{ fontSize: 9 }} />
+                <Bar dataKey="totalExpenses" name="Expenses" fill="#ef4444" fillOpacity={0.7} radius={[2, 2, 0, 0]} />
+                <Bar dataKey="totalIncome"   name="Income"   fill="#1f6f5f" fillOpacity={0.8} radius={[2, 2, 0, 0]} />
+                <Line dataKey="closingBalance" name="Balance" stroke="#d9b880" strokeWidth={2} dot={false} />
+                <ReferenceLine y={0} stroke="hsl(var(--border))" strokeDasharray="4 2" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
       </div>
-
-      {/* ── Income vs Expenses ── */}
-      <Card className="bg-card">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Income vs Total Expenses</CardTitle>
-        </CardHeader>
-        <CardContent className="h-52">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={computedTotals} margin={{ top: 4, right: 4, left: -20, bottom: 4 }}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.12} />
-              <XAxis dataKey="name" tick={{ fontSize: 9 }} />
-              <YAxis tick={{ fontSize: 9 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-              <RechartsTooltip
-                contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", fontSize: 10 }}
-                formatter={(v: number, name: string) => [`$${v.toLocaleString()}`, name]}
-              />
-              <Legend wrapperStyle={{ fontSize: 9 }} />
-              <Bar dataKey="totalIncome"   name="Income"   fill="#1f6f5f" fillOpacity={0.85} radius={[3, 3, 0, 0]} />
-              <Bar dataKey="totalExpenses" name="Expenses" fill="#ef4444" fillOpacity={0.70} radius={[3, 3, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
 
       {/* ── Spreadsheet grid ── */}
-      <div className="border border-border rounded-xl bg-card overflow-x-auto">
-        <div style={{ minWidth: "1100px" }}>
+      <Card className="bg-card overflow-hidden">
+        <CardHeader className="pb-2 border-b border-border/50">
+          <CardTitle className="text-sm">
+            Budget Grid — {visibleCount} Months ({monthLabel(viewStart, "long")} – {monthLabel(viewEnd, "long")})
+          </CardTitle>
+        </CardHeader>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-border bg-muted/50 sticky top-0 z-10">
+                <th className="text-left p-2 pl-3 font-semibold text-muted-foreground whitespace-nowrap min-w-[180px]">Category</th>
+                {Array.from({ length: visibleCount }, (_, i) => viewStart + i).map(mi => (
+                  <th key={mi} className="text-right p-2 font-semibold text-muted-foreground whitespace-nowrap min-w-[72px]">
+                    {monthLabel(mi)}
+                    {mi % 12 === 8 && <div className="text-[8px] text-destructive/70 font-normal">Annual</div>}
+                  </th>
+                ))}
+                <th className="text-right p-2 font-semibold text-muted-foreground whitespace-nowrap min-w-[72px]">Total</th>
+              </tr>
 
-          {/* Header row */}
-          <div className="grid bg-muted/60 border-b border-border font-semibold"
-            style={{ gridTemplateColumns: "220px repeat(12, minmax(80px, 1fr))" }}>
-            <div className="p-3 border-r border-border sticky left-0 bg-muted/60 z-10 text-xs uppercase tracking-wide text-muted-foreground">Category</div>
-            {Array.from({ length: 12 }, (_, i) => (
-              <div key={i} className="p-2 text-center border-r border-border last:border-r-0 text-xs font-bold">
-                {monthLabel(i, true)}
-                <div className="text-[9px] font-normal text-muted-foreground">
-                  {new Date((trip?.startDate ? new Date(trip.startDate) : new Date(2026, 2, 1)).getFullYear(),
-                    (trip?.startDate ? new Date(trip.startDate) : new Date(2026, 2, 1)).getMonth() + i, 1)
-                    .toLocaleDateString("en-AU", { year: "2-digit" })}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Opening Balance */}
-          <div className="grid bg-primary/5 border-b border-border"
-            style={{ gridTemplateColumns: "220px repeat(12, minmax(80px, 1fr))" }}>
-            <div className="p-3 border-r border-border font-bold sticky left-0 bg-card z-10 text-sm">Opening Balance</div>
-            {Array.from({ length: 12 }, (_, i) => (
-              <div key={i} className="p-2 border-r border-border last:border-r-0">
-                {i === 0 ? (
-                  <input
-                    type="number"
-                    className="w-full bg-transparent outline-none text-right font-bold text-sm"
-                    value={budgetData.months[0]?.openingBalance || 0}
-                    onChange={e => handleCellChange(0, "openingBalance", Number(e.target.value))}
-                  />
-                ) : (
-                  <span className="block text-right text-sm font-semibold text-primary">
-                    {computedTotals[i]?.openingBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Expense sections */}
-          {EXPENSE_SECTIONS.map(section => (
-            <div key={section.title}>
-              <div className="bg-muted/30 px-4 py-2 border-b border-border flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: section.color }} />
-                <span className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">{section.title}</span>
-              </div>
-              {section.items.map(item => (
-                <div key={item.key} className="grid border-b border-border/50 hover:bg-muted/10 transition-colors"
-                  style={{ gridTemplateColumns: "220px repeat(12, minmax(80px, 1fr))" }}>
-                  <div className="p-2.5 border-r border-border text-sm sticky left-0 bg-card z-10">{item.label}</div>
-                  {Array.from({ length: 12 }, (_, i) => (
-                    <div key={i} className="p-1.5 border-r border-border last:border-r-0">
-                      <input
-                        type="number"
-                        className="w-full bg-transparent outline-none text-right text-sm"
-                        value={budgetData.months[i]?.[item.key] || ""}
-                        placeholder="0"
-                        onChange={e => handleCellChange(i, item.key, Number(e.target.value))}
-                      />
-                    </div>
-                  ))}
-                </div>
-              ))}
-              {/* Section subtotal */}
-              <div className="grid bg-muted/20 border-b border-border"
-                style={{ gridTemplateColumns: "220px repeat(12, minmax(80px, 1fr))" }}>
-                <div className="p-2 border-r border-border text-xs font-bold text-muted-foreground sticky left-0 bg-muted/20 z-10 italic">
-                  {section.title} Total
-                </div>
-                {Array.from({ length: 12 }, (_, i) => {
-                  const tot = sectionTotal(budgetData.months[i] || {}, section.items);
+              {/* Opening balance row */}
+              <tr className="bg-[#d9b880]/10 border-b border-border/40">
+                <td className="p-2 pl-3 font-semibold text-foreground">Opening Balance</td>
+                {Array.from({ length: visibleCount }, (_, i) => viewStart + i).map(mi => {
+                  const val = mi === 0
+                    ? Number((budgetData.months["0"] ?? budgetData.months[0])?.openingBalance || 0)
+                    : computedTotals[mi]?.openingBalance ?? 0;
                   return (
-                    <div key={i} className="p-2 border-r border-border last:border-r-0 text-right text-xs font-bold text-muted-foreground">
-                      {tot > 0 ? `$${tot.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}
-                    </div>
+                    <td key={mi} className="text-right p-2 tabular-nums">
+                      {mi === 0 ? (
+                        <input type="number" min={0} step={100}
+                          value={val}
+                          onChange={e => handleCellChange(0, "openingBalance", parseFloat(e.target.value) || 0)}
+                          className="w-full text-right bg-transparent border-b border-[#d9b880]/50 focus:outline-none focus:border-[#d9b880] font-medium text-[#b8943e]"
+                        />
+                      ) : (
+                        <span className="text-muted-foreground">${val.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                      )}
+                    </td>
                   );
                 })}
-              </div>
-            </div>
-          ))}
+                <td className="text-right p-2 text-muted-foreground">—</td>
+              </tr>
+            </thead>
 
-          {/* Total Expenses row */}
-          <div className="grid bg-destructive/8 border-b-2 border-border"
-            style={{ gridTemplateColumns: "220px repeat(12, minmax(80px, 1fr))" }}>
-            <div className="p-3 border-r border-border font-bold text-destructive sticky left-0 bg-card z-10">Total Expenses</div>
-            {computedTotals.map((t, i) => (
-              <div key={i} className="p-2 border-r border-border last:border-r-0 text-right font-bold text-destructive text-sm">
-                ${t.totalExpenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </div>
-            ))}
-          </div>
+            <tbody>
+              {EXPENSE_SECTIONS.map(section => (
+                <React.Fragment key={section.title}>
+                  <tr className="border-t border-b border-border/40" style={{ backgroundColor: section.color + "18" }}>
+                    <td colSpan={visibleCount + 2} className="p-2 pl-3 font-bold text-xs uppercase tracking-wide"
+                      style={{ color: section.color }}>
+                      {section.title}
+                    </td>
+                  </tr>
+                  {section.items.map(cat => {
+                    const rowTotal = Array.from({ length: visibleCount }, (_, i) => viewStart + i)
+                      .reduce((s, mi) => s + (Number((budgetData.months[mi.toString()] ?? budgetData.months[mi])?.[cat.key]) || 0), 0);
+                    return (
+                      <tr key={cat.key} className="border-b border-border/20 hover:bg-muted/20 transition-colors">
+                        <td className="p-1.5 pl-3 text-foreground whitespace-nowrap">{cat.label}</td>
+                        {Array.from({ length: visibleCount }, (_, i) => viewStart + i).map(mi => {
+                          const m = budgetData.months[mi.toString()] ?? budgetData.months[mi] ?? {};
+                          const val = Number(m[cat.key]) || 0;
+                          return (
+                            <td key={mi} className="p-1 text-right">
+                              <input type="number" min={0} step={10}
+                                value={val}
+                                onChange={e => handleCellChange(mi, cat.key, parseFloat(e.target.value) || 0)}
+                                className={cn(
+                                  "w-full text-right bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 tabular-nums",
+                                  val > 0 ? "text-foreground" : "text-muted-foreground/30"
+                                )}
+                              />
+                            </td>
+                          );
+                        })}
+                        <td className="text-right p-2 font-semibold text-foreground tabular-nums">
+                          ${rowTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {/* Section subtotal */}
+                  <tr className="border-b border-border/40" style={{ backgroundColor: section.color + "10" }}>
+                    <td className="p-1.5 pl-3 font-semibold text-xs" style={{ color: section.color }}>Subtotal — {section.title}</td>
+                    {Array.from({ length: visibleCount }, (_, i) => viewStart + i).map(mi => (
+                      <td key={mi} className="text-right p-1.5 font-semibold tabular-nums text-xs" style={{ color: section.color }}>
+                        ${sectionTotal(budgetData.months[mi.toString()] ?? budgetData.months[mi] ?? {}, section.items).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </td>
+                    ))}
+                    <td className="text-right p-1.5 font-bold tabular-nums text-xs" style={{ color: section.color }}>
+                      ${Array.from({ length: visibleCount }, (_, i) => viewStart + i)
+                        .reduce((s, mi) => s + sectionTotal(budgetData.months[mi.toString()] ?? budgetData.months[mi] ?? {}, section.items), 0)
+                        .toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </td>
+                  </tr>
+                </React.Fragment>
+              ))}
 
-          {/* Income section */}
-          <div>
-            <div className="bg-primary/5 px-4 py-2 border-b border-border flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-sm bg-primary shrink-0" />
-              <span className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Income</span>
-            </div>
-            {INCOME_ITEMS.map(item => (
-              <div key={item.key} className="grid border-b border-border/50 hover:bg-muted/10 transition-colors"
-                style={{ gridTemplateColumns: "220px repeat(12, minmax(80px, 1fr))" }}>
-                <div className="p-2.5 border-r border-border text-sm sticky left-0 bg-card z-10">{item.label}</div>
-                {Array.from({ length: 12 }, (_, i) => (
-                  <div key={i} className="p-1.5 border-r border-border last:border-r-0">
-                    <input
-                      type="number"
-                      className="w-full bg-transparent outline-none text-right text-sm"
-                      value={budgetData.months[i]?.[item.key] || ""}
-                      placeholder="0"
-                      onChange={e => handleCellChange(i, item.key, Number(e.target.value))}
-                    />
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
+              {/* Income section */}
+              <tr className="border-t border-b border-border/40 bg-primary/8">
+                <td colSpan={visibleCount + 2} className="p-2 pl-3 font-bold text-xs uppercase tracking-wide text-primary">Income</td>
+              </tr>
+              {INCOME_ITEMS.map(cat => {
+                const rowTotal = Array.from({ length: visibleCount }, (_, i) => viewStart + i)
+                  .reduce((s, mi) => s + (Number((budgetData.months[mi.toString()] ?? budgetData.months[mi])?.[cat.key]) || 0), 0);
+                return (
+                  <tr key={cat.key} className="border-b border-border/20 hover:bg-muted/20 transition-colors">
+                    <td className="p-1.5 pl-3 text-foreground whitespace-nowrap">{cat.label}</td>
+                    {Array.from({ length: visibleCount }, (_, i) => viewStart + i).map(mi => {
+                      const m = budgetData.months[mi.toString()] ?? budgetData.months[mi] ?? {};
+                      const val = Number(m[cat.key]) || 0;
+                      return (
+                        <td key={mi} className="p-1 text-right">
+                          <input type="number" min={0} step={10}
+                            value={val}
+                            onChange={e => handleCellChange(mi, cat.key, parseFloat(e.target.value) || 0)}
+                            className={cn(
+                              "w-full text-right bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 tabular-nums",
+                              val > 0 ? "text-primary font-medium" : "text-muted-foreground/30"
+                            )}
+                          />
+                        </td>
+                      );
+                    })}
+                    <td className="text-right p-2 font-semibold text-primary tabular-nums">
+                      ${rowTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </td>
+                  </tr>
+                );
+              })}
 
-          {/* Total Income */}
-          <div className="grid bg-primary/5 border-b border-border"
-            style={{ gridTemplateColumns: "220px repeat(12, minmax(80px, 1fr))" }}>
-            <div className="p-3 border-r border-border font-bold text-primary sticky left-0 bg-card z-10">Total Income</div>
-            {computedTotals.map((t, i) => (
-              <div key={i} className="p-2 border-r border-border last:border-r-0 text-right font-bold text-primary text-sm">
-                ${t.totalIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </div>
-            ))}
-          </div>
+              {/* Summary rows */}
+              {[
+                { label: "Total Expenses", key: "totalExpenses", color: "text-destructive", bold: true },
+                { label: "Total Income",   key: "totalIncome",   color: "text-primary",     bold: true },
+                { label: "Net Cashflow",   key: "net",           color: "",                 bold: true },
+                { label: "Closing Balance",key: "closingBalance",color: "",                 bold: true },
+              ].map(row => (
+                <tr key={row.label} className="border-t-2 border-border/60 bg-muted/30">
+                  <td className={cn("p-2 pl-3 font-bold text-xs uppercase tracking-wide", row.color)}>{row.label}</td>
+                  {Array.from({ length: visibleCount }, (_, i) => viewStart + i).map(mi => {
+                    const t = computedTotals[mi];
+                    const val = t ? (t as any)[row.key] : 0;
+                    const isNeg = val < 0;
+                    return (
+                      <td key={mi} className={cn(
+                        "text-right p-2 font-bold tabular-nums text-xs",
+                        row.key === "closingBalance" ? (isNeg ? "text-destructive" : "text-primary")
+                          : row.key === "net" ? (isNeg ? "text-destructive" : "text-primary")
+                          : row.color || "text-foreground"
+                      )}>
+                        ${val?.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </td>
+                    );
+                  })}
+                  <td className={cn("text-right p-2 font-bold tabular-nums text-xs",
+                    row.key === "closingBalance" || row.key === "net"
+                      ? (visibleTotals.reduce((s, t) => s + (t as any)[row.key], 0) < 0 ? "text-destructive" : "text-primary")
+                      : row.color || "text-foreground"
+                  )}>
+                    ${row.key === "closingBalance"
+                      ? computedTotals[viewEnd]?.closingBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })
+                      : visibleTotals.reduce((s, t) => s + (t as any)[row.key], 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
-          {/* Net Cashflow */}
-          <div className="grid border-b border-border bg-muted/20"
-            style={{ gridTemplateColumns: "220px repeat(12, minmax(80px, 1fr))" }}>
-            <div className="p-3 border-r border-border font-bold sticky left-0 bg-muted/20 z-10">Net Cashflow</div>
-            {computedTotals.map((t, i) => (
-              <div key={i} className={cn("p-2 border-r border-border last:border-r-0 text-right font-bold text-sm",
-                t.net < 0 ? "text-destructive" : "text-primary")}>
-                {t.net < 0 ? "-" : "+"}${Math.abs(t.net).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+      {/* ── Insights & Red Flags ── */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Budget Insights & Recommendations</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {insights.map((item, idx) => {
+            const isRed   = item.type === "red";
+            const isAmber = item.type === "amber";
+            const isGreen = item.type === "green";
+            const isTip   = item.type === "tip";
+            return (
+              <div key={idx} className={cn(
+                "rounded-lg border p-4 flex gap-3",
+                isRed   ? "border-destructive/40 bg-destructive/5"
+                  : isAmber ? "border-[#d9b880]/50 bg-[#d9b880]/8"
+                  : isGreen ? "border-primary/30 bg-primary/5"
+                  : "border-blue-400/30 bg-blue-500/5"
+              )}>
+                <div className={cn(
+                  "shrink-0 mt-0.5",
+                  isRed   ? "text-destructive"
+                    : isAmber ? "text-[#b8943e]"
+                    : isGreen ? "text-primary"
+                    : "text-blue-500"
+                )}>
+                  {isRed || isAmber ? <AlertTriangle className="h-4 w-4" />
+                    : isGreen ? <CheckCircle2 className="h-4 w-4" />
+                    : <Lightbulb className="h-4 w-4" />}
+                </div>
+                <div className="min-w-0">
+                  <p className={cn(
+                    "text-xs font-bold mb-0.5",
+                    isRed   ? "text-destructive"
+                      : isAmber ? "text-[#b8943e]"
+                      : isGreen ? "text-primary"
+                      : "text-blue-600"
+                  )}>{item.title}</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{item.body}</p>
+                </div>
               </div>
-            ))}
-          </div>
-
-          {/* Closing Balance */}
-          <div className="grid border-b-2 border-border bg-muted font-bold"
-            style={{ gridTemplateColumns: "220px repeat(12, minmax(80px, 1fr))" }}>
-            <div className="p-3 border-r border-border sticky left-0 bg-muted z-10">Closing Balance</div>
-            {computedTotals.map((t, i) => (
-              <div key={i} className={cn("p-3 border-r border-border last:border-r-0 text-right text-sm",
-                t.closingBalance < 0 ? "text-destructive" : "")}>
-                ${t.closingBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </div>
-            ))}
-          </div>
-
+            );
+          })}
         </div>
       </div>
+
+      {/* ── CPI Dialog ── */}
+      <Dialog open={cpiDialogOpen} onOpenChange={setCpiDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Apply CPI Indexing</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1">
+                Annual CPI Rate (%)
+              </label>
+              <input type="number" step="0.1" min="0" max="20" value={cpiRate}
+                onChange={e => setCpiRate(Number(e.target.value))}
+                className="w-full border border-border rounded px-3 py-2 text-sm bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              <p className="text-xs text-muted-foreground mt-1">RBA target 2–3%. Current trimmed mean: ~3.2%.</p>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1">
+                Apply From Month
+              </label>
+              <select value={cpiFromMonth} onChange={e => setCpiFromMonth(Number(e.target.value))}
+                className="w-full border border-border rounded px-3 py-2 text-sm bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40">
+                {Array.from({ length: 60 }, (_, i) => (
+                  <option key={i} value={i}>Month {i + 1} — {monthLabel(i, "long")}</option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">
+                All expense and income values from this month onwards will be scaled by (1 + rate)^years compounded annually.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCpiDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleApplyCPI}>Apply CPI</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

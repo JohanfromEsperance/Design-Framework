@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   TrendingUp, TrendingDown, Fuel, MapPin, DollarSign,
   Wind, Thermometer, Gauge, Activity, Target, Zap, CheckCircle2,
+  AlertTriangle, Lightbulb,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -177,7 +178,8 @@ export default function AnalysisTab({ tripId }: AnalysisTabProps) {
 
     const months: Array<{
       month: string; fuel: number; maintenance: number; total: number;
-      cumOpt: number; cumBase: number; cumAdv: number; inTrip: boolean;
+      cumOpt: number; cumBase: number; cumAdv: number;
+      bandBase: number; bandSize: number; inTrip: boolean;
     }> = [];
     let cumOpt = 0, cumBase = 0, cumAdv = 0;
 
@@ -203,6 +205,9 @@ export default function AnalysisTab({ tripId }: AnalysisTabProps) {
         cumOpt: Math.round(cumOpt),
         cumBase: Math.round(cumBase),
         cumAdv: Math.round(cumAdv),
+        // confidence band: stacked area trick — transparent base + gap fill
+        bandBase: Math.round(cumOpt),
+        bandSize: Math.max(0, Math.round(cumAdv - cumOpt)),
         inTrip,
       });
     }
@@ -595,9 +600,11 @@ export default function AnalysisTab({ tripId }: AnalysisTabProps) {
             </div>
           </div>
 
-          {/* Cumulative 3-scenario line */}
+          {/* Cumulative 3-scenario line + confidence band */}
           <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Cumulative Spend — Optimal / Baseline / Adverse</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+              Cumulative Spend — Confidence Band &amp; Scenarios
+            </p>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={forecast24} margin={{ top: 4, right: 4, left: -10, bottom: 4 }}>
@@ -606,15 +613,27 @@ export default function AnalysisTab({ tripId }: AnalysisTabProps) {
                   <YAxis tick={{ fontSize: 9 }} tickFormatter={v => `$${(v / 1000).toFixed(1)}k`} />
                   <Tooltip
                     contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", fontSize: 11 }}
-                    formatter={(v: number, name: string) => [`$${v.toLocaleString()}`, name]}
+                    formatter={(v: number, name: string) => {
+                      if (name === "_bandBase" || name === "_bandSize") return null as any;
+                      return [`$${v.toLocaleString()}`, name];
+                    }}
                   />
-                  <Legend wrapperStyle={{ fontSize: 10 }} />
-                  <Line dataKey="cumOpt" name="Optimal" stroke="#1f6f5f" strokeWidth={2} strokeDasharray="5 3" dot={false} />
+                  <Legend wrapperStyle={{ fontSize: 10 }}
+                    formatter={(value: string) => value.startsWith("_") ? null : value} />
+                  {/* Confidence band: transparent base + filled gap */}
+                  <Area dataKey="bandBase" name="_bandBase" stackId="band"
+                    fill="transparent" stroke="none" legendType="none" />
+                  <Area dataKey="bandSize" name="_bandSize" stackId="band"
+                    fill="#ef4444" fillOpacity={0.08} stroke="none" legendType="none" />
+                  <Line dataKey="cumOpt"  name="Optimal"  stroke="#1f6f5f" strokeWidth={2}   strokeDasharray="5 3" dot={false} />
                   <Line dataKey="cumBase" name="Baseline" stroke="#b8943e" strokeWidth={2.5} dot={false} />
-                  <Line dataKey="cumAdv" name="Adverse" stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+                  <Line dataKey="cumAdv"  name="Adverse"  stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
+            <p className="text-[10px] text-muted-foreground mt-1 text-center">
+              Shaded band = uncertainty envelope between optimal and adverse scenarios
+            </p>
           </div>
 
           {/* Monthly breakdown table */}
@@ -654,6 +673,123 @@ export default function AnalysisTab({ tripId }: AnalysisTabProps) {
           </div>
         </div>
       </div>
+
+      {/* ── AI Insights & Recommendations ── */}
+      {sortedLegs.length > 0 && (() => {
+        const costPerKm = totalActual > 0 ? totalFuelCost / totalActual : 0;
+        const kmVariance = totalPlanned > 0 ? ((totalActual - totalPlanned) / totalPlanned) * 100 : 0;
+        const bestLeg  = legsWithData.length > 0 ? legsWithData.reduce((a, b) =>
+          ((a.actualLitres! / a.actualKm!) < (b.actualLitres! / b.actualKm!)) ? a : b) : null;
+        const worstLeg = legsWithData.length > 0 ? legsWithData.reduce((a, b) =>
+          ((a.actualLitres! / a.actualKm!) > (b.actualLitres! / b.actualKm!)) ? a : b) : null;
+        const efficiencyLabel = learnedL100 <= 16 ? "excellent" : learnedL100 <= 18 ? "good" : learnedL100 <= 20 ? "moderate" : "high";
+
+        type InsightType = "red" | "amber" | "green" | "tip";
+        const items: { type: InsightType; title: string; body: string }[] = [];
+
+        items.push({
+          type: learnedL100 <= 18 ? "green" : learnedL100 <= 20 ? "amber" : "red",
+          title: `Fuel efficiency: ${learnedL100.toFixed(1)} L/100km — ${efficiencyLabel}`,
+          body: learnedL100 <= 18
+            ? "Running below the 18 L/100km baseline. Maintain 90–95 km/h cruise to keep it there."
+            : learnedL100 <= 20
+            ? "Near the 20 L/100km forecast. Try reducing cruise speed 5 km/h to save ~8% fuel."
+            : "Above 20 L/100km. Check tyre pressure, reduce speed, and check for headwind or overloading.",
+        });
+
+        if (totalActual > 0) {
+          items.push({
+            type: costPerKm < 0.25 ? "green" : costPerKm < 0.35 ? "amber" : "red",
+            title: `Running cost: $${costPerKm.toFixed(2)}/km (fuel only)`,
+            body: `$${totalFuelCost.toFixed(0)} spent over ${totalActual.toLocaleString()} km. Remaining ${remainingKm.toLocaleString()} km estimated at $${(remainingKm * costPerKm).toFixed(0)} baseline.`,
+          });
+        }
+
+        if (Math.abs(kmVariance) > 3) {
+          items.push({
+            type: kmVariance > 0 ? "amber" : "green",
+            title: `Distance ${kmVariance > 0 ? "over" : "under"} plan by ${Math.abs(kmVariance).toFixed(1)}%`,
+            body: kmVariance > 0
+              ? `Actual ${totalActual.toLocaleString()} km vs planned ${totalPlanned.toLocaleString()} km. Detours or route changes are adding cost.`
+              : "Tracking under plan — good route discipline is saving fuel and costs.",
+          });
+        }
+
+        if (bestLeg && legsWithData.length >= 3) {
+          const bestL100  = (bestLeg.actualLitres!  / bestLeg.actualKm!)  * 100;
+          items.push({
+            type: "green",
+            title: `Best leg: ${bestLeg.fromPlace} → ${bestLeg.toPlace} (${bestL100.toFixed(1)} L/100km)`,
+            body: "Ideal conditions — tailwind, flat terrain, or optimal speed. Replicate these driving habits.",
+          });
+        }
+
+        if (worstLeg && legsWithData.length >= 3) {
+          const worstL100 = (worstLeg.actualLitres! / worstLeg.actualKm!) * 100;
+          items.push({
+            type: "amber",
+            title: `Worst leg: ${worstLeg.fromPlace} → ${worstLeg.toPlace} (${worstL100.toFixed(1)} L/100km)`,
+            body: "High consumption — likely headwind, grades, heat/AC load, or heavy towing speed. Check notes for this leg.",
+          });
+        }
+
+        if (remainingKm > 0) {
+          items.push({
+            type: "tip",
+            title: `${remainingKm.toLocaleString()} km remaining — fuel budget $${baseRemain.toFixed(0)} (baseline)`,
+            body: `Optimal: $${optRemain.toFixed(0)} · Adverse: $${advRemain.toFixed(0)}. Buffer at least $${(advRemain - baseRemain).toFixed(0)} above baseline for safety.`,
+          });
+        }
+
+        if (avgPricePerL > 0) {
+          const priceSaving = (remainingKm * learnedL100 / 100) * 0.10;
+          items.push({
+            type: "tip",
+            title: `Avg fuel price: $${avgPricePerL.toFixed(2)}/L — 10c/L saving = $${priceSaving.toFixed(0)} on remaining legs`,
+            body: "Use MotorMouth or GasBuddy to plan cheapest fuel stops. Highway towns typically 20–30c cheaper than tourist stops.",
+          });
+        }
+
+        return (
+          <div className="space-y-3 mt-6">
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
+              Trip Insights &amp; Recommendations
+            </h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {items.map((item, idx) => {
+                const isRed   = item.type === "red";
+                const isAmber = item.type === "amber";
+                const isGreen = item.type === "green";
+                return (
+                  <div key={idx} className={cn(
+                    "rounded-lg border p-4 flex gap-3",
+                    isRed   ? "border-destructive/40 bg-destructive/5"
+                      : isAmber ? "border-[#d9b880]/50 bg-[#d9b880]/8"
+                      : isGreen ? "border-primary/30 bg-primary/5"
+                      : "border-blue-400/30 bg-blue-500/5"
+                  )}>
+                    <div className={cn("shrink-0 mt-0.5",
+                      isRed   ? "text-destructive" : isAmber ? "text-[#b8943e]"
+                        : isGreen ? "text-primary" : "text-blue-500")}>
+                      {isRed || isAmber
+                        ? <AlertTriangle className="h-4 w-4" />
+                        : isGreen ? <CheckCircle2 className="h-4 w-4" />
+                        : <Lightbulb className="h-4 w-4" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className={cn("text-xs font-bold mb-0.5",
+                        isRed   ? "text-destructive" : isAmber ? "text-[#b8943e]"
+                          : isGreen ? "text-primary" : "text-blue-600"
+                      )}>{item.title}</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{item.body}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );

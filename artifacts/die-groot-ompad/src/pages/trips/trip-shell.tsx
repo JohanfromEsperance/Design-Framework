@@ -1,8 +1,11 @@
 import { Layout } from "@/components/layout";
-import { useGetTrip } from "@workspace/api-client-react";
+import { useGetTrip, useUpdateTrip, getGetTripQueryKey } from "@workspace/api-client-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Map, Route, Car, DollarSign, BookOpen, BarChart3, CalendarCheck, Award } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Map, Route, Car, DollarSign, BookOpen, BarChart3, CalendarCheck, Award, Pencil, X, Check } from "lucide-react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import PlannerTab from "./tabs/planner-tab";
 import MapTab from "./tabs/map-tab";
 import VehicleTab from "./tabs/vehicle-tab";
@@ -21,6 +24,32 @@ interface TripShellProps {
 export default function TripShell({ params }: TripShellProps) {
   const tripId = parseInt(params.tripId, 10);
   const { data: trip, isLoading } = useGetTrip(tripId);
+  const updateTrip = useUpdateTrip();
+  const queryClient = useQueryClient();
+
+  const [editingDates, setEditingDates] = useState(false);
+  const [draftStart, setDraftStart] = useState("");
+  const [draftEnd, setDraftEnd] = useState("");
+
+  const startEdit = () => {
+    setDraftStart(trip?.startDate ? trip.startDate.slice(0, 10) : "");
+    setDraftEnd(trip?.endDate ? trip.endDate.slice(0, 10) : "");
+    setEditingDates(true);
+  };
+
+  const cancelEdit = () => setEditingDates(false);
+
+  const saveDates = () => {
+    updateTrip.mutate(
+      { tripId, data: { startDate: draftStart || undefined, endDate: draftEnd || undefined } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetTripQueryKey(tripId) });
+          setEditingDates(false);
+        },
+      }
+    );
+  };
 
   if (isLoading) {
     return (
@@ -44,16 +73,56 @@ export default function TripShell({ params }: TripShellProps) {
     );
   }
 
+  const fmtDate = (d: string | null | undefined) =>
+    d ? new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : null;
+
   return (
     <Layout>
       <div className="flex flex-col space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold tracking-tight text-foreground">{trip.name}</h1>
-            {trip.startDate && (
-              <p className="text-muted-foreground mt-1">
-                {new Date(trip.startDate).toLocaleDateString()} {trip.endDate ? `- ${new Date(trip.endDate).toLocaleDateString()}` : ''}
-              </p>
+
+            {editingDates ? (
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Start</label>
+                  <input
+                    type="date" value={draftStart}
+                    onChange={e => setDraftStart(e.target.value)}
+                    className="border border-border rounded px-2 py-1 text-sm bg-card text-foreground"
+                  />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">End</label>
+                  <input
+                    type="date" value={draftEnd}
+                    onChange={e => setDraftEnd(e.target.value)}
+                    className="border border-border rounded px-2 py-1 text-sm bg-card text-foreground"
+                  />
+                </div>
+                <Button size="sm" variant="outline" onClick={cancelEdit} className="h-8 px-2">
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="sm" onClick={saveDates} disabled={updateTrip.isPending} className="h-8 px-3">
+                  <Check className="h-3.5 w-3.5 mr-1" /> Save
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-muted-foreground text-sm">
+                  {fmtDate(trip.startDate)
+                    ? `${fmtDate(trip.startDate)}${fmtDate(trip.endDate) ? ` — ${fmtDate(trip.endDate)}` : ""}`
+                    : "No dates set"}
+                </p>
+                <button
+                  onClick={startEdit}
+                  className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  title="Edit trip dates"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -85,24 +154,24 @@ export default function TripShell({ params }: TripShellProps) {
               <Award className="h-4 w-4" /> <span className="hidden sm:inline">Members</span>
             </TabsTrigger>
           </TabsList>
-          
+
           <div className="mt-4">
             <TabsContent value="planner" className="m-0">
               <PlannerTab trip={trip} />
             </TabsContent>
-            
+
             <TabsContent value="map" className="m-0">
               <MapTab tripId={trip.id} />
             </TabsContent>
-            
+
             <TabsContent value="vehicle" className="m-0">
               <VehicleTab tripId={trip.id} />
             </TabsContent>
-            
+
             <TabsContent value="budget" className="m-0">
               <BudgetTab tripId={trip.id} />
             </TabsContent>
-            
+
             <TabsContent value="journal" className="m-0">
               <JournalTab tripId={trip.id} />
             </TabsContent>
