@@ -5,7 +5,7 @@ import { db, tripsTable, legsTable, vehicleProfilesTable, journalEntriesTable } 
 
 const router: IRouter = Router();
 
-router.post("/api/seed-demo", async (req, res) => {
+router.post("/seed-demo", async (req, res) => {
   const { userId } = getAuth(req);
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
