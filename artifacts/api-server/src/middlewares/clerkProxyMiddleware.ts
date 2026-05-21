@@ -77,11 +77,13 @@ export function clerkProxyMiddleware(): RequestHandler {
         proxyReq.setHeader("Clerk-Proxy-Url", proxyUrl);
         proxyReq.setHeader("Clerk-Secret-Key", secretKey);
 
-        const xff = req.headers["x-forwarded-for"];
-        const clientIp =
-          (Array.isArray(xff) ? xff[0] : xff)?.split(",")[0]?.trim() ||
-          req.socket?.remoteAddress ||
-          "";
+        // Use the actual TCP peer address as the client IP. The
+        // x-forwarded-for header is entirely attacker-controlled (trust
+        // proxy is not enabled), so reading the leftmost value from it
+        // would allow callers to rotate their apparent source IP and
+        // bypass Clerk's IP-based abuse controls. The socket remote
+        // address cannot be forged by the client.
+        const clientIp = req.socket?.remoteAddress || "";
         if (clientIp) {
           proxyReq.setHeader("X-Forwarded-For", clientIp);
         }
