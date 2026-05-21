@@ -4,6 +4,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Map, Route, Car, TrendingDown, BookOpen, BarChart3, CalendarCheck, Pencil, X, Check } from "lucide-react";
 import { useState } from "react";
+import { HelpButton } from "@/components/help-panel";
+import {
+  HELP_TRIP_PLANNER, HELP_TRIP_MAP, HELP_TRIP_VEHICLE,
+  HELP_TRIP_COSTS, HELP_TRIP_JOURNAL, HELP_TRIP_ANALYSIS,
+  HELP_TRIP_BOOKINGS,
+} from "@/lib/help-content";
 import { useQueryClient } from "@tanstack/react-query";
 import PlannerTab from "./tabs/planner-tab";
 import MapTab from "./tabs/map-tab";
@@ -28,6 +34,17 @@ export default function TripShell({ params }: TripShellProps) {
   const [editingDates, setEditingDates] = useState(false);
   const [draftStart, setDraftStart] = useState("");
   const [draftEnd, setDraftEnd] = useState("");
+  const [activeTab, setActiveTab] = useState("planner");
+
+  const TAB_HELP: Record<string, typeof HELP_TRIP_PLANNER> = {
+    planner: HELP_TRIP_PLANNER,
+    map: HELP_TRIP_MAP,
+    vehicle: HELP_TRIP_VEHICLE,
+    costs: HELP_TRIP_COSTS,
+    journal: HELP_TRIP_JOURNAL,
+    analysis: HELP_TRIP_ANALYSIS,
+    bookings: HELP_TRIP_BOOKINGS,
+  };
 
   const startEdit = () => {
     setDraftStart(trip?.startDate ? trip.startDate.slice(0, 10) : "");
@@ -120,7 +137,11 @@ export default function TripShell({ params }: TripShellProps) {
           </div>
         </div>
 
-        <Tabs defaultValue="planner" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-muted-foreground capitalize font-medium">{activeTab}</span>
+            {TAB_HELP[activeTab] && <HelpButton content={TAB_HELP[activeTab]} />}
+          </div>
           <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 mb-8">
             <TabsTrigger value="planner" className="flex items-center gap-1.5">
               <Route className="h-4 w-4" /> <span className="hidden sm:inline">Planner</span>

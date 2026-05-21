@@ -1,10 +1,11 @@
 import { Link, useLocation } from "wouter";
-import { Map, Home, Menu, MessageSquare, Globe, DollarSign, LogOut, Truck, ClipboardCheck, Download, Save, CalendarCheck } from "lucide-react";
+import { Map, Home, Menu, MessageSquare, Globe, DollarSign, LogOut, Truck, ClipboardCheck, Download, Save, CalendarCheck, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useClerk, useUser } from "@clerk/react";
 import { useSaveContext } from "@/lib/save-context";
 import { useState } from "react";
+import UserGuideModal from "@/pages/user-guide-modal";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -43,6 +44,22 @@ interface SidebarProps {
   email: string | undefined;
   onSignOut: () => void;
   onNav?: () => void;
+}
+
+function UserGuideButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors text-foreground hover:bg-muted"
+      >
+        <BookOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <span>User Guide</span>
+      </button>
+      {open && <UserGuideModal onClose={() => setOpen(false)} />}
+    </>
+  );
 }
 
 function NavItem({ href, label, Icon, isActive, onNav }: { href: string; label: string; Icon: React.ElementType; isActive: boolean; onNav?: () => void }) {
@@ -114,6 +131,7 @@ function Sidebar({ location, firstName, initials, email, onSignOut, onNav }: Sid
 
       {/* Sidebar footer */}
       <div className="p-4 border-t border-border space-y-2 shrink-0">
+        <UserGuideButton />
         <a
           href="https://adventure-analytics-australia.com/"
           target="_blank"

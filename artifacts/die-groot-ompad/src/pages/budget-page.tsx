@@ -30,6 +30,16 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { HelpButton, type HelpContent } from "@/components/help-panel";
+import {
+  HELP_BUDGET_OVERVIEW, HELP_BUDGET_INCOME, HELP_BUDGET_SAVINGS,
+  HELP_BUDGET_TAX, HELP_BUDGET_RENTAL, HELP_BUDGET_PLANNING,
+  HELP_BUDGET_SUPER, HELP_BUDGET_PENSION, HELP_BUDGET_SHARES,
+  HELP_BUDGET_MEMBERSHIPS,
+  HELP_SECTION_TRAVEL, HELP_SECTION_VEHICLE, HELP_SECTION_FIXED,
+  HELP_SECTION_ANNUAL, HELP_SECTION_SUPER, HELP_SECTION_FAMILY,
+  HELP_INCOME_SECTION,
+} from "@/lib/help-content";
 
 // ── Category definitions ──────────────────────────────────────────────────────
 
@@ -848,6 +858,28 @@ export default function BudgetPage() {
     );
   }
 
+  const SUBTAB_HELP: Record<string, HelpContent> = {
+    overview:    HELP_BUDGET_OVERVIEW,
+    income:      HELP_BUDGET_INCOME,
+    savings:     HELP_BUDGET_SAVINGS,
+    tax:         HELP_BUDGET_TAX,
+    rental:      HELP_BUDGET_RENTAL,
+    planning:    HELP_BUDGET_PLANNING,
+    super:       HELP_BUDGET_SUPER,
+    pension:     HELP_BUDGET_PENSION,
+    shares:      HELP_BUDGET_SHARES,
+    memberships: HELP_BUDGET_MEMBERSHIPS,
+  };
+
+  const SECTION_HELP_MAP: Record<string, HelpContent> = {
+    "Travel Expenses":           HELP_SECTION_TRAVEL,
+    "Vehicle Costs":             HELP_SECTION_VEHICLE,
+    "Fixed Bills":               HELP_SECTION_FIXED,
+    "Annual — Rego & Insurance": HELP_SECTION_ANNUAL,
+    "Super & Savings":           HELP_SECTION_SUPER,
+    "Grandkids & Family":        HELP_SECTION_FAMILY,
+  };
+
   const totalVisible = {
     totalExpenses:  visibleTotals.reduce((s, t) => s + t.totalExpenses, 0),
     totalIncome:    visibleTotals.reduce((s, t) => s + t.totalIncome, 0),
@@ -882,15 +914,20 @@ export default function BudgetPage() {
             { key: "shares",       label: "Shares" },
             { key: "memberships",  label: "Memberships" },
           ] as const).map(({ key, label }) => (
-            <button key={key} onClick={() => setSubPage(key)}
-              className={cn(
-                "px-5 py-2 text-sm font-semibold rounded-t-md transition-colors border-b-2 -mb-px",
-                subPage === key
-                  ? "border-primary text-primary bg-primary/8"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              )}>
-              {label}
-            </button>
+            <div key={key} className="relative flex items-center">
+              <button onClick={() => setSubPage(key)}
+                className={cn(
+                  "px-4 py-2 text-sm font-semibold rounded-t-md transition-colors border-b-2 -mb-px",
+                  subPage === key
+                    ? "border-primary text-primary bg-primary/8"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}>
+                {label}
+              </button>
+              <div className="mb-0.5 pr-1">
+                <HelpButton content={SUBTAB_HELP[key]} />
+              </div>
+            </div>
           ))}
         </div>
 
@@ -1188,7 +1225,12 @@ export default function BudgetPage() {
                     <tr className="border-t border-b border-border/40" style={{ backgroundColor: section.color + "18" }}>
                       <td colSpan={visibleCount + 2} className="p-2 pl-3 font-bold text-xs uppercase tracking-wide"
                         style={{ color: section.color }}>
-                        {section.title}
+                        <div className="flex items-center gap-2">
+                          {section.title}
+                          {SECTION_HELP_MAP[section.title] && (
+                            <HelpButton content={SECTION_HELP_MAP[section.title]} />
+                          )}
+                        </div>
                       </td>
                     </tr>
                     {section.items.map(cat => {
@@ -1239,7 +1281,12 @@ export default function BudgetPage() {
                 ))}
 
                 <tr className="border-t border-b border-border/40 bg-primary/8">
-                  <td colSpan={visibleCount + 2} className="p-2 pl-3 font-bold text-xs uppercase tracking-wide text-primary">Income</td>
+                  <td colSpan={visibleCount + 2} className="p-2 pl-3 font-bold text-xs uppercase tracking-wide text-primary">
+                    <div className="flex items-center gap-2">
+                      Income
+                      <HelpButton content={HELP_INCOME_SECTION} />
+                    </div>
+                  </td>
                 </tr>
                 {INCOME_ITEMS.map(cat => {
                   const rowTotal = Array.from({ length: visibleCount }, (_, i) => viewStart + i)
