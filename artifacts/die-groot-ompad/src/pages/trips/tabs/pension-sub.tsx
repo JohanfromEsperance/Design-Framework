@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
@@ -172,6 +172,18 @@ function FieldRow({ label, hint, value, onChange, prefix = "$", step = 1000, suf
   label: string; hint?: string; value: number; onChange: (v: number) => void;
   prefix?: string; step?: number; suffix?: string;
 }) {
+  const [local, setLocal] = useState(value === 0 ? "" : String(value));
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) setLocal(value === 0 ? "" : String(value));
+  }, [value, focused]);
+
+  const commit = (raw: string) => {
+    const n = parseFloat(raw);
+    onChange(isNaN(n) ? 0 : n);
+  };
+
   return (
     <div className="flex items-center gap-3 py-1.5 border-b border-border/40 last:border-0">
       <div className="flex-1 min-w-0">
@@ -180,9 +192,18 @@ function FieldRow({ label, hint, value, onChange, prefix = "$", step = 1000, suf
       </div>
       <div className="flex items-center gap-1">
         {prefix && <span className="text-xs text-muted-foreground">{prefix}</span>}
-        <input type="number" step={step} min={0} value={value}
-          onChange={e => onChange(parseFloat(e.target.value) || 0)}
-          className="w-28 border border-border rounded px-2 py-1 text-xs text-right bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40" />
+        <input
+          type="number" step={step} min={0}
+          value={local}
+          placeholder="0"
+          onChange={e => setLocal(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={e => { setFocused(false); commit(e.target.value); }}
+          onKeyDown={e => {
+            if (e.key === "Enter") { commit((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).blur(); }
+          }}
+          className="w-28 border border-border rounded px-2 py-1 text-xs text-right bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+        />
         {suffix && <span className="text-xs text-muted-foreground w-5">{suffix}</span>}
       </div>
     </div>
