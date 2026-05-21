@@ -74,6 +74,11 @@ const SUPER_SAVINGS = [
   { key: "savingsJohan",      label: "Savings — Johan (CommBank)" },
 ];
 
+const FAMILY_COSTS = [
+  { key: "grandkidsFlights", label: "Grandkids — Flights" },
+  { key: "grandkidsHotels",  label: "Grandkids — Hotels" },
+];
+
 const INCOME_ITEMS = [
   { key: "rentalNet",          label: "Rental Net Income" },
   { key: "salary",             label: "Salary / Employment" },
@@ -125,10 +130,11 @@ const EXPENSE_SECTIONS = [
   { title: "Fixed Monthly Bills",       items: FIXED_BILLS,     color: "#60a5fa" },
   { title: "Annual — Rego & Insurance", items: ANNUAL_COSTS,    color: "#ef4444" },
   { title: "Super & Savings",           items: SUPER_SAVINGS,   color: "#a78bfa" },
+  { title: "Grandkids & Family",        items: FAMILY_COSTS,    color: "#ec4899" },
 ];
 
 const ALL_EXPENSE_KEYS = [
-  ...TRAVEL_EXPENSES, ...VEHICLE_COSTS, ...FIXED_BILLS, ...ANNUAL_COSTS, ...SUPER_SAVINGS,
+  ...TRAVEL_EXPENSES, ...VEHICLE_COSTS, ...FIXED_BILLS, ...ANNUAL_COSTS, ...SUPER_SAVINGS, ...FAMILY_COSTS,
 ].map(i => i.key);
 
 const ALL_KEYS = [

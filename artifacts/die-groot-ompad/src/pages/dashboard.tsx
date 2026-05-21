@@ -67,6 +67,8 @@ const EXPENSE_KEYS = [
   "vehicleLicence", "caravanLicence", "vehicleInsurance", "caravanInsurance", "roadsideAssist",
   // Super & Savings
   "superContribution", "savingsZandra", "savingsJohan",
+  // Grandkids & Family
+  "grandkidsFlights", "grandkidsHotels",
 ] as const;
 
 const INCOME_LABELS: Record<string, string> = {
@@ -91,6 +93,8 @@ const EXPENSE_LABELS: Record<string, string> = {
   vehicleInsurance: "Vehicle Insurance", caravanInsurance: "Caravan Insurance", roadsideAssist: "Roadside",
   // Super
   superContribution: "Super SPA", savingsZandra: "Savings Zandra", savingsJohan: "Savings Johan",
+  // Grandkids
+  grandkidsFlights: "Grandkids Flights", grandkidsHotels: "Grandkids Hotels",
 };
 
 // Colour palette for income/expense stacks — enough for 27 expense keys
