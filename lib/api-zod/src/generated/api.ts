@@ -316,6 +316,9 @@ export const GetGlobalBudgetResponse = zod.object({
   "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
   "returnRate": zod.number().optional().describe('Expected annual investment return %'),
   "forecastYears": zod.number().optional().describe('Number of years to project forward'),
+  "dateOfBirth": zod.string().optional().describe('Date of birth in YYYY-MM-DD format'),
+  "contributionsEndYear": zod.string().optional().describe('Year when employer contributions stop (YYYY)'),
+  "lifeInsurancePremium": zod.number().optional().describe('Annual life insurance premium deducted from balance'),
   "lumpSumWithdrawal": zod.number().optional().describe('Planned lump sum withdrawal amount at eligibility'),
   "lumpSumDate": zod.string().optional().describe('Year of lump sum withdrawal (YYYY)'),
   "preservationAge": zod.number().optional().describe('Age at which super becomes accessible (default 60)')
@@ -433,6 +436,9 @@ export const SaveGlobalBudgetBody = zod.object({
   "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
   "returnRate": zod.number().optional().describe('Expected annual investment return %'),
   "forecastYears": zod.number().optional().describe('Number of years to project forward'),
+  "dateOfBirth": zod.string().optional().describe('Date of birth in YYYY-MM-DD format'),
+  "contributionsEndYear": zod.string().optional().describe('Year when employer contributions stop (YYYY)'),
+  "lifeInsurancePremium": zod.number().optional().describe('Annual life insurance premium deducted from balance'),
   "lumpSumWithdrawal": zod.number().optional().describe('Planned lump sum withdrawal amount at eligibility'),
   "lumpSumDate": zod.string().optional().describe('Year of lump sum withdrawal (YYYY)'),
   "preservationAge": zod.number().optional().describe('Age at which super becomes accessible (default 60)')
@@ -547,6 +553,9 @@ export const SaveGlobalBudgetResponse = zod.object({
   "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
   "returnRate": zod.number().optional().describe('Expected annual investment return %'),
   "forecastYears": zod.number().optional().describe('Number of years to project forward'),
+  "dateOfBirth": zod.string().optional().describe('Date of birth in YYYY-MM-DD format'),
+  "contributionsEndYear": zod.string().optional().describe('Year when employer contributions stop (YYYY)'),
+  "lifeInsurancePremium": zod.number().optional().describe('Annual life insurance premium deducted from balance'),
   "lumpSumWithdrawal": zod.number().optional().describe('Planned lump sum withdrawal amount at eligibility'),
   "lumpSumDate": zod.string().optional().describe('Year of lump sum withdrawal (YYYY)'),
   "preservationAge": zod.number().optional().describe('Age at which super becomes accessible (default 60)')
@@ -686,6 +695,9 @@ export const GetBudgetResponse = zod.object({
   "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
   "returnRate": zod.number().optional().describe('Expected annual investment return %'),
   "forecastYears": zod.number().optional().describe('Number of years to project forward'),
+  "dateOfBirth": zod.string().optional().describe('Date of birth in YYYY-MM-DD format'),
+  "contributionsEndYear": zod.string().optional().describe('Year when employer contributions stop (YYYY)'),
+  "lifeInsurancePremium": zod.number().optional().describe('Annual life insurance premium deducted from balance'),
   "lumpSumWithdrawal": zod.number().optional().describe('Planned lump sum withdrawal amount at eligibility'),
   "lumpSumDate": zod.string().optional().describe('Year of lump sum withdrawal (YYYY)'),
   "preservationAge": zod.number().optional().describe('Age at which super becomes accessible (default 60)')
@@ -807,6 +819,9 @@ export const SaveBudgetBody = zod.object({
   "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
   "returnRate": zod.number().optional().describe('Expected annual investment return %'),
   "forecastYears": zod.number().optional().describe('Number of years to project forward'),
+  "dateOfBirth": zod.string().optional().describe('Date of birth in YYYY-MM-DD format'),
+  "contributionsEndYear": zod.string().optional().describe('Year when employer contributions stop (YYYY)'),
+  "lifeInsurancePremium": zod.number().optional().describe('Annual life insurance premium deducted from balance'),
   "lumpSumWithdrawal": zod.number().optional().describe('Planned lump sum withdrawal amount at eligibility'),
   "lumpSumDate": zod.string().optional().describe('Year of lump sum withdrawal (YYYY)'),
   "preservationAge": zod.number().optional().describe('Age at which super becomes accessible (default 60)')
@@ -921,6 +936,9 @@ export const SaveBudgetResponse = zod.object({
   "grossSalary": zod.number().optional().describe('Annual gross salary for contribution calculations'),
   "returnRate": zod.number().optional().describe('Expected annual investment return %'),
   "forecastYears": zod.number().optional().describe('Number of years to project forward'),
+  "dateOfBirth": zod.string().optional().describe('Date of birth in YYYY-MM-DD format'),
+  "contributionsEndYear": zod.string().optional().describe('Year when employer contributions stop (YYYY)'),
+  "lifeInsurancePremium": zod.number().optional().describe('Annual life insurance premium deducted from balance'),
   "lumpSumWithdrawal": zod.number().optional().describe('Planned lump sum withdrawal amount at eligibility'),
   "lumpSumDate": zod.string().optional().describe('Year of lump sum withdrawal (YYYY)'),
   "preservationAge": zod.number().optional().describe('Age at which super becomes accessible (default 60)')

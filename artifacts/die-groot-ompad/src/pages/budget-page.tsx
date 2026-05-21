@@ -4,6 +4,7 @@ import {
 import RentalSub, { DEFAULT_RENTAL, type RentalConfig } from "./trips/tabs/rental-sub";
 import PlanningSub from "./trips/tabs/planning-sub";
 import SuperSub, { DEFAULT_SUPER, type SuperPortfolio } from "./trips/tabs/super-sub";
+import PensionSub, { DEFAULT_PENSION, type PensionWorksheet } from "./trips/tabs/pension-sub";
 import SharesSub, { DEFAULT_SHARES, type SharesPortfolio } from "./trips/tabs/shares-sub";
 import IncomeSub, { DEFAULT_INCOME, type IncomeWorksheet } from "./trips/tabs/income-sub";
 import TaxSub, { DEFAULT_TAX, type TaxWorksheet } from "./trips/tabs/tax-sub";
@@ -172,7 +173,7 @@ export default function BudgetPage() {
   const [customFrom, setCustomFrom] = useState(0);
   const [customTo, setCustomTo] = useState(11);
 
-  const [subPage, setSubPage] = useState<"overview" | "rental" | "planning" | "super" | "shares" | "income" | "tax">("overview");
+  const [subPage, setSubPage] = useState<"overview" | "rental" | "planning" | "super" | "pension" | "shares" | "income" | "tax">("overview");
 
   const [cpiDialogOpen, setCpiDialogOpen] = useState(false);
   const [cpiRate, setCpiRate] = useState(2.5);
@@ -253,6 +254,19 @@ export default function BudgetPage() {
   const handleSuperChange = (superData: SuperPortfolio) => {
     setBudgetData((prev: any) => {
       const newData = { ...prev, super: superData };
+      triggerSave(newData);
+      return newData;
+    });
+  };
+
+  // ── Shares change ────────────────────────────────────────────────────────
+
+  // ── Pension worksheet change ──────────────────────────────────────────────
+
+  const handlePensionChange = (pensionData: PensionWorksheet) => {
+    setBudgetData((prev: any) => {
+      const newSuper = { ...(prev.super ?? {}), pension: pensionData };
+      const newData = { ...prev, super: newSuper };
       triggerSave(newData);
       return newData;
     });
@@ -599,6 +613,7 @@ export default function BudgetPage() {
             { key: "rental",   label: "Rental Property" },
             { key: "planning", label: "Trip Planning" },
             { key: "super",    label: "Superannuation" },
+            { key: "pension",  label: "Age Pension" },
             { key: "shares",   label: "Shares" },
           ] as const).map(({ key, label }) => (
             <button key={key} onClick={() => setSubPage(key)}
@@ -654,6 +669,17 @@ export default function BudgetPage() {
             data={{ ...DEFAULT_SUPER, ...(budgetData.super as SuperPortfolio ?? {}) }}
             onChange={handleSuperChange}
           />
+        )}
+
+        {/* ── Age Pension sub-page ── */}
+        {subPage === "pension" && (
+          <div className="p-4">
+            <PensionSub
+              data={{ ...DEFAULT_PENSION, ...((budgetData.super as SuperPortfolio)?.pension as PensionWorksheet ?? {}) }}
+              onChange={handlePensionChange}
+              superPortfolio={{ ...DEFAULT_SUPER, ...(budgetData.super as SuperPortfolio ?? {}) }}
+            />
+          </div>
         )}
 
         {/* ── Shares sub-page ── */}

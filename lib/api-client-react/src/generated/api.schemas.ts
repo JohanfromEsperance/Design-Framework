@@ -182,6 +182,12 @@ export interface SuperAccount {
   returnRate?: number;
   /** Number of years to project forward */
   forecastYears?: number;
+  /** Date of birth in YYYY-MM-DD format */
+  dateOfBirth?: string;
+  /** Year when employer contributions stop (YYYY) */
+  contributionsEndYear?: string;
+  /** Annual life insurance premium deducted from balance */
+  lifeInsurancePremium?: number;
   /** Planned lump sum withdrawal amount at eligibility */
   lumpSumWithdrawal?: number;
   /** Year of lump sum withdrawal (YYYY) */

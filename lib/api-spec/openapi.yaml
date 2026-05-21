@@ -856,6 +856,15 @@ components:
         forecastYears:
           type: integer
           description: Number of years to project forward
+        dateOfBirth:
+          type: string
+          description: Date of birth in YYYY-MM-DD format
+        contributionsEndYear:
+          type: string
+          description: Year when employer contributions stop (YYYY)
+        lifeInsurancePremium:
+          type: number
+          description: Annual life insurance premium deducted from balance
         lumpSumWithdrawal:
           type: number
           description: Planned lump sum withdrawal amount at eligibility
