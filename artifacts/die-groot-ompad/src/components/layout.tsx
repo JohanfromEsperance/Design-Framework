@@ -4,9 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useClerk, useUser } from "@clerk/react";
 
-interface LayoutProps {
-  children: React.ReactNode;
-}
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function openJohan() {
   window.open(
@@ -20,23 +18,22 @@ function openJohan() {
   );
 }
 
-const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const NAV_ITEMS = [
+  { href: "/dashboard", label: "Dashboard", icon: Home },
+  { href: "/trips",     label: "My Trips",   icon: Map },
+  { href: "/budget",   label: "Budget",     icon: DollarSign },
+] as const;
 
-export function Layout({ children }: LayoutProps) {
-  const [location] = useLocation();
-  const { signOut } = useClerk();
-  const { user } = useUser();
+interface SidebarProps {
+  location: string;
+  firstName: string;
+  initials: string;
+  email: string | undefined;
+  onSignOut: () => void;
+}
 
-  const navItems = [
-    { href: "/dashboard", label: "Dashboard", icon: Home },
-    { href: "/trips",     label: "My Trips",   icon: Map },
-    { href: "/budget",   label: "Budget",     icon: DollarSign },
-  ];
-
-  const firstName = user?.firstName ?? user?.primaryEmailAddress?.emailAddress?.split("@")[0] ?? "Explorer";
-  const initials = firstName.slice(0, 2).toUpperCase();
-
-  const SidebarContent = () => (
+function Sidebar({ location, firstName, initials, email, onSignOut }: SidebarProps) {
+  return (
     <div className="flex h-full flex-col">
       {/* Brand / logo header */}
       <div className="shrink-0 border-b border-border overflow-hidden">
@@ -57,7 +54,7 @@ export function Layout({ children }: LayoutProps) {
       </div>
 
       <nav className="flex-1 space-y-1 px-4 py-4">
-        {navItems.map((item) => {
+        {NAV_ITEMS.map((item) => {
           const isActive =
             location === item.href ||
             (item.href !== "/dashboard" && location.startsWith(item.href));
@@ -105,17 +102,19 @@ export function Layout({ children }: LayoutProps) {
 
         {/* User info + sign out */}
         <div className="flex items-center gap-3 pt-1">
-          <div className="h-9 w-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 text-[#f6f1e7]"
-            style={{ background: "linear-gradient(135deg, #1f6f5f, #2a8a76)" }}>
+          <div
+            className="h-9 w-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 text-[#f6f1e7]"
+            style={{ background: "linear-gradient(135deg, #1f6f5f, #2a8a76)" }}
+          >
             {initials}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground truncate">{firstName}</p>
-            <p className="text-xs text-muted-foreground truncate">{user?.primaryEmailAddress?.emailAddress}</p>
+            <p className="text-xs text-muted-foreground truncate">{email}</p>
           </div>
           <button
             title="Sign out"
-            onClick={() => signOut({ redirectUrl: `${basePath}/sign-in` })}
+            onClick={onSignOut}
             className="shrink-0 text-muted-foreground hover:text-destructive transition-colors p-1"
           >
             <LogOut className="h-4 w-4" />
@@ -124,28 +123,52 @@ export function Layout({ children }: LayoutProps) {
       </div>
     </div>
   );
+}
+
+interface LayoutProps {
+  children: React.ReactNode;
+}
+
+export function Layout({ children }: LayoutProps) {
+  const [location] = useLocation();
+  const { signOut } = useClerk();
+  const { user } = useUser();
+
+  const firstName = user?.firstName ?? user?.primaryEmailAddress?.emailAddress?.split("@")[0] ?? "Explorer";
+  const initials = firstName.slice(0, 2).toUpperCase();
+  const email = user?.primaryEmailAddress?.emailAddress;
+
+  function handleSignOut() {
+    signOut({ redirectUrl: `${basePath}/sign-in` });
+  }
+
+  const sidebarProps: SidebarProps = { location, firstName, initials, email, onSignOut: handleSignOut };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Mobile sidebar */}
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="md:hidden absolute top-4 left-4 z-50">
-            <Menu className="h-6 w-6" />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-64 p-0 bg-card border-r border-border">
-          <SidebarContent />
-        </SheetContent>
-      </Sheet>
-
-      {/* Desktop sidebar */}
-      <div className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col md:border-r md:border-border md:bg-card">
-        <SidebarContent />
+      {/* Mobile hamburger + slide-out drawer (hidden on md+) */}
+      <div className="md:hidden">
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="absolute top-4 left-4 z-50">
+              <Menu className="h-6 w-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-64 p-0 bg-card border-r border-border" aria-describedby={undefined}>
+            <Sidebar {...sidebarProps} />
+          </SheetContent>
+        </Sheet>
       </div>
 
-      {/* Main content */}
-      <div className="flex flex-1 flex-col md:pl-64">
+      {/* Desktop sidebar — fixed, only shown on md+ */}
+      <aside
+        className="fixed inset-y-0 left-0 z-10 flex w-64 flex-col border-r border-border bg-card max-md:hidden"
+      >
+        <Sidebar {...sidebarProps} />
+      </aside>
+
+      {/* Main content — offset by sidebar width on md+ */}
+      <div className="md:pl-64">
         <main className="flex-1 p-6 md:p-8">{children}</main>
       </div>
 
