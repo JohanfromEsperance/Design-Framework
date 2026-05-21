@@ -20,9 +20,7 @@ interface TripShellProps {
 
 export default function TripShell({ params }: TripShellProps) {
   const tripId = parseInt(params.tripId, 10);
-  const { data: trip, isLoading } = useGetTrip(tripId, { 
-    query: { enabled: !!tripId } 
-  });
+  const { data: trip, isLoading } = useGetTrip(tripId);
 
   if (isLoading) {
     return (

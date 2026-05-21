@@ -150,7 +150,7 @@ export default function VehicleTab({ tripId }: VehicleTabProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (vehicle) setFormData(vehicle as Record<string, string | number>);
+    if (vehicle) setFormData(vehicle as unknown as Record<string, string | number>);
   }, [vehicle]);
 
   useEffect(() => {

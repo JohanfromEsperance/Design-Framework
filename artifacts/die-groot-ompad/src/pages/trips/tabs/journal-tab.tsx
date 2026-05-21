@@ -53,7 +53,7 @@ function JournalEntryEditor({
 
   const handleSave = () => {
     updateEntry.mutate(
-      { tripId, journalEntryId: entryId, data },
+      { tripId, entryId, data },
       {
         onSuccess: () => {
           onSaved();
@@ -225,7 +225,7 @@ export default function JournalTab({ tripId }: JournalTabProps) {
   const handleDelete = (entryId: number) => {
     if (!confirm("Delete this entry?")) return;
     deleteEntry.mutate(
-      { tripId, journalEntryId: entryId },
+      { tripId, entryId },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListJournalEntriesQueryKey(tripId) });

@@ -280,7 +280,7 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
 
                     {/* Indicators */}
                     <div className="flex items-center gap-2 shrink-0">
-                      {b.receiptData && <Receipt className="h-4 w-4 text-primary" title="Receipt attached" />}
+                      {b.receiptData && <Receipt className="h-4 w-4 text-primary" aria-label="Receipt attached" />}
                       {b.confirmationNumber && (
                         <span className="text-[10px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
                           #{b.confirmationNumber}

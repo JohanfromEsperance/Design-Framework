@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Plus,
   Trash2,
@@ -22,6 +22,7 @@ import {
   Loader2,
   ExternalLink,
   GripVertical,
+  Upload,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -195,6 +196,47 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
 
   // ── CRUD handlers ──────────────────────────────────────────────────────────
 
+  const importRef = useRef<HTMLInputElement | null>(null);
+  const handleImportActuals = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        const lines = text.trim().split("\n").map(l =>
+          l.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c => c.replace(/^"|"$/g, "").replace(/""/g, '"').trim())
+        );
+        // Expected: Leg,From,To,Planned Km,Actual Km,Actual Litres,Price/L,Notes
+        const dataRows = lines.slice(1).filter(r => r.length >= 5);
+        let updated = 0;
+        for (let i = 0; i < Math.min(dataRows.length, sortedLegs.length); i++) {
+          const row = dataRows[i];
+          const leg = sortedLegs[i];
+          const actualKm = parseFloat(row[4]);
+          const actualLitres = parseFloat(row[5]);
+          const pricePerLitre = parseFloat(row[6]);
+          const notes = row[7] || "";
+          const patch: Record<string, string | number | undefined> = {};
+          if (!isNaN(actualKm))     patch.actualKm = actualKm;
+          if (!isNaN(actualLitres)) patch.actualLitres = actualLitres;
+          if (!isNaN(pricePerLitre)) patch.pricePerLitre = pricePerLitre;
+          if (notes) patch.notes = notes;
+          if (Object.keys(patch).length > 0) {
+            await updateLeg.mutateAsync({ tripId: trip.id, legId: leg.id, data: patch as any });
+            updated++;
+          }
+        }
+        queryClient.invalidateQueries({ queryKey: getListLegsQueryKey(trip.id) });
+        toast({ title: `Imported ${updated} leg${updated !== 1 ? "s" : ""}`, description: "Actual data updated" });
+      } catch {
+        toast({ title: "Import failed — check CSV format", variant: "destructive" });
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
   const handleAddStop = () => {
     const newOrder =
       sortedLegs.length > 0 ? sortedLegs[sortedLegs.length - 1].sortOrder + 1 : 1;
@@ -294,16 +336,26 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
               {sortedLegs.length} {sortedLegs.length === 1 ? "Leg" : "Legs"}
             </span>
           </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleAddStop}
-            disabled={createLeg.isPending}
-            className="h-7 w-7 p-0 text-primary hover:bg-primary/10"
-            title="Add stop"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <input ref={importRef} type="file" accept=".csv" className="hidden" onChange={handleImportActuals} />
+            <Button
+              size="sm" variant="ghost"
+              onClick={() => importRef.current?.click()}
+              className="h-7 w-7 p-0 text-muted-foreground hover:bg-muted/60"
+              title="Import actual leg data from CSV"
+            >
+              <Upload className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="sm" variant="ghost"
+              onClick={handleAddStop}
+              disabled={createLeg.isPending}
+              className="h-7 w-7 p-0 text-primary hover:bg-primary/10"
+              title="Add stop"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {sortedLegs.length > 0 && (
