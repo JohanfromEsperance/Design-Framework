@@ -407,7 +407,7 @@ export default function RentalSub({ config, onChange }: RentalSubProps) {
         <div className="space-y-4">
 
           {/* P&L Summary */}
-          <Card className="sticky top-4">
+          <Card>
             <CardHeader className="py-3 px-4">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Percent className="h-4 w-4 text-primary" /> Annual P&L Summary
