@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   Map, Route, Fuel, BookOpen, ArrowRight,
   TrendingUp, TrendingDown, Minus, Award, Compass, AlertTriangle,
-  BarChart2, ClipboardCheck, CheckCircle2, XCircle, Clock,
+  BarChart2, ClipboardCheck, CheckCircle2, XCircle, Clock, PiggyBank,
 } from "lucide-react";
 import { ALL_CHECKLISTS, CheckState, computeStats } from "@/data/checklists";
 import {
@@ -55,7 +55,12 @@ const INCOME_KEYS = [
   "rentalNet", "salary", "businessIncome",
   "dividends", "cgt", "centrelink", "superPensionIncome", "sideIncome",
   "refunds", "otherIncome1", "otherIncome2", "customIncome",
+  "savingsDrawdown",
 ] as const;
+
+// Month index at which savings drawdown begins (March 2027 = month 12 from base March 2026)
+const DRAWDOWN_START_IDX = 12;
+
 const EXPENSE_KEYS = [
   // Travel & Road
   "fuel", "accommodation", "food", "eatingOut", "entertainment", "passesPermits", "ferries",
@@ -77,6 +82,7 @@ const INCOME_LABELS: Record<string, string> = {
   superPensionIncome: "Super Pension", sideIncome: "Side Income",
   refunds: "Refunds", otherIncome1: "Other Income 1", otherIncome2: "Other Income 2",
   customIncome: "Other Income",
+  savingsDrawdown: "Savings Drawdown",
 };
 const EXPENSE_LABELS: Record<string, string> = {
   // Travel
@@ -349,15 +355,43 @@ function AdviceCard({ totalKm, totalTrips, totalJournalEntries, breakdown }: Adv
 
 interface BudgetMonth { [key: string]: number; }
 
-function buildChartData(months: Record<string, BudgetMonth>) {
+interface SavingsWorksheetLocal {
+  openingBalance?: number;
+  months?: Record<string, { deposit?: number; withdrawal?: number }>;
+}
+
+function computeSavingsRunning(savings: SavingsWorksheetLocal | undefined) {
+  let bal = savings?.openingBalance ?? 0;
+  return Array.from({ length: 60 }, (_, i) => {
+    const m = savings?.months?.[i.toString()] ?? {};
+    const deposit    = Number(m.deposit    ?? 0);
+    const withdrawal = Number(m.withdrawal ?? 0);
+    const opening    = bal;
+    bal = bal + deposit - withdrawal;
+    return { opening, deposit, withdrawal, closing: bal };
+  });
+}
+
+function buildChartData(months: Record<string, BudgetMonth>, savings?: SavingsWorksheetLocal) {
+  const savingsBalance = computeSavingsRunning(savings);
+
   return Array.from({ length: 24 }, (_, i) => {
     const m: BudgetMonth = (months[i.toString()] as BudgetMonth) ?? {};
 
     const incomes: Record<string, number> = {};
     let totalInc = 0;
+
+    // Standard income keys (skip savingsDrawdown — handled separately below)
     for (const k of INCOME_KEYS) {
+      if (k === "savingsDrawdown") continue;
       const v = Math.max(0, Number(m[k]) || 0);
       if (v > 0) { incomes[k] = v; totalInc += v; }
+    }
+
+    // Savings drawdown income — only from month DRAWDOWN_START_IDX onwards
+    if (i >= DRAWDOWN_START_IDX) {
+      const drawdown = savingsBalance[i]?.withdrawal ?? 0;
+      if (drawdown > 0) { incomes["savingsDrawdown"] = drawdown; totalInc += drawdown; }
     }
 
     const expenses: Record<string, number> = {};
@@ -401,11 +435,23 @@ function addConfidenceBand(data: ReturnType<typeof buildChartData>): (ReturnType
 interface FinancialOverviewChartProps {
   months: Record<string, BudgetMonth>;
   superPortfolio?: { accounts?: Array<{ name: string; dateOfBirth?: string }> };
+  savings?: SavingsWorksheetLocal;
 }
 
-function FinancialOverviewChart({ months, superPortfolio }: FinancialOverviewChartProps) {
-  const rawData   = buildChartData(months);
+function FinancialOverviewChart({ months, superPortfolio, savings }: FinancialOverviewChartProps) {
+  const rawData   = buildChartData(months, savings);
   const chartData = addConfidenceBand(rawData);
+
+  // Savings pool calculations
+  const savingsRunning       = computeSavingsRunning(savings);
+  const savingsPoolAtDrawdown = savingsRunning[DRAWDOWN_START_IDX]?.opening ?? 0;
+  const hasSavings            = savingsPoolAtDrawdown > 0 || (savings?.openingBalance ?? 0) > 0;
+  // Average monthly drawdown over the first 12 drawdown months
+  const drawdownMonths        = Array.from({ length: 12 }, (_, i) => savingsRunning[DRAWDOWN_START_IDX + i]?.withdrawal ?? 0);
+  const avgMonthlyDrawdown    = drawdownMonths.filter(v => v > 0).length > 0
+    ? drawdownMonths.reduce((a, b) => a + b, 0) / drawdownMonths.filter(v => v > 0).length
+    : 0;
+  const runwayMonths          = avgMonthlyDrawdown > 0 ? Math.floor(savingsPoolAtDrawdown / avgMonthlyDrawdown) : null;
 
   const curIdx    = currentMonthIndex();
   const allHaveData = chartData.some(d => d.totalInc > 0 || d.totalExp > 0);
@@ -450,6 +496,11 @@ function FinancialOverviewChart({ months, superPortfolio }: FinancialOverviewCha
             <span className="flex items-center gap-1.5">
               <span className="inline-block h-2.5 w-4 rounded-sm" style={{ background: "#1f6f5f" }} /> Income
             </span>
+            {hasSavings && (
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-2.5 w-4 rounded-sm" style={{ background: "#ec4899" }} /> Savings Drawdown
+              </span>
+            )}
             <span className="flex items-center gap-1.5">
               <span className="inline-block h-2.5 w-4 rounded-sm" style={{ background: "#d9b880" }} /> Expenses
             </span>
@@ -523,18 +574,26 @@ function FinancialOverviewChart({ months, superPortfolio }: FinancialOverviewCha
                   label={{ value: `${zandraName}@67`, fontSize: 8, fill: "#a78bfa", position: "insideTopLeft" }} />
               )}
 
+              {/* Savings drawdown start — March 2027 (month 12) */}
+              <ReferenceLine x={monthLabel(DRAWDOWN_START_IDX)} stroke="#ec4899" strokeWidth={1.5} strokeDasharray="4 2"
+                label={{ value: "Drawdown", fontSize: 8, fill: "#ec4899", position: "insideTopRight" }} />
+
               {/* AI Confidence band — upper and lower areas stacked to create band */}
               <Area type="monotone" dataKey="bandUpper" fill="url(#bandGrad)" stroke="#6366f1" strokeOpacity={0.2}
                 strokeWidth={1} strokeDasharray="3 2" legendType="none" />
               <Area type="monotone" dataKey="bandLower" fill="#ffffff" fillOpacity={1} stroke="#6366f1"
                 strokeOpacity={0.2} strokeWidth={1} strokeDasharray="3 2" legendType="none" />
 
-              {/* Income stacked bars */}
-              {activeIncKeys.map((k, i) => (
+              {/* Income stacked bars — savingsDrawdown rendered last in distinct pink */}
+              {activeIncKeys.filter(k => k !== "savingsDrawdown").map((k, i) => (
                 <Bar key={k} dataKey={k} name={k} stackId="income"
                   fill={INCOME_PALETTE[i % INCOME_PALETTE.length]}
-                  radius={i === activeIncKeys.length - 1 ? [2, 2, 0, 0] : [0, 0, 0, 0]} />
+                  radius={[0, 0, 0, 0]} />
               ))}
+              {activeIncKeys.includes("savingsDrawdown") && (
+                <Bar key="savingsDrawdown" dataKey="savingsDrawdown" name="savingsDrawdown" stackId="income"
+                  fill="#ec4899" radius={[2, 2, 0, 0]} />
+              )}
 
               {/* Expense stacked bars (negative) */}
               {activeExpKeys.map((k, i) => (
@@ -551,7 +610,7 @@ function FinancialOverviewChart({ months, superPortfolio }: FinancialOverviewCha
         </div>
 
         {/* Milestone summary strip */}
-        <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 border-t border-border pt-3">
+        <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 border-t border-border pt-3">
           <div className="rounded p-2 bg-primary/5 border border-primary/20 text-center">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wide">D+2yr Income</p>
             <p className="text-sm font-bold text-primary">{fmtAud(total2yrInc)}</p>
@@ -563,6 +622,20 @@ function FinancialOverviewChart({ months, superPortfolio }: FinancialOverviewCha
           <div className={`rounded p-2 border text-center ${total2yrNet >= 0 ? "bg-primary/5 border-primary/20" : "bg-red-500/5 border-red-500/20"}`}>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wide">D+2yr Net</p>
             <p className={`text-sm font-bold ${total2yrNet >= 0 ? "text-primary" : "text-destructive"}`}>{fmtAud(total2yrNet)}</p>
+          </div>
+
+          {/* Savings pool @ drawdown start */}
+          <div className="rounded p-2 bg-[#ec4899]/8 border border-[#ec4899]/30 text-center">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Savings Pool @ Mar 27</p>
+            <p className="text-sm font-bold" style={{ color: "#ec4899" }}>
+              {hasSavings ? fmtAud(savingsPoolAtDrawdown) : <span className="text-muted-foreground text-xs italic">Not set</span>}
+            </p>
+            {runwayMonths !== null && (
+              <p className="text-[9px] text-muted-foreground mt-0.5">{runwayMonths}mo runway</p>
+            )}
+            {!hasSavings && (
+              <p className="text-[9px] text-muted-foreground mt-0.5">Set in Budget tab</p>
+            )}
           </div>
 
           {/* Age 67 milestones */}
@@ -604,6 +677,10 @@ function FinancialOverviewChart({ months, superPortfolio }: FinancialOverviewCha
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-3 border-l-2 border-dashed border-[#d9b880]" />
             D+2yr mark
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 border-l-2 border-dashed border-[#ec4899]" style={{ borderColor: "#ec4899" }} />
+            Drawdown start (Mar 2027)
           </span>
           <span className="text-muted-foreground">AI band = rolling mean ±0.65σ cashflow confidence</span>
         </div>
@@ -754,6 +831,12 @@ export default function Dashboard() {
 
   const budgetMonths     = (budget as any)?.months ?? {};
   const superPortfolio   = (budget as any)?.super;
+  const savings          = (budget as any)?.savings as SavingsWorksheetLocal | undefined;
+
+  // Compute savings pool at drawdown start (month 12 = March 2027) for the KPI row
+  const savingsKpiRunning      = computeSavingsRunning(savings);
+  const savingsKpiPool         = savingsKpiRunning[DRAWDOWN_START_IDX]?.opening ?? 0;
+  const savingsKpiHas          = savingsKpiPool > 0 || ((savings?.openingBalance ?? 0) > 0);
 
   return (
     <div className="space-y-5">
@@ -770,7 +853,7 @@ export default function Dashboard() {
       </div>
 
       {/* Row 1 — KPI blocks */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
         <StatBlock label="Total Expeditions" value={stats?.totalTrips ?? 0} icon={<Map className="h-4 w-4" />} />
         <StatBlock label="Distance Logged" value={fmtKm(stats?.totalKm ?? 0)} sub="km"
           icon={<Route className="h-4 w-4" />} accent="#2a8a76" />
@@ -778,11 +861,18 @@ export default function Dashboard() {
           icon={<Fuel className="h-4 w-4" />} accent="#d9b880" />
         <StatBlock label="Journal Entries" value={stats?.totalJournalEntries ?? 0}
           icon={<BookOpen className="h-4 w-4" />} accent="#3aab92" />
+        <StatBlock
+          label="Savings Pool @ Mar 27"
+          value={savingsKpiHas ? fmtAud(savingsKpiPool) : "—"}
+          sub={savingsKpiHas ? undefined : "not set"}
+          icon={<PiggyBank className="h-4 w-4" />}
+          accent="#ec4899"
+        />
       </div>
 
       {/* Row 2 — 2-year financial overview (full width) */}
       <div className="grid grid-cols-1">
-        <FinancialOverviewChart months={budgetMonths} superPortfolio={superPortfolio} />
+        <FinancialOverviewChart months={budgetMonths} superPortfolio={superPortfolio} savings={savings} />
       </div>
 
       {/* Row 3 — Analytics blocks */}
