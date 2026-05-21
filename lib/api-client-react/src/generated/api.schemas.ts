@@ -110,6 +110,37 @@ export interface LegReorder {
   legIds: number[];
 }
 
+/**
+ * Australian rental property income and expense configuration
+ */
+export interface RentalConfig {
+  address?: string;
+  purchasePrice?: number;
+  currentValue?: number;
+  yearBuilt?: number;
+  constructionCost?: number;
+  weeklyRent?: number;
+  vacancyWeeks?: number;
+  councilRates?: number;
+  waterRates?: number;
+  landlordInsurance?: number;
+  strataLevies?: number;
+  landTax?: number;
+  managementFeeRate?: number;
+  lettingFeeWeeks?: number;
+  repairs?: number;
+  advertising?: number;
+  accountingFees?: number;
+  legalFees?: number;
+  bankCharges?: number;
+  loanBalance?: number;
+  interestRate?: number;
+  div43Annual?: number;
+  div40Annual?: number;
+  marginalTaxRate?: number;
+  otherIncome?: number;
+}
+
 export interface MonthBudget {
   fuel?: number;
   accommodation?: number;
@@ -142,6 +173,7 @@ export interface BudgetPlan {
   year: string;
   /** Map of month index (0-11) to MonthBudget */
   months: BudgetPlanMonths;
+  rental?: RentalConfig;
   updatedAt: string;
 }
 
@@ -150,6 +182,7 @@ export type BudgetPlanInputMonths = {[key: string]: MonthBudget};
 export interface BudgetPlanInput {
   year: string;
   months: BudgetPlanInputMonths;
+  rental?: RentalConfig;
 }
 
 export interface MonthCashflow {

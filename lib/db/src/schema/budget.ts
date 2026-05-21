@@ -8,6 +8,7 @@ export const budgetPlansTable = pgTable("budget_plans", {
   tripId: integer("trip_id").notNull().references(() => tripsTable.id, { onDelete: "cascade" }).unique(),
   year: text("year").notNull().default("2026"),
   months: jsonb("months").notNull().default({}),
+  rental: jsonb("rental").default({}),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

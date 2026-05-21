@@ -282,6 +282,33 @@ export const GetBudgetResponse = zod.object({
   "otherIncome2": zod.number().optional(),
   "openingBalance": zod.number().optional()
 })).describe('Map of month index (0-11) to MonthBudget'),
+  "rental": zod.object({
+  "address": zod.string().optional(),
+  "purchasePrice": zod.number().optional(),
+  "currentValue": zod.number().optional(),
+  "yearBuilt": zod.number().optional(),
+  "constructionCost": zod.number().optional(),
+  "weeklyRent": zod.number().optional(),
+  "vacancyWeeks": zod.number().optional(),
+  "councilRates": zod.number().optional(),
+  "waterRates": zod.number().optional(),
+  "landlordInsurance": zod.number().optional(),
+  "strataLevies": zod.number().optional(),
+  "landTax": zod.number().optional(),
+  "managementFeeRate": zod.number().optional(),
+  "lettingFeeWeeks": zod.number().optional(),
+  "repairs": zod.number().optional(),
+  "advertising": zod.number().optional(),
+  "accountingFees": zod.number().optional(),
+  "legalFees": zod.number().optional(),
+  "bankCharges": zod.number().optional(),
+  "loanBalance": zod.number().optional(),
+  "interestRate": zod.number().optional(),
+  "div43Annual": zod.number().optional(),
+  "div40Annual": zod.number().optional(),
+  "marginalTaxRate": zod.number().optional(),
+  "otherIncome": zod.number().optional()
+}).optional().describe('Australian rental property income and expense configuration'),
   "updatedAt": zod.string()
 })
 
@@ -314,7 +341,34 @@ export const SaveBudgetBody = zod.object({
   "otherIncome1": zod.number().optional(),
   "otherIncome2": zod.number().optional(),
   "openingBalance": zod.number().optional()
-}))
+})),
+  "rental": zod.object({
+  "address": zod.string().optional(),
+  "purchasePrice": zod.number().optional(),
+  "currentValue": zod.number().optional(),
+  "yearBuilt": zod.number().optional(),
+  "constructionCost": zod.number().optional(),
+  "weeklyRent": zod.number().optional(),
+  "vacancyWeeks": zod.number().optional(),
+  "councilRates": zod.number().optional(),
+  "waterRates": zod.number().optional(),
+  "landlordInsurance": zod.number().optional(),
+  "strataLevies": zod.number().optional(),
+  "landTax": zod.number().optional(),
+  "managementFeeRate": zod.number().optional(),
+  "lettingFeeWeeks": zod.number().optional(),
+  "repairs": zod.number().optional(),
+  "advertising": zod.number().optional(),
+  "accountingFees": zod.number().optional(),
+  "legalFees": zod.number().optional(),
+  "bankCharges": zod.number().optional(),
+  "loanBalance": zod.number().optional(),
+  "interestRate": zod.number().optional(),
+  "div43Annual": zod.number().optional(),
+  "div40Annual": zod.number().optional(),
+  "marginalTaxRate": zod.number().optional(),
+  "otherIncome": zod.number().optional()
+}).optional().describe('Australian rental property income and expense configuration')
 })
 
 export const SaveBudgetResponse = zod.object({
@@ -341,6 +395,33 @@ export const SaveBudgetResponse = zod.object({
   "otherIncome2": zod.number().optional(),
   "openingBalance": zod.number().optional()
 })).describe('Map of month index (0-11) to MonthBudget'),
+  "rental": zod.object({
+  "address": zod.string().optional(),
+  "purchasePrice": zod.number().optional(),
+  "currentValue": zod.number().optional(),
+  "yearBuilt": zod.number().optional(),
+  "constructionCost": zod.number().optional(),
+  "weeklyRent": zod.number().optional(),
+  "vacancyWeeks": zod.number().optional(),
+  "councilRates": zod.number().optional(),
+  "waterRates": zod.number().optional(),
+  "landlordInsurance": zod.number().optional(),
+  "strataLevies": zod.number().optional(),
+  "landTax": zod.number().optional(),
+  "managementFeeRate": zod.number().optional(),
+  "lettingFeeWeeks": zod.number().optional(),
+  "repairs": zod.number().optional(),
+  "advertising": zod.number().optional(),
+  "accountingFees": zod.number().optional(),
+  "legalFees": zod.number().optional(),
+  "bankCharges": zod.number().optional(),
+  "loanBalance": zod.number().optional(),
+  "interestRate": zod.number().optional(),
+  "div43Annual": zod.number().optional(),
+  "div40Annual": zod.number().optional(),
+  "marginalTaxRate": zod.number().optional(),
+  "otherIncome": zod.number().optional()
+}).optional().describe('Australian rental property income and expense configuration'),
   "updatedAt": zod.string()
 })
 

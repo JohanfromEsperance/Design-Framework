@@ -6,8 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BudgetPlanInputMonths } from './budgetPlanInputMonths';
+import type { RentalConfig } from './rentalConfig';
 
 export interface BudgetPlanInput {
   year: string;
   months: BudgetPlanInputMonths;
+  rental?: RentalConfig;
 }

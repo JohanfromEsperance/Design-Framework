@@ -727,6 +727,36 @@ components:
             type: integer
 
     # ── Budget ─────────────────────────────────────────────────────────────────
+    RentalConfig:
+      type: object
+      description: Australian rental property income and expense configuration
+      properties:
+        address: { type: string }
+        purchasePrice: { type: number }
+        currentValue: { type: number }
+        yearBuilt: { type: integer }
+        constructionCost: { type: number }
+        weeklyRent: { type: number }
+        vacancyWeeks: { type: number }
+        councilRates: { type: number }
+        waterRates: { type: number }
+        landlordInsurance: { type: number }
+        strataLevies: { type: number }
+        landTax: { type: number }
+        managementFeeRate: { type: number }
+        lettingFeeWeeks: { type: number }
+        repairs: { type: number }
+        advertising: { type: number }
+        accountingFees: { type: number }
+        legalFees: { type: number }
+        bankCharges: { type: number }
+        loanBalance: { type: number }
+        interestRate: { type: number }
+        div43Annual: { type: number }
+        div40Annual: { type: number }
+        marginalTaxRate: { type: number }
+        otherIncome: { type: number }
+
     BudgetPlan:
       type: object
       required: [id, tripId, year, months, updatedAt]
@@ -742,6 +772,8 @@ components:
           description: Map of month index (0-11) to MonthBudget
           additionalProperties:
             $ref: "#/components/schemas/MonthBudget"
+        rental:
+          $ref: "#/components/schemas/RentalConfig"
         updatedAt:
           type: string
 
@@ -795,6 +827,8 @@ components:
           type: object
           additionalProperties:
             $ref: "#/components/schemas/MonthBudget"
+        rental:
+          $ref: "#/components/schemas/RentalConfig"
 
     BudgetSummary:
       type: object

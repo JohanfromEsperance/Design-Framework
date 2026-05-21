@@ -1,6 +1,7 @@
 import {
   useGetBudget, useSaveBudget, getGetBudgetQueryKey, useGetTrip,
 } from "@workspace/api-client-react";
+import RentalSub, { DEFAULT_RENTAL, type RentalConfig } from "./rental-sub";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -167,6 +168,9 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
   const [customFrom, setCustomFrom] = useState(0);
   const [customTo, setCustomTo] = useState(11);
 
+  // Sub-page navigation
+  const [subPage, setSubPage] = useState<"overview" | "rental">("overview");
+
   // CPI dialog state
   const [cpiDialogOpen, setCpiDialogOpen] = useState(false);
   const [cpiRate, setCpiRate] = useState(2.5);
@@ -221,7 +225,7 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       saveBudget.mutate(
-        { tripId, data: { year: data.year, months: data.months } },
+        { tripId, data: { year: data.year, months: data.months, rental: data.rental } },
         { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetBudgetQueryKey(tripId) }) }
       );
     }, 1200);
@@ -240,7 +244,7 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
     if (!budgetData) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveBudget.mutate(
-      { tripId, data: { year: budgetData.year, months: budgetData.months } },
+      { tripId, data: { year: budgetData.year, months: budgetData.months, rental: budgetData.rental } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetBudgetQueryKey(tripId) });
@@ -248,6 +252,30 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
         },
       }
     );
+  };
+
+  // ── Rental config change — recompute monthlyNetCash → rentalNet in all 60 months ───
+
+  const handleRentalChange = (cfg: RentalConfig) => {
+    setBudgetData((prev: any) => {
+      const grossRent     = cfg.weeklyRent * (52 - cfg.vacancyWeeks);
+      const mgmtFees      = (cfg.managementFeeRate / 100) * grossRent;
+      const lettingFees   = cfg.lettingFeeWeeks * cfg.weeklyRent;
+      const interestExp   = (cfg.loanBalance * cfg.interestRate) / 100;
+      const cashDeductions =
+        cfg.councilRates + cfg.waterRates + cfg.landlordInsurance +
+        cfg.strataLevies + cfg.landTax + mgmtFees + lettingFees +
+        cfg.repairs + cfg.advertising + cfg.accountingFees +
+        cfg.legalFees + cfg.bankCharges + interestExp;
+      const monthlyNet = Math.round((grossRent - cashDeductions) / 12);
+      const newMonths: Record<string, any> = { ...prev.months };
+      for (let i = 0; i < 60; i++) {
+        newMonths[i.toString()] = { ...newMonths[i.toString()], rentalNet: monthlyNet };
+      }
+      const newData = { ...prev, rental: cfg, months: newMonths };
+      triggerSave(newData);
+      return newData;
+    });
   };
 
   // ── CPI Apply ──────────────────────────────────────────────────────────────

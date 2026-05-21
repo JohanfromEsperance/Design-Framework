@@ -35,6 +35,7 @@ router.get("/trips/:tripId/budget", async (req, res): Promise<void> => {
       tripId: params.data.tripId,
       year: new Date().getFullYear().toString(),
       months: {},
+      rental: {},
       updatedAt: new Date().toISOString(),
     };
     res.json(GetBudgetResponse.parse(defaultPlan));

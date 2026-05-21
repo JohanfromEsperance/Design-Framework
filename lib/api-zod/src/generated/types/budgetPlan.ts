@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BudgetPlanMonths } from './budgetPlanMonths';
+import type { RentalConfig } from './rentalConfig';
 
 export interface BudgetPlan {
   id: number;
@@ -13,5 +14,6 @@ export interface BudgetPlan {
   year: string;
   /** Map of month index (0-11) to MonthBudget */
   months: BudgetPlanMonths;
+  rental?: RentalConfig;
   updatedAt: string;
 }

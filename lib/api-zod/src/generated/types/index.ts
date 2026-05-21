@@ -24,6 +24,7 @@ export * from './legReorder';
 export * from './legUpdate';
 export * from './monthBudget';
 export * from './monthCashflow';
+export * from './rentalConfig';
 export * from './trip';
 export * from './tripInput';
 export * from './tripSummary';
