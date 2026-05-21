@@ -2,6 +2,7 @@ import {
   useGetBudget, useSaveBudget, getGetBudgetQueryKey, useGetTrip,
 } from "@workspace/api-client-react";
 import RentalSub, { DEFAULT_RENTAL, type RentalConfig } from "./rental-sub";
+import PlanningSub from "./planning-sub";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -169,7 +170,7 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
   const [customTo, setCustomTo] = useState(11);
 
   // Sub-page navigation
-  const [subPage, setSubPage] = useState<"overview" | "rental">("overview");
+  const [subPage, setSubPage] = useState<"overview" | "rental" | "planning">("overview");
 
   // CPI dialog state
   const [cpiDialogOpen, setCpiDialogOpen] = useState(false);
@@ -273,6 +274,16 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
         newMonths[i.toString()] = { ...newMonths[i.toString()], rentalNet: monthlyNet };
       }
       const newData = { ...prev, rental: cfg, months: newMonths };
+      triggerSave(newData);
+      return newData;
+    });
+  };
+
+  // ── Planning change — months updated wholesale from planning-sub ─────────────
+
+  const handlePlanningChange = (updatedMonths: Record<string, any>) => {
+    setBudgetData((prev: any) => {
+      const newData = { ...prev, months: updatedMonths };
       triggerSave(newData);
       return newData;
     });
@@ -547,6 +558,41 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
 
   return (
     <div className="space-y-6 pb-8">
+
+      {/* ── Sub-page nav ── */}
+      <div className="flex gap-0.5 border-b border-border pb-0">
+        {(["overview", "rental", "planning"] as const).map(p => (
+          <button key={p} onClick={() => setSubPage(p)}
+            className={cn(
+              "px-5 py-2 text-sm font-semibold rounded-t-md transition-colors border-b-2 -mb-px",
+              subPage === p
+                ? "border-primary text-primary bg-primary/8"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            )}>
+            {p === "overview" ? "Overview" : p === "rental" ? "Rental Property" : "Trip Planning"}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Rental sub-page ── */}
+      {subPage === "rental" && (
+        <RentalSub
+          config={{ ...DEFAULT_RENTAL, ...(budgetData.rental ?? {}) } as any}
+          onChange={handleRentalChange}
+        />
+      )}
+
+      {/* ── Planning sub-page ── */}
+      {subPage === "planning" && (
+        <PlanningSub
+          months={budgetData.months as Record<string, any>}
+          tripStartDate={trip?.startDate ?? undefined}
+          onChange={handlePlanningChange}
+        />
+      )}
+
+      {/* ── Overview ── */}
+      {subPage === "overview" && <React.Fragment>
 
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -975,6 +1021,8 @@ export default function BudgetTab({ tripId }: BudgetTabProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      </React.Fragment>}
     </div>
   );
 }
