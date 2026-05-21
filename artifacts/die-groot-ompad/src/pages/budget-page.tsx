@@ -164,6 +164,26 @@ export default function BudgetPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // Read insurance policy names from vehicleDocs for grid hints
+  const vehicleDocs = (budget?.vehicleDocs ?? {}) as Record<string, string>;
+  const getRowHint = (key: string): string | null => {
+    if (key === "vehicleInsurance") {
+      const p = vehicleDocs.insuranceProvider;
+      const n = vehicleDocs.insurancePolicy;
+      return p ? `${p}${n ? ` · ${n}` : ""}` : null;
+    }
+    if (key === "caravanInsurance") {
+      const p = vehicleDocs.caravanInsuranceProvider;
+      const n = vehicleDocs.caravanInsurancePolicy;
+      return p ? `${p}${n ? ` · ${n}` : ""}` : null;
+    }
+    if (key === "landlordInsurance") {
+      const r = (budget?.rental ?? {}) as Record<string, string>;
+      return r.landlordInsurancePolicy ? `Policy: ${r.landlordInsurancePolicy}` : null;
+    }
+    return null;
+  };
+
   const [budgetData, setBudgetData] = useState<any>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const importRef = useRef<HTMLInputElement>(null);
@@ -918,9 +938,13 @@ export default function BudgetPage() {
                     {section.items.map(cat => {
                       const rowTotal = Array.from({ length: visibleCount }, (_, i) => viewStart + i)
                         .reduce((s, mi) => s + (Number((budgetData.months[mi.toString()] ?? budgetData.months[mi])?.[cat.key]) || 0), 0);
+                      const rowHint = getRowHint(cat.key);
                       return (
                         <tr key={cat.key} className="border-b border-border/20 hover:bg-muted/20 transition-colors">
-                          <td className="p-1.5 pl-3 text-foreground whitespace-nowrap">{cat.label}</td>
+                          <td className="p-1.5 pl-3 text-foreground whitespace-nowrap">
+                            <div>{cat.label}</div>
+                            {rowHint && <div className="text-[10px] text-muted-foreground leading-tight">{rowHint}</div>}
+                          </td>
                           {Array.from({ length: visibleCount }, (_, i) => viewStart + i).map(mi => {
                             const m = budgetData.months[mi.toString()] ?? budgetData.months[mi] ?? {};
                             const val = Number(m[cat.key]) || 0;

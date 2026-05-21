@@ -14,6 +14,7 @@ import TripShell from "@/pages/trips/trip-shell";
 import BudgetPage from "@/pages/budget-page";
 import VehiclePage from "@/pages/vehicle-page";
 import ChecklistPage from "@/pages/checklist-page";
+import ExportPage from "@/pages/export-page";
 import { CHECKLIST_D2, CHECKLIST_DEPARTURE, CHECKLIST_PACKING, CHECKLIST_SERVICE } from "@/data/checklists";
 
 // ── Clerk config ───────────────────────────────────────────────────────────────
@@ -341,6 +342,11 @@ function ClerkProviderWithRoutes() {
             <Route path="/checklists/service">
               <ProtectedRoute>
                 <Layout><ChecklistPage checklist={CHECKLIST_SERVICE} /></Layout>
+              </ProtectedRoute>
+            </Route>
+            <Route path="/export">
+              <ProtectedRoute>
+                <Layout><ExportPage /></Layout>
               </ProtectedRoute>
             </Route>
             <Route component={NotFound} />

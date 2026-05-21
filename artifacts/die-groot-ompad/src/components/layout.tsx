@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Map, Home, Menu, MessageSquare, Globe, DollarSign, LogOut, Truck, ClipboardCheck } from "lucide-react";
+import { Map, Home, Menu, MessageSquare, Globe, DollarSign, LogOut, Truck, ClipboardCheck, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useClerk, useUser } from "@clerk/react";
@@ -23,6 +23,7 @@ const MAIN_NAV = [
   { href: "/trips",     label: "My Trips",     icon: Map },
   { href: "/budget",   label: "Budget",        icon: DollarSign },
   { href: "/vehicle",  label: "Rig & Vehicle", icon: Truck },
+  { href: "/export",   label: "Export Data",   icon: Download },
 ] as const;
 
 const CHECKLIST_NAV = [

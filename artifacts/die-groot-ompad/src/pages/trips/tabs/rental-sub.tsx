@@ -18,7 +18,14 @@ export interface RentalConfig {
   vacancyWeeks: number;
   councilRates: number;
   waterRates: number;
+  // Landlord insurance — main rental dwelling only (ATO-deductible)
   landlordInsurance: number;
+  landlordInsurancePolicy: string;
+  // Owner's insurance — granny flat (owner's residence, NOT rental-deductible)
+  ownersInsurance: number;
+  ownersInsurancePolicy: string;
+  // Lease signing date (SISNING)
+  leaseSigningDate: string;
   strataLevies: number;
   landTax: number;
   managementFeeRate: number;
@@ -47,6 +54,10 @@ export const DEFAULT_RENTAL: RentalConfig = {
   councilRates: 2800,
   waterRates: 1100,
   landlordInsurance: 1650,
+  landlordInsurancePolicy: "",
+  ownersInsurance: 0,
+  ownersInsurancePolicy: "",
+  leaseSigningDate: "",
   strataLevies: 0,
   landTax: 0,
   managementFeeRate: 8.5,
@@ -293,6 +304,24 @@ export default function RentalSub({ config, onChange }: RentalSubProps) {
         {/* ── Left column: inputs ── */}
         <div className="lg:col-span-2 space-y-4">
 
+          {/* Property Structure Context */}
+          <div className="rounded-lg border border-border bg-muted/20 px-4 py-3 text-xs text-muted-foreground space-y-1">
+            <p className="font-semibold text-foreground flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5 text-primary" />
+              Property Structure — Dual Dwelling
+            </p>
+            <p>
+              The property comprises two separate dwellings on a single title:
+            </p>
+            <ul className="list-disc list-inside space-y-0.5 pl-2">
+              <li><span className="font-medium text-foreground">Main Dwelling (Rented)</span> — tenanted to third parties; all rental expenses below apply to this dwelling only.</li>
+              <li><span className="font-medium text-foreground">Granny Flat (Owner's Residence)</span> — the owner's private residence; insurance and other costs for this dwelling are personal and not ATO-deductible as rental expenses.</li>
+            </ul>
+            <p className="pt-0.5">
+              Landlord insurance covers the main rental dwelling only. Owner's home insurance on the granny flat is a separate personal expense — it is recorded here for completeness but excluded from the rental P&L and tax calculation.
+            </p>
+          </div>
+
           {/* Property Details */}
           <Card>
             <CardHeader className="py-3 px-4">
@@ -307,6 +336,21 @@ export default function RentalSub({ config, onChange }: RentalSubProps) {
                 <FieldRow label="Current market value" value={config.currentValue} onChange={v => set("currentValue", v)} step={5000} />
                 <FieldRow label="Construction cost (Div 43)" hint="for depreciation" value={config.constructionCost} onChange={v => set("constructionCost", v)} step={1000} />
                 <FieldRow label="Year built" value={config.yearBuilt} onChange={v => set("yearBuilt", v)} prefix="" step={1} min={1900} />
+              </div>
+              {/* Lease Signing Date (SISNING) */}
+              <div className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/20 mt-1">
+                <span className="text-sm text-foreground w-44 shrink-0">Lease Signing Date (SISNING)</span>
+                <input
+                  type="date"
+                  value={config.leaseSigningDate ?? ""}
+                  onChange={e => set("leaseSigningDate", e.target.value)}
+                  className="flex-1 bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 text-sm max-w-[180px]"
+                />
+                {config.leaseSigningDate && (
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(config.leaseSigningDate).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}
+                  </span>
+                )}
               </div>
               <div className="mt-2 px-2 py-1.5 text-xs text-muted-foreground border border-border/40 rounded bg-muted/20">
                 Capital growth: {calc.capitalGrowth >= 0 ? "+" : ""}${calc.capitalGrowth.toLocaleString()} since purchase
@@ -342,8 +386,33 @@ export default function RentalSub({ config, onChange }: RentalSubProps) {
               <FieldRow label="Water rates" value={config.waterRates} onChange={v => set("waterRates", v)} step={50} />
               <FieldRow label="Land tax" value={config.landTax} onChange={v => set("landTax", v)} step={100} />
               <FieldRow label="Strata / body corporate levies" value={config.strataLevies} onChange={v => set("strataLevies", v)} step={100} />
-              <SectionHeader label="Insurance" />
-              <FieldRow label="Landlord insurance" value={config.landlordInsurance} onChange={v => set("landlordInsurance", v)} step={50} />
+              <SectionHeader label="Insurance — Main Dwelling (Rental, ATO-deductible)" />
+              <FieldRow label="Landlord insurance" hint="Main dwelling · deductible" value={config.landlordInsurance} onChange={v => set("landlordInsurance", v)} step={50} />
+              <div className="flex items-center gap-2 py-1 px-2 rounded hover:bg-muted/20">
+                <span className="text-sm text-muted-foreground w-36 shrink-0">Policy name / number</span>
+                <input
+                  type="text"
+                  value={config.landlordInsurancePolicy ?? ""}
+                  onChange={e => set("landlordInsurancePolicy", e.target.value)}
+                  className="flex-1 bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 text-sm"
+                  placeholder="e.g. EBM RentCover · Policy #12345"
+                />
+              </div>
+              <SectionHeader label="Insurance — Granny Flat (Owner's Residence, not deductible)" color="#d9b880" />
+              <FieldRow label="Owner's home insurance" hint="Granny flat · personal expense, not tax-deductible" value={config.ownersInsurance ?? 0} onChange={v => set("ownersInsurance", v)} step={50} />
+              <div className="flex items-center gap-2 py-1 px-2 rounded hover:bg-muted/20">
+                <span className="text-sm text-muted-foreground w-36 shrink-0">Policy name / number</span>
+                <input
+                  type="text"
+                  value={config.ownersInsurancePolicy ?? ""}
+                  onChange={e => set("ownersInsurancePolicy", e.target.value)}
+                  className="flex-1 bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 text-sm"
+                  placeholder="e.g. NRMA Home · Policy #67890"
+                />
+              </div>
+              <div className="px-2 py-1.5 text-xs text-muted-foreground border border-[#d9b880]/30 rounded bg-[#d9b880]/5 mt-1">
+                Owner's insurance is recorded here for reference only — it is NOT included in rental deductions or the tax calculation.
+              </div>
             </CardContent>
           </Card>
 

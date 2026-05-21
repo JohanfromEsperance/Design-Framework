@@ -9,9 +9,26 @@ import { useToast } from "@/hooks/use-toast";
 import {
   AlertTriangle, CheckCircle, AlertOctagon,
   Wrench, AlertCircle, Clock, DollarSign, ChevronDown, ChevronUp,
-  FileText, Shield, Cloud, CloudOff,
+  FileText, Shield, Cloud, CloudOff, ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { CheckState } from "@/data/checklists";
+
+// ── Annual service checklist → maintenance item mapping ───────────────────────
+// Maps maintenance item IDs to Annual Service checklist item IDs.
+// If any mapped checklist item is not "yes", the maintenance item gets a flag.
+const MAINT_TO_SERVICE: Record<string, string[]> = {
+  van_bearings:   ["brg-inspect", "brg-repack", "brg-seals", "brg-wash", "brg-pins", "reg-bearings"],
+  van_brakes:     ["brk-magnets", "brk-linings", "brk-adjust", "brk-handbrake", "brk-brakesafe"],
+  van_gas:        ["gas-piping", "gas-seals", "gas-cooker", "gas-hws", "gas-anode"],
+  van_water:      ["plumb-pump", "plumb-leaks", "plumb-mains", "plumb-underbody", "plumb-flush"],
+  tyre_caravan:   ["whl-tread", "whl-torque", "whl-pressure", "whl-balance", "whl-vanwt", "whl-ballwt"],
+  van_roof_seals: ["seal-doors", "seal-hatches", "seal-roof", "seal-moisture", "seal-silicone"],
+  van_hitch:      ["chs-jockey", "chs-bolts", "chs-adjust", "chs-jacks", "chs-chassis"],
+  safety_chains:  ["reg-breakaway", "brk-brakesafe", "brk-alko"],
+  electrical:     ["int-rcd", "int-240v-points", "lgt-brakes", "lgt-indicators", "lgt-tail"],
+  van_brakes_svc: ["brk-magnets", "brk-linings"],
+};
 
 // ── Maintenance Plan ─────────────────────────────────────────────────────────
 
@@ -95,10 +112,16 @@ interface VehicleDocs {
   licenceState: string;
   replacementVehicle: string;
   replacementCaravan: string;
+  // Tow vehicle insurance
   insuranceProvider: string;
   insurancePolicy: string;
   insuranceExpiry: string;
   insuranceCost: string;
+  // Caravan insurance (separate policy)
+  caravanInsuranceProvider: string;
+  caravanInsurancePolicy: string;
+  caravanInsuranceExpiry: string;
+  caravanInsuranceCost: string;
 }
 
 const DOCS_DEFAULTS: VehicleDocs = {
@@ -107,6 +130,7 @@ const DOCS_DEFAULTS: VehicleDocs = {
   licenceNumber: "", licenceExpiry: "", licenceState: "",
   replacementVehicle: "", replacementCaravan: "",
   insuranceProvider: "", insurancePolicy: "", insuranceExpiry: "", insuranceCost: "",
+  caravanInsuranceProvider: "", caravanInsurancePolicy: "", caravanInsuranceExpiry: "", caravanInsuranceCost: "",
 };
 
 function daysUntil(dateStr: string): number {
@@ -300,6 +324,51 @@ export default function VehiclePage() {
   const gcmStatus = getStatus(combinedMass, gcm);
   const towStatus = getStatus(caravanAtm, towRating);
 
+  // ── Service checklist flags ──────────────────────────────────────────────
+  const serviceCheckState = ((globalBudget?.checklists as any)?.service ?? {}) as Record<string, CheckState>;
+
+  function getServiceFlag(maintId: string): "ok" | "pending" | "no" | null {
+    const items = MAINT_TO_SERVICE[maintId];
+    if (!items?.length) return null;
+    const states = items.map(id => serviceCheckState[id]);
+    if (states.some(s => s === "no")) return "no";
+    if (states.some(s => !s)) return "pending";
+    return "ok";
+  }
+
+  // ── Insurance → Budget sync ──────────────────────────────────────────────
+  function syncInsuranceToBudget(budgetKey: "vehicleInsurance" | "caravanInsurance", annualCost: string, targetMonth = 8) {
+    const base = budgetRef.current ?? {};
+    const months = { ...((base.months ?? {}) as Record<string, any>) };
+    months[targetMonth.toString()] = {
+      ...(months[targetMonth.toString()] ?? {}),
+      [budgetKey]: Number(annualCost) || 0,
+    };
+    saveBudget.mutate(
+      {
+        data: {
+          year: base.year ?? new Date().getFullYear().toString(),
+          months: months as any,
+          rental: base.rental,
+          super: base.super,
+          shares: base.shares,
+          income: base.income,
+          tax: base.tax,
+          vehicleProfile: base.vehicleProfile as Record<string, unknown>,
+          vehicleDocs: base.vehicleDocs as Record<string, unknown>,
+        },
+      },
+      {
+        onSuccess: (saved) => {
+          budgetRef.current = { ...base, ...saved };
+          queryClient.invalidateQueries({ queryKey: getGetGlobalBudgetQueryKey() });
+          toast({ title: `$${Number(annualCost).toLocaleString()} synced to Budget Month ${targetMonth + 1}` });
+        },
+        onError: () => toast({ title: "Sync failed", variant: "destructive" }),
+      }
+    );
+  }
+
   const groupedItems = Object.entries(
     maintItems.reduce((acc, item) => {
       if (!acc[item.category]) acc[item.category] = [];
@@ -312,7 +381,8 @@ export default function VehiclePage() {
     { label: "Vehicle Rego", date: docs.regoExpiry },
     { label: "Caravan Rego", date: docs.caravanRegoExpiry },
     { label: "Driver's Licence", date: docs.licenceExpiry },
-    { label: "Insurance", date: docs.insuranceExpiry },
+    { label: "Vehicle Insurance", date: docs.insuranceExpiry },
+    { label: "Caravan Insurance", date: docs.caravanInsuranceExpiry },
   ].filter(a => a.date && daysUntil(a.date) <= 60);
 
   if (isLoading) return <div className="p-8 text-muted-foreground">Loading rig profile...</div>;
@@ -533,22 +603,23 @@ export default function VehiclePage() {
               </div>
             </div>
 
+            {/* Tow Vehicle Insurance */}
             <div>
               <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
-                <Shield className="h-3.5 w-3.5" /> Insurance
+                <Shield className="h-3.5 w-3.5" /> Tow Vehicle Insurance
               </h4>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Provider</Label>
-                  <Input value={docs.insuranceProvider} onChange={e => handleDocsChange({ insuranceProvider: e.target.value })} placeholder="NRMA, Shannons..." />
+                  <Input value={docs.insuranceProvider} onChange={e => handleDocsChange({ insuranceProvider: e.target.value })} placeholder="NRMA, Shannons, Allianz…" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Policy Number</Label>
+                  <Label>Policy Number / Name</Label>
                   <Input value={docs.insurancePolicy} onChange={e => handleDocsChange({ insurancePolicy: e.target.value })} placeholder="Policy #" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-2">
-                    Insurance Expiry
+                    Expiry
                     {dateAlarm(docs.insuranceExpiry) && (
                       <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full border", dateAlarm(docs.insuranceExpiry)!.badgeCls)}>
                         {dateAlarm(docs.insuranceExpiry)!.label}
@@ -562,6 +633,62 @@ export default function VehiclePage() {
                   <Input value={docs.insuranceCost} onChange={e => handleDocsChange({ insuranceCost: e.target.value })} placeholder="2400" />
                 </div>
               </div>
+              {docs.insuranceCost && Number(docs.insuranceCost) > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                    onClick={() => syncInsuranceToBudget("vehicleInsurance", docs.insuranceCost)}>
+                    <ArrowRight className="h-3 w-3" />
+                    Sync ${Number(docs.insuranceCost).toLocaleString()} to Budget Month 9
+                  </Button>
+                  {docs.insuranceProvider && (
+                    <span className="text-[10px] text-muted-foreground">{docs.insuranceProvider}{docs.insurancePolicy ? ` · ${docs.insurancePolicy}` : ""}</span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Caravan Insurance */}
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
+                <Shield className="h-3.5 w-3.5" /> Caravan Insurance
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Provider</Label>
+                  <Input value={docs.caravanInsuranceProvider} onChange={e => handleDocsChange({ caravanInsuranceProvider: e.target.value })} placeholder="Caravan Cover, NRMA…" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Policy Number / Name</Label>
+                  <Input value={docs.caravanInsurancePolicy} onChange={e => handleDocsChange({ caravanInsurancePolicy: e.target.value })} placeholder="Policy #" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-2">
+                    Expiry
+                    {dateAlarm(docs.caravanInsuranceExpiry) && (
+                      <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full border", dateAlarm(docs.caravanInsuranceExpiry)!.badgeCls)}>
+                        {dateAlarm(docs.caravanInsuranceExpiry)!.label}
+                      </span>
+                    )}
+                  </Label>
+                  <Input type="date" value={docs.caravanInsuranceExpiry} onChange={e => handleDocsChange({ caravanInsuranceExpiry: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Annual Premium ($)</Label>
+                  <Input value={docs.caravanInsuranceCost} onChange={e => handleDocsChange({ caravanInsuranceCost: e.target.value })} placeholder="1800" />
+                </div>
+              </div>
+              {docs.caravanInsuranceCost && Number(docs.caravanInsuranceCost) > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                    onClick={() => syncInsuranceToBudget("caravanInsurance", docs.caravanInsuranceCost)}>
+                    <ArrowRight className="h-3 w-3" />
+                    Sync ${Number(docs.caravanInsuranceCost).toLocaleString()} to Budget Month 9
+                  </Button>
+                  {docs.caravanInsuranceProvider && (
+                    <span className="text-[10px] text-muted-foreground">{docs.caravanInsuranceProvider}{docs.caravanInsurancePolicy ? ` · ${docs.caravanInsurancePolicy}` : ""}</span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -681,6 +808,21 @@ export default function VehiclePage() {
                                 <span className={cn("text-[9px] font-bold px-2 py-0.5 rounded-full border", s.color, s.bg, "border-current/20")}>
                                   {s.status}
                                 </span>
+                                {/* Annual service checklist flag */}
+                                {(() => {
+                                  const flag = getServiceFlag(item.id);
+                                  if (!flag || flag === "ok") return null;
+                                  if (flag === "no") return (
+                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border border-destructive/40 text-destructive bg-destructive/10">
+                                      SERVICE: NO
+                                    </span>
+                                  );
+                                  return (
+                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border border-[#d9b880]/50 text-[#b8943e] bg-[#d9b880]/10">
+                                      SERVICE DUE
+                                    </span>
+                                  );
+                                })()}
                               </div>
                               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
                                 {item.intervalKm > 0 && <span>Every {item.intervalKm.toLocaleString()} km</span>}
