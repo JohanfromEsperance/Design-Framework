@@ -457,7 +457,7 @@ export default function VehiclePage() {
 
   // ── Insurance → Budget sync ──────────────────────────────────────────────
   function syncInsuranceToBudget(
-    budgetKey: "vehicleInsurance" | "caravanInsurance" | "roadsideAssistance" | "vehicleLicence" | "caravanLicence",
+    budgetKey: "vehicleInsurance" | "caravanInsurance" | "roadsideAssist" | "vehicleLicence" | "caravanLicence",
     cost: string,
     frequency: "monthly" | "yearly",
     targetMonth = 8,
@@ -466,20 +466,19 @@ export default function VehiclePage() {
     const months = { ...((base.months ?? {}) as Record<string, any>) };
     const amount = Number(cost) || 0;
 
+    // Zero out all months first so stale values from a previous frequency don't persist
+    for (let i = 0; i < 60; i++) {
+      months[i.toString()] = { ...(months[i.toString()] ?? {}), [budgetKey]: 0 };
+    }
+
     if (frequency === "monthly") {
       // Spread the monthly amount across all 60 budget months
       for (let i = 0; i < 60; i++) {
-        months[i.toString()] = {
-          ...(months[i.toString()] ?? {}),
-          [budgetKey]: amount,
-        };
+        months[i.toString()] = { ...months[i.toString()], [budgetKey]: amount };
       }
     } else {
-      // Lump-sum into the single target month
-      months[targetMonth.toString()] = {
-        ...(months[targetMonth.toString()] ?? {}),
-        [budgetKey]: amount,
-      };
+      // Lump-sum into the single target month only
+      months[targetMonth.toString()] = { ...months[targetMonth.toString()], [budgetKey]: amount };
     }
 
     saveBudget.mutate(
@@ -954,7 +953,7 @@ export default function VehiclePage() {
               {docs.roadsideCost && Number(docs.roadsideCost) > 0 && (
                 <div className="mt-2 flex items-center gap-2">
                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
-                    onClick={() => syncInsuranceToBudget("roadsideAssistance", docs.roadsideCost, docs.roadsideFrequency ?? "yearly")}>
+                    onClick={() => syncInsuranceToBudget("roadsideAssist", docs.roadsideCost, docs.roadsideFrequency ?? "yearly")}>
                     <ArrowRight className="h-3 w-3" />
                     {docs.roadsideFrequency === "monthly"
                       ? `Sync $${Number(docs.roadsideCost).toLocaleString()}/mo to all months`

@@ -89,8 +89,15 @@ const FAMILY_COSTS = [
   { key: "grandkidsHotels",  label: "Grandkids — Hotels" },
 ];
 
+const RENTAL_EXPENSES = [
+  { key: "rentalInterest",    label: "Rental — Mortgage Interest" },
+  { key: "rentalRatesLevies", label: "Rental — Rates & Levies" },
+  { key: "rentalMgmtFees",    label: "Rental — Mgmt & Letting" },
+  { key: "rentalOtherCosts",  label: "Rental — Ins, Repairs & Other" },
+];
+
 const INCOME_ITEMS = [
-  { key: "rentalNet",          label: "Rental Net Income" },
+  { key: "rentalNet",          label: "Rental — Gross Rent" },
   { key: "salary",             label: "Salary / Employment" },
   { key: "businessIncome",     label: "Business Income" },
   { key: "dividends",          label: "Share Dividends" },
@@ -168,21 +175,23 @@ function computeMonthlyRentalNet(rental: any): number {
 }
 
 const EXPENSE_SECTIONS = [
-  { title: "Travel & Road",             items: TRAVEL_EXPENSES, color: "#1f6f5f" },
-  { title: "Vehicle & Rig",             items: VEHICLE_COSTS,   color: "#d9b880" },
-  { title: "Fixed Monthly Bills",       items: FIXED_BILLS,     color: "#60a5fa" },
-  { title: "Annual — Rego & Insurance", items: ANNUAL_COSTS,    color: "#ef4444" },
-  { title: "Super & Savings",           items: SUPER_SAVINGS,   color: "#a78bfa" },
-  { title: "Grandkids & Family",        items: FAMILY_COSTS,    color: "#ec4899" },
+  { title: "Travel & Road",             items: TRAVEL_EXPENSES,  color: "#1f6f5f" },
+  { title: "Vehicle & Rig",             items: VEHICLE_COSTS,    color: "#d9b880" },
+  { title: "Fixed Monthly Bills",       items: FIXED_BILLS,      color: "#60a5fa" },
+  { title: "Annual — Rego & Insurance", items: ANNUAL_COSTS,     color: "#ef4444" },
+  { title: "Super & Savings",           items: SUPER_SAVINGS,    color: "#a78bfa" },
+  { title: "Grandkids & Family",        items: FAMILY_COSTS,     color: "#ec4899" },
+  { title: "Rental Property Costs",     items: RENTAL_EXPENSES,  color: "#f97316" },
 ];
 
 const ALL_EXPENSE_KEYS = [
-  ...TRAVEL_EXPENSES, ...VEHICLE_COSTS, ...FIXED_BILLS, ...ANNUAL_COSTS, ...SUPER_SAVINGS, ...FAMILY_COSTS,
+  ...TRAVEL_EXPENSES, ...VEHICLE_COSTS, ...FIXED_BILLS, ...ANNUAL_COSTS,
+  ...SUPER_SAVINGS, ...FAMILY_COSTS, ...RENTAL_EXPENSES,
 ].map(i => i.key);
 
 const ALL_KEYS = [
   ...TRAVEL_EXPENSES, ...VEHICLE_COSTS, ...FIXED_BILLS,
-  ...ANNUAL_COSTS, ...SUPER_SAVINGS, ...FAMILY_COSTS, ...INCOME_ITEMS,
+  ...ANNUAL_COSTS, ...SUPER_SAVINGS, ...FAMILY_COSTS, ...RENTAL_EXPENSES, ...INCOME_ITEMS,
 ];
 
 // ── Default 12-month pattern (Year 1) ────────────────────────────────────────
@@ -574,19 +583,29 @@ export default function BudgetPage() {
 
   const handleRentalChange = (cfg: RentalConfig) => {
     setBudgetData((prev: any) => {
-      const grossRent     = cfg.weeklyRent * (52 - cfg.vacancyWeeks);
-      const mgmtFees      = (cfg.managementFeeRate / 100) * grossRent;
-      const lettingFees   = cfg.lettingFeeWeeks * cfg.weeklyRent;
-      const interestExp   = (cfg.loanBalance * cfg.interestRate) / 100;
-      const cashDeductions =
-        cfg.councilRates + cfg.waterRates + cfg.landlordInsurance +
-        cfg.strataLevies + cfg.landTax + mgmtFees + lettingFees +
-        cfg.repairs + cfg.advertising + cfg.accountingFees +
-        cfg.legalFees + cfg.bankCharges + interestExp;
-      const monthlyNet = Math.round((grossRent - cashDeductions) / 12);
+      const grossRent      = cfg.weeklyRent * (52 - cfg.vacancyWeeks);
+      const mgmtFees       = (cfg.managementFeeRate / 100) * grossRent;
+      const lettingFees    = cfg.lettingFeeWeeks * cfg.weeklyRent;
+      const interestExp    = (cfg.loanBalance * cfg.interestRate) / 100;
+
+      // Income: gross rent received (before expenses) → rentalNet stores gross
+      const monthlyGrossRent   = Math.round(grossRent / 12);
+      // Expense breakdown (populated into separate grid rows)
+      const monthlyInterest    = Math.round(interestExp / 12);
+      const monthlyRates       = Math.round((cfg.councilRates + cfg.waterRates + cfg.strataLevies + cfg.landTax) / 12);
+      const monthlyMgmt        = Math.round((mgmtFees + lettingFees) / 12);
+      const monthlyOther       = Math.round((cfg.landlordInsurance + cfg.repairs + cfg.advertising + cfg.accountingFees + cfg.legalFees + cfg.bankCharges) / 12);
+
       const newMonths: Record<string, any> = { ...prev.months };
       for (let i = 0; i < 60; i++) {
-        newMonths[i.toString()] = { ...newMonths[i.toString()], rentalNet: monthlyNet };
+        newMonths[i.toString()] = {
+          ...newMonths[i.toString()],
+          rentalNet:        monthlyGrossRent,
+          rentalInterest:   monthlyInterest,
+          rentalRatesLevies: monthlyRates,
+          rentalMgmtFees:   monthlyMgmt,
+          rentalOtherCosts: monthlyOther,
+        };
       }
       const newData = { ...prev, rental: cfg, months: newMonths };
       triggerSave(newData);
@@ -642,13 +661,14 @@ export default function BudgetPage() {
     return Array.from({ length: 60 }, (_, i) => {
       const m = budgetData.months[i.toString()] ?? budgetData.months[i] ?? {};
       const opening = i === 0 ? (Number(m.openingBalance) || 0) : balance;
-      const travel  = sectionTotal(m, TRAVEL_EXPENSES);
-      const vehicle = sectionTotal(m, VEHICLE_COSTS);
-      const fixed   = sectionTotal(m, FIXED_BILLS);
-      const annual  = sectionTotal(m, ANNUAL_COSTS);
-      const super_  = sectionTotal(m, SUPER_SAVINGS);
-      const family  = sectionTotal(m, FAMILY_COSTS);
-      const totalExp = travel + vehicle + fixed + annual + super_ + family;
+      const travel      = sectionTotal(m, TRAVEL_EXPENSES);
+      const vehicle     = sectionTotal(m, VEHICLE_COSTS);
+      const fixed       = sectionTotal(m, FIXED_BILLS);
+      const annual      = sectionTotal(m, ANNUAL_COSTS);
+      const super_      = sectionTotal(m, SUPER_SAVINGS);
+      const family      = sectionTotal(m, FAMILY_COSTS);
+      const rentalCosts = sectionTotal(m, RENTAL_EXPENSES);
+      const totalExp = travel + vehicle + fixed + annual + super_ + family + rentalCosts;
       const totalInc = sectionTotal(m, INCOME_ITEMS);
       const closing  = opening + totalInc - totalExp;
       balance = closing;
@@ -657,7 +677,7 @@ export default function BudgetPage() {
         label: monthLabel(i, "long"),
         month: i,
         openingBalance: opening,
-        travel, vehicle, fixed, annual, super: super_, family,
+        travel, vehicle, fixed, annual, super: super_, family, rentalCosts,
         totalExpenses: totalExp,
         totalIncome: totalInc,
         net: totalInc - totalExp,

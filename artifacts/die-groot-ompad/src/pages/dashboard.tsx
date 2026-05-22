@@ -74,10 +74,12 @@ const EXPENSE_KEYS = [
   "superContribution", "savingsZandra", "savingsJohan",
   // Grandkids & Family
   "grandkidsFlights", "grandkidsHotels",
+  // Rental Property Costs
+  "rentalInterest", "rentalRatesLevies", "rentalMgmtFees", "rentalOtherCosts",
 ] as const;
 
 const INCOME_LABELS: Record<string, string> = {
-  rentalNet: "Rental Net", salary: "Salary", businessIncome: "Business",
+  rentalNet: "Rental Gross Rent", salary: "Salary", businessIncome: "Business",
   dividends: "Dividends", cgt: "Capital Gains", centrelink: "Centrelink",
   superPensionIncome: "Super Pension", sideIncome: "Side Income",
   refunds: "Refunds", otherIncome1: "Other Income 1", otherIncome2: "Other Income 2",
@@ -101,6 +103,8 @@ const EXPENSE_LABELS: Record<string, string> = {
   superContribution: "Super SPA", savingsZandra: "Savings Zandra", savingsJohan: "Savings Johan",
   // Grandkids
   grandkidsFlights: "Grandkids Flights", grandkidsHotels: "Grandkids Hotels",
+  // Rental
+  rentalInterest: "Rental Interest", rentalRatesLevies: "Rental Rates", rentalMgmtFees: "Rental Mgmt", rentalOtherCosts: "Rental Other",
 };
 
 // Colour palette for income/expense stacks — enough for 27 expense keys
@@ -373,7 +377,7 @@ function computeSavingsRunning(savings: SavingsWorksheetLocal | undefined) {
 }
 
 function buildChartData(months: Record<string, BudgetMonth>, savings?: SavingsWorksheetLocal) {
-  const savingsBalance = computeSavingsRunning(savings);
+  const savingsRunning = computeSavingsRunning(savings);
 
   return Array.from({ length: 24 }, (_, i) => {
     const m: BudgetMonth = (months[i.toString()] as BudgetMonth) ?? {};
@@ -390,7 +394,7 @@ function buildChartData(months: Record<string, BudgetMonth>, savings?: SavingsWo
 
     // Savings drawdown income — only from month DRAWDOWN_START_IDX onwards
     if (i >= DRAWDOWN_START_IDX) {
-      const drawdown = savingsBalance[i]?.withdrawal ?? 0;
+      const drawdown = savingsRunning[i]?.withdrawal ?? 0;
       if (drawdown > 0) { incomes["savingsDrawdown"] = drawdown; totalInc += drawdown; }
     }
 
@@ -401,12 +405,16 @@ function buildChartData(months: Record<string, BudgetMonth>, savings?: SavingsWo
       if (v > 0) { expenses[`exp_${k}`] = -v; totalExp += v; }
     }
 
+    // Savings pool running balance (closing balance after this month's deposit/withdrawal)
+    const savingsPoolBalance = savingsRunning[i]?.closing ?? 0;
+
     return {
       idx: i,
       label: monthLabel(i),
       totalInc,
       totalExp,
       net: totalInc - totalExp,
+      savingsPoolBalance,
       ...incomes,
       ...expenses,
     };
@@ -507,6 +515,11 @@ function FinancialOverviewChart({ months, superPortfolio, savings }: FinancialOv
             <span className="flex items-center gap-1.5">
               <span className="inline-block h-2 w-4 rounded-full" style={{ background: "#6366f1" }} /> Net Cashflow
             </span>
+            {hasSavings && (
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-2 w-6 rounded-full" style={{ background: "#f43f5e", opacity: 0.7, borderTop: "2px dashed #f43f5e" }} /> Savings Pool (right axis)
+              </span>
+            )}
             <span className="flex items-center gap-1.5">
               <span className="inline-block h-2.5 w-6 rounded-sm opacity-30" style={{ background: "#6366f1" }} /> AI Confidence Band
             </span>
@@ -520,7 +533,7 @@ function FinancialOverviewChart({ months, superPortfolio, savings }: FinancialOv
       <CardContent className="px-3 pb-4">
         <div style={{ height: 320 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }} barGap={0} barCategoryGap="12%">
+            <ComposedChart data={chartData} margin={{ top: 8, right: hasSavings ? 60 : 16, left: 0, bottom: 4 }} barGap={0} barCategoryGap="12%">
               <defs>
                 <linearGradient id="bandGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.18} />
@@ -531,12 +544,17 @@ function FinancialOverviewChart({ months, superPortfolio, savings }: FinancialOv
               <CartesianGrid strokeDasharray="3 3" opacity={0.10} />
 
               <XAxis dataKey="label" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} interval={1} />
-              <YAxis tick={{ fontSize: 9 }} tickFormatter={v => fmtAudK(v)} width={52} axisLine={false} tickLine={false}
+              <YAxis yAxisId="left" tick={{ fontSize: 9 }} tickFormatter={v => fmtAudK(v)} width={52} axisLine={false} tickLine={false}
                 domain={[yMin || -1, yMax || 1]} />
+              {hasSavings && (
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 9 }} tickFormatter={v => fmtAudK(v)}
+                  width={52} axisLine={false} tickLine={false} />
+              )}
 
               <RechartsTooltip
                 contentStyle={{ fontSize: 10, borderRadius: 6, border: "1px solid #e5e7eb", background: "#ffffff" }}
                 formatter={(val: number, name: string) => {
+                  if (name === "savingsPoolBalance") return [fmtAud(Math.abs(val)), "Savings Pool Balance"];
                   const isExp = name.startsWith("exp_");
                   const label = isExp ? (EXPENSE_LABELS[name.replace("exp_", "")] ?? name) : (INCOME_LABELS[name] ?? name);
                   return [fmtAud(Math.abs(val)), label];
@@ -579,32 +597,38 @@ function FinancialOverviewChart({ months, superPortfolio, savings }: FinancialOv
                 label={{ value: "Drawdown", fontSize: 8, fill: "#ec4899", position: "insideTopRight" }} />
 
               {/* AI Confidence band — upper and lower areas stacked to create band */}
-              <Area type="monotone" dataKey="bandUpper" fill="url(#bandGrad)" stroke="#6366f1" strokeOpacity={0.2}
+              <Area type="monotone" dataKey="bandUpper" yAxisId="left" fill="url(#bandGrad)" stroke="#6366f1" strokeOpacity={0.2}
                 strokeWidth={1} strokeDasharray="3 2" legendType="none" />
-              <Area type="monotone" dataKey="bandLower" fill="#ffffff" fillOpacity={1} stroke="#6366f1"
+              <Area type="monotone" dataKey="bandLower" yAxisId="left" fill="#ffffff" fillOpacity={1} stroke="#6366f1"
                 strokeOpacity={0.2} strokeWidth={1} strokeDasharray="3 2" legendType="none" />
 
               {/* Income stacked bars — savingsDrawdown rendered last in distinct pink */}
               {activeIncKeys.filter(k => k !== "savingsDrawdown").map((k, i) => (
-                <Bar key={k} dataKey={k} name={k} stackId="income"
+                <Bar key={k} dataKey={k} name={k} stackId="income" yAxisId="left"
                   fill={INCOME_PALETTE[i % INCOME_PALETTE.length]}
                   radius={[0, 0, 0, 0]} />
               ))}
               {activeIncKeys.includes("savingsDrawdown") && (
-                <Bar key="savingsDrawdown" dataKey="savingsDrawdown" name="savingsDrawdown" stackId="income"
+                <Bar key="savingsDrawdown" dataKey="savingsDrawdown" name="savingsDrawdown" stackId="income" yAxisId="left"
                   fill="#ec4899" radius={[2, 2, 0, 0]} />
               )}
 
               {/* Expense stacked bars (negative) */}
               {activeExpKeys.map((k, i) => (
-                <Bar key={`exp_${k}`} dataKey={`exp_${k}`} name={`exp_${k}`} stackId="expense"
+                <Bar key={`exp_${k}`} dataKey={`exp_${k}`} name={`exp_${k}`} stackId="expense" yAxisId="left"
                   fill={EXPENSE_PALETTE[i % EXPENSE_PALETTE.length]}
                   radius={i === activeExpKeys.length - 1 ? [0, 0, 2, 2] : [0, 0, 0, 0]} />
               ))}
 
               {/* Net cashflow line */}
-              <Line type="monotone" dataKey="net" name="Net Cashflow" stroke="#6366f1"
+              <Line type="monotone" dataKey="net" name="Net Cashflow" yAxisId="left" stroke="#6366f1"
                 strokeWidth={2} dot={false} legendType="none" />
+
+              {/* Savings pool balance — right axis, shows growth then drawdown */}
+              {hasSavings && (
+                <Line type="monotone" dataKey="savingsPoolBalance" name="Savings Pool" yAxisId="right"
+                  stroke="#f43f5e" strokeWidth={1.5} strokeDasharray="5 3" dot={false} legendType="none" />
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         </div>
