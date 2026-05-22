@@ -694,9 +694,10 @@ function TopologyDiagram({ cfg }: { cfg: PowerConfig }) {
   // External panels = panels on the last MPPT if ≥2 MPPTs exist, keyed by the highest inputIndex
   const maxMpptIdx = mpptDevices.length > 1 ? mpptDevices.length - 1 : -1;
   const externalPanels = maxMpptIdx >= 0 ? (panelsByMppt[maxMpptIdx] ?? []) : [];
-  const roofPanelGroups = mpptDevices.length > 0
+  // Only show panels in caravan column when ≥2 MPPTs (otherwise they already show on the MPPT card)
+  const roofPanelGroups = maxMpptIdx >= 0
     ? Object.entries(panelsByMppt)
-        .filter(([idx]) => Number(idx) < maxMpptIdx || maxMpptIdx < 0)
+        .filter(([idx]) => Number(idx) < maxMpptIdx)
         .sort(([a], [b]) => Number(a) - Number(b))
     : [];
 
@@ -1380,10 +1381,10 @@ function VictronTab({ cfg, update }: { cfg: PowerConfig; update: (c: PowerConfig
     ...cfg, victronDevices: cfg.victronDevices.map(d => d.id === id ? { ...d, ...patch } : d),
   });
 
-  // Detect which DEFAULT_CONFIG devices are missing from the current list (match by model)
-  const existingModels = new Set(cfg.victronDevices.map(d => d.model.trim().toLowerCase()));
+  // Detect missing defaults by deviceName — two MPPTs can share the same model string
+  const existingNames = new Set(cfg.victronDevices.map(d => d.deviceName.trim().toLowerCase()));
   const missingDefaults = DEFAULT_CONFIG.victronDevices.filter(
-    d => d.model && !existingModels.has(d.model.trim().toLowerCase())
+    d => d.deviceName && !existingNames.has(d.deviceName.trim().toLowerCase())
   );
   const mergeDefaults = () => {
     const toAdd = missingDefaults.map(d => ({ ...d, id: crypto.randomUUID() }));
