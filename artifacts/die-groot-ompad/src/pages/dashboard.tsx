@@ -562,7 +562,7 @@ function FinancialOverviewChart({ months, superPortfolio, savings }: FinancialOv
 
               {/* Tax quarter reference lines */}
               {taxMonths.map(m => (
-                <ReferenceLine key={`tax-${m}`} x={monthLabel(m)} stroke="#ef4444" strokeOpacity={0.3} strokeWidth={1}
+                <ReferenceLine key={`tax-${m}`} yAxisId="left" x={monthLabel(m)} stroke="#ef4444" strokeOpacity={0.3} strokeWidth={1}
                   strokeDasharray="2 3"
                   label={m < 3 ? { value: "BAS", fontSize: 7, fill: "#ef4444", opacity: 0.6, position: "insideTopRight" } : undefined}
                 />
@@ -570,28 +570,28 @@ function FinancialOverviewChart({ months, superPortfolio, savings }: FinancialOv
 
               {/* Current month */}
               {curIdx >= 0 && curIdx < 24 && (
-                <ReferenceLine x={monthLabel(curIdx)} stroke="#1f6f5f" strokeWidth={1.5} strokeOpacity={0.8}
+                <ReferenceLine yAxisId="left" x={monthLabel(curIdx)} stroke="#1f6f5f" strokeWidth={1.5} strokeOpacity={0.8}
                   label={{ value: "Today", fontSize: 8, fill: "#1f6f5f", position: "insideTopLeft" }} />
               )}
 
               {/* D+2yr marker */}
-              <ReferenceLine x={monthLabel(23)} stroke="#d9b880" strokeWidth={1.5} strokeDasharray="5 3"
+              <ReferenceLine yAxisId="left" x={monthLabel(23)} stroke="#d9b880" strokeWidth={1.5} strokeDasharray="5 3"
                 label={{ value: "D+2yr", fontSize: 8, fill: "#b8943e", position: "insideTopRight" }} />
 
               {/* Johan @67 — only if within 24 months */}
               {johanIdx !== null && johanIdx >= 0 && johanIdx < 24 && (
-                <ReferenceLine x={monthLabel(johanIdx)} stroke="#2a8a76" strokeWidth={1.5} strokeDasharray="4 2"
+                <ReferenceLine yAxisId="left" x={monthLabel(johanIdx)} stroke="#2a8a76" strokeWidth={1.5} strokeDasharray="4 2"
                   label={{ value: `${johanName}@67`, fontSize: 8, fill: "#2a8a76", position: "insideTopLeft" }} />
               )}
 
               {/* Zandra @67 — only if within 24 months */}
               {zandraIdx !== null && zandraIdx >= 0 && zandraIdx < 24 && (
-                <ReferenceLine x={monthLabel(zandraIdx)} stroke="#a78bfa" strokeWidth={1.5} strokeDasharray="4 2"
+                <ReferenceLine yAxisId="left" x={monthLabel(zandraIdx)} stroke="#a78bfa" strokeWidth={1.5} strokeDasharray="4 2"
                   label={{ value: `${zandraName}@67`, fontSize: 8, fill: "#a78bfa", position: "insideTopLeft" }} />
               )}
 
               {/* Savings drawdown start — March 2027 (month 12) */}
-              <ReferenceLine x={monthLabel(DRAWDOWN_START_IDX)} stroke="#ec4899" strokeWidth={1.5} strokeDasharray="4 2"
+              <ReferenceLine yAxisId="left" x={monthLabel(DRAWDOWN_START_IDX)} stroke="#ec4899" strokeWidth={1.5} strokeDasharray="4 2"
                 label={{ value: "Drawdown", fontSize: 8, fill: "#ec4899", position: "insideTopRight" }} />
 
               {/* AI Confidence band — upper and lower areas stacked to create band */}
