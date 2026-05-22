@@ -390,7 +390,7 @@ const DEFAULT_CONFIG: PowerConfig = {
 function mergeCfg(raw: unknown): PowerConfig {
   try {
     const parsed = (raw ?? {}) as Partial<PowerConfig>;
-    return {
+    let merged: PowerConfig = {
       ...DEFAULT_CONFIG,
       ...parsed,
       vehicleBatteries: parsed.vehicleBatteries?.length ? parsed.vehicleBatteries : DEFAULT_CONFIG.vehicleBatteries,
@@ -404,6 +404,37 @@ function mergeCfg(raw: unknown): PowerConfig {
       towSecure: parsed.towSecure ?? DEFAULT_CONFIG.towSecure,
       brakeController: parsed.brakeController ?? DEFAULT_CONFIG.brakeController,
     };
+
+    // ── Auto-migration: add Caravan Roof MPPT if exactly 1 MPPT and none is named "Caravan Roof" ──
+    const isMppt = (d: VictronDevice) => d.type === "SmartSolar MPPT" || d.type === "BlueSolar MPPT";
+    const mppts = merged.victronDevices.filter(isMppt);
+    const hasRoofMppt = mppts.some(d =>
+      d.deviceName.toLowerCase().includes("caravan") || d.deviceName.toLowerCase().includes("roof")
+    );
+    if (mppts.length === 1 && !hasRoofMppt) {
+      // Insert Caravan Roof MPPT before the existing MPPT (it becomes index 0; existing becomes index 1 = External)
+      const existingIdx = merged.victronDevices.findIndex(isMppt);
+      const devices = [...merged.victronDevices];
+      devices.splice(existingIdx, 0, { ...VICTRON_SMARTSOLAR_ROOF, id: crypto.randomUUID() });
+      merged = { ...merged, victronDevices: devices };
+    }
+
+    // ── Auto-migration: reassign portable panels to inputIndex 1 when 2+ MPPTs and all panels on 0 ──
+    const mpptCount = merged.victronDevices.filter(isMppt).length;
+    const allOnZero = merged.solarPanels.every(p => (p.inputIndex ?? 0) === 0);
+    if (mpptCount >= 2 && allOnZero && merged.solarPanels.length > 0) {
+      merged = {
+        ...merged,
+        solarPanels: merged.solarPanels.map(p => {
+          const lbl = p.label.toLowerCase();
+          const isExternal = lbl.includes("ute") || lbl.includes("xtm") ||
+            lbl.includes("external") || lbl.includes("portable") || lbl.includes("blanket");
+          return isExternal ? { ...p, inputIndex: 1 } : p;
+        }),
+      };
+    }
+
+    return merged;
   } catch { return DEFAULT_CONFIG; }
 }
 
@@ -1774,6 +1805,19 @@ export default function PowerConfigPage() {
       const merged = mergeCfg(globalBudget.powerConfig);
       setCfg(merged);
       cfgRef.current = merged;
+      // If migration changed the stored config (e.g. added Caravan Roof MPPT or reassigned panels),
+      // schedule an auto-save so the migrated data is persisted to the DB without user action.
+      const raw = globalBudget.powerConfig as Record<string, unknown>;
+      const rawDeviceCount = Array.isArray(raw.victronDevices) ? raw.victronDevices.length : 0;
+      const rawPanelIndices = Array.isArray(raw.solarPanels)
+        ? (raw.solarPanels as Array<{ inputIndex?: number }>).map(p => p.inputIndex ?? 0).join(",")
+        : "";
+      const mergedPanelIndices = merged.solarPanels.map(p => p.inputIndex ?? 0).join(",");
+      if (merged.victronDevices.length !== rawDeviceCount || mergedPanelIndices !== rawPanelIndices) {
+        isDirtyRef.current = true;
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => forceSaveImpl.current(), 2500);
+      }
     }
   }, [globalBudget]);
 
