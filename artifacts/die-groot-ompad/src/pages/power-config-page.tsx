@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import {
   Zap, Battery, Sun, ArrowRight, Upload, FileText, Trash2, Plus,
   ChevronDown, ChevronUp, Settings, Cpu, Plug, CircuitBoard,
-  Cloud, CloudOff, Save,
+  Cloud, CloudOff, Save, QrCode, ExternalLink, Camera, Key, User, Hash,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useGetGlobalBudget, useSaveGlobalBudget, getGetGlobalBudgetQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSaveContext } from "@/lib/save-context";
+import jsQR from "jsqr";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
