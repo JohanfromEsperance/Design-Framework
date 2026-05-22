@@ -24,8 +24,10 @@ export interface RentalConfig {
   // Owner's insurance — granny flat (owner's residence, NOT rental-deductible)
   ownersInsurance: number;
   ownersInsurancePolicy: string;
-  // Lease signing date (SISNING)
+  // Lease signing date
   leaseSigningDate: string;
+  // Utilities (annual)
+  electricity: number;
   strataLevies: number;
   landTax: number;
   managementFeeRate: number;
@@ -58,6 +60,7 @@ export const DEFAULT_RENTAL: RentalConfig = {
   ownersInsurance: 0,
   ownersInsurancePolicy: "",
   leaseSigningDate: "",
+  electricity: 0,
   strataLevies: 0,
   landTax: 0,
   managementFeeRate: 8.5,
@@ -472,6 +475,7 @@ export default function RentalSub({ config, onChange }: RentalSubProps) {
               <SectionHeader label="Government & Statutory" />
               <FieldRow label="Council rates" value={config.councilRates} onChange={v => set("councilRates", v)} step={50} />
               <FieldRow label="Water rates" value={config.waterRates} onChange={v => set("waterRates", v)} step={50} />
+              <FieldRow label="Electricity" hint="Annual electricity charges" value={config.electricity ?? 0} onChange={v => set("electricity", v)} step={100} />
               <FieldRow label="Land tax" value={config.landTax} onChange={v => set("landTax", v)} step={100} />
               <FieldRow label="Strata / body corporate levies" value={config.strataLevies} onChange={v => set("strataLevies", v)} step={100} />
               <SectionHeader label="Insurance — Main Dwelling (Rental, ATO-deductible)" />

@@ -75,7 +75,7 @@ const EXPENSE_KEYS = [
   // Grandkids & Family
   "grandkidsFlights", "grandkidsHotels",
   // Rental Property Costs
-  "rentalInterest", "rentalRatesLevies", "rentalMgmtFees", "rentalOtherCosts",
+  "rentalInterest", "rentalRatesLevies", "rentalWater", "rentalElectricity", "rentalMgmtFees", "rentalOtherCosts",
 ] as const;
 
 const INCOME_LABELS: Record<string, string> = {

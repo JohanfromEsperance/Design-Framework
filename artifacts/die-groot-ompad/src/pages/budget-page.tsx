@@ -90,10 +90,12 @@ const FAMILY_COSTS = [
 ];
 
 const RENTAL_EXPENSES = [
-  { key: "rentalInterest",    label: "Rental — Mortgage Interest" },
-  { key: "rentalRatesLevies", label: "Rental — Rates & Levies" },
-  { key: "rentalMgmtFees",    label: "Rental — Mgmt & Letting" },
-  { key: "rentalOtherCosts",  label: "Rental — Ins, Repairs & Other" },
+  { key: "rentalInterest",     label: "Rental — Mortgage Interest" },
+  { key: "rentalRatesLevies",  label: "Rental — Rates, Council & Levies" },
+  { key: "rentalWater",        label: "Rental — Water Charges" },
+  { key: "rentalElectricity",  label: "Rental — Electricity" },
+  { key: "rentalMgmtFees",     label: "Rental — Mgmt & Letting" },
+  { key: "rentalOtherCosts",   label: "Rental — Ins, Repairs & Other" },
 ];
 
 const INCOME_ITEMS = [
@@ -167,7 +169,7 @@ function computeMonthlyRentalNet(rental: any): number {
   const lettingFees   = cfg.lettingFeeWeeks * cfg.weeklyRent;
   const interestExp   = (cfg.loanBalance * cfg.interestRate) / 100;
   const cashDeductions =
-    cfg.councilRates + cfg.waterRates + cfg.landlordInsurance +
+    cfg.councilRates + cfg.waterRates + (cfg.electricity ?? 0) + cfg.landlordInsurance +
     cfg.strataLevies + cfg.landTax + mgmtFees + lettingFees +
     cfg.repairs + cfg.advertising + cfg.accountingFees +
     cfg.legalFees + cfg.bankCharges + interestExp;
@@ -200,6 +202,7 @@ const BASE_BILLS = {
   starlink: 80, johanMobile: 60, zandraMobile: 60,
   medical: 500, prescriptions: 250, apartmentInsurance: 112,
   superContribution: 1161, savingsZandra: 0, savingsJohan: 0,
+  rentalWater: 0, rentalElectricity: 0,
   vehicleService: 0, caravanService: 0, tyresVehicle: 0, tyresCaravan: 0, repairs: 0,
   vehicleLicence: 0, caravanLicence: 0, vehicleInsurance: 0, caravanInsurance: 0, roadsideAssist: 0,
   rentalNet: 1611, salary: 0, businessIncome: 0, refunds: 0, otherIncome1: 0, otherIncome2: 0,
@@ -610,22 +613,27 @@ export default function BudgetPage() {
       const interestExp    = (cfg.loanBalance * cfg.interestRate) / 100;
 
       // Income: gross rent received (before expenses) → rentalNet stores gross
-      const monthlyGrossRent   = Math.round(grossRent / 12);
+      const monthlyGrossRent    = Math.round(grossRent / 12);
       // Expense breakdown (populated into separate grid rows)
-      const monthlyInterest    = Math.round(interestExp / 12);
-      const monthlyRates       = Math.round((cfg.councilRates + cfg.waterRates + cfg.strataLevies + cfg.landTax) / 12);
-      const monthlyMgmt        = Math.round((mgmtFees + lettingFees) / 12);
-      const monthlyOther       = Math.round((cfg.landlordInsurance + cfg.repairs + cfg.advertising + cfg.accountingFees + cfg.legalFees + cfg.bankCharges) / 12);
+      const monthlyInterest     = Math.round(interestExp / 12);
+      // Rates = council + strata + land tax only (water and electricity tracked separately)
+      const monthlyRates        = Math.round((cfg.councilRates + cfg.strataLevies + cfg.landTax) / 12);
+      const monthlyWater        = Math.round(cfg.waterRates / 12);
+      const monthlyElectricity  = Math.round((cfg.electricity ?? 0) / 12);
+      const monthlyMgmt         = Math.round((mgmtFees + lettingFees) / 12);
+      const monthlyOther        = Math.round((cfg.landlordInsurance + cfg.repairs + cfg.advertising + cfg.accountingFees + cfg.legalFees + cfg.bankCharges) / 12);
 
       const newMonths: Record<string, any> = { ...prev.months };
       for (let i = 0; i < 60; i++) {
         newMonths[i.toString()] = {
           ...newMonths[i.toString()],
-          rentalNet:        monthlyGrossRent,
-          rentalInterest:   monthlyInterest,
-          rentalRatesLevies: monthlyRates,
-          rentalMgmtFees:   monthlyMgmt,
-          rentalOtherCosts: monthlyOther,
+          rentalNet:          monthlyGrossRent,
+          rentalInterest:     monthlyInterest,
+          rentalRatesLevies:  monthlyRates,
+          rentalWater:        monthlyWater,
+          rentalElectricity:  monthlyElectricity,
+          rentalMgmtFees:     monthlyMgmt,
+          rentalOtherCosts:   monthlyOther,
         };
       }
       const newData = { ...prev, rental: cfg, months: newMonths };
@@ -814,42 +822,57 @@ export default function BudgetPage() {
     return items;
   }, [computedTotals, budgetData]);
 
-  // ── CSV Export / Import ──────────────────────────────────────────────────
+  // ── CSV Export / Import — Master Data (month-first, key-based) ──────────
+  //
+  // Format:
+  //   Row 0  "#section" row  — section labels for each column (skipped on import)
+  //   Row 1  "#label"   row  — human-readable labels        (skipped on import)
+  //   Row 2  key header row  — "Month","idx",<key1>,<key2>,…
+  //   Row 3+ data rows       — one row per month (60 total)
+  //
+  // Import matches columns by key name and months by "idx" value, so the
+  // user can reorder / remove columns and it still imports correctly.
+
+  const CSV_COL_DEFS = (() => {
+    const sectionOf = (key: string) =>
+      EXPENSE_SECTIONS.find(s => s.items.some(i => i.key === key))?.title ?? "Income";
+    return [
+      { key: "openingBalance", label: "Opening Balance", section: "Balance" },
+      ...ALL_KEYS.map(item => ({ key: item.key, label: item.label, section: sectionOf(item.key) })),
+    ];
+  })();
 
   const handleDownloadCSV = () => {
     if (!budgetData) return;
-    const ncols = 60;
-    const headers = ["Category", "Section", ...Array.from({ length: ncols }, (_, i) => monthLabel(i))];
-    const rows: string[][] = [headers];
-    rows.push(["Opening Balance", "Balance",
-      ...Array.from({ length: ncols }, (_, i) => {
-        if (i === 0) return String(budgetData.months["0"]?.openingBalance || budgetData.months[0]?.openingBalance || 0);
-        return computedTotals[i]?.openingBalance.toFixed(2) || "0";
-      })
-    ]);
-    for (const section of EXPENSE_SECTIONS) {
-      for (const cat of section.items) {
-        rows.push([cat.label, section.title,
-          ...Array.from({ length: ncols }, (_, i) => String((budgetData.months[i.toString()] ?? budgetData.months[i])?.[cat.key] || 0))
-        ]);
-      }
-    }
-    for (const cat of INCOME_ITEMS) {
-      rows.push([cat.label, "Income",
-        ...Array.from({ length: ncols }, (_, i) => String((budgetData.months[i.toString()] ?? budgetData.months[i])?.[cat.key] || 0))
-      ]);
-    }
-    rows.push(["Total Expenses", "Summary",  ...computedTotals.map(t => t.totalExpenses.toFixed(2))]);
-    rows.push(["Total Income",   "Summary",  ...computedTotals.map(t => t.totalIncome.toFixed(2))]);
-    rows.push(["Net Cashflow",   "Summary",  ...computedTotals.map(t => t.net.toFixed(2))]);
-    rows.push(["Closing Balance","Summary",  ...computedTotals.map(t => t.closingBalance.toFixed(2))]);
-    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+
+    const sectionRow = ["#section", "", ...CSV_COL_DEFS.map(c => c.section)];
+    const labelRow   = ["#label",   "", ...CSV_COL_DEFS.map(c => c.label)];
+    const keyRow     = ["Month",  "idx", ...CSV_COL_DEFS.map(c => c.key)];
+
+    const dataRows = Array.from({ length: 60 }, (_, i) => {
+      const m = budgetData.months[i.toString()] ?? budgetData.months[i] ?? {};
+      return [
+        monthLabel(i),
+        String(i),
+        ...CSV_COL_DEFS.map(c => {
+          if (c.key === "openingBalance") {
+            return i === 0
+              ? String(Number(m.openingBalance) || 0)
+              : String(Math.round(computedTotals[i]?.openingBalance ?? 0));
+          }
+          return String(Number(m[c.key]) || 0);
+        }),
+      ];
+    });
+
+    const rows = [sectionRow, labelRow, keyRow, ...dataRows];
+    const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url;
-    a.download = `budget-5yr-global.csv`; a.click();
+    const url  = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "die-groot-ompad-budget-master.csv"; a.click();
     URL.revokeObjectURL(url);
-    toast({ title: "CSV exported (60 months)" });
+    toast({ title: "Master CSV exported", description: "60 months · all fields · ready to edit and re-import" });
   };
 
   const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -857,37 +880,45 @@ export default function BudgetPage() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const text = ev.target?.result as string;
-        const lines = text.trim().split("\n").map(l =>
-          l.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c => c.replace(/^"|"$/g, "").replace(/""/g, '"'))
-        );
-        const ncols = lines[0].length - 2;
+        const parseRow = (line: string) =>
+          line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
+              .map(c => c.replace(/^"|"$/g, "").replace(/""/g, '"'));
+
+        const lines = (ev.target?.result as string)
+          .trim().split("\n")
+          .map(parseRow)
+          .filter(r => !r[0].startsWith("#")); // skip #section / #label info rows
+
+        if (lines.length < 2) throw new Error("No data rows");
+
+        // First non-comment row = key header
+        const header = lines[0];
+        const colMap: Record<string, number> = {};
+        header.forEach((h, c) => { colMap[h] = c; });
+
+        // Seed from current data so any column absent from the CSV is preserved
         const newMonths: Record<string, any> = {};
-        // Seed from current live data so any field not present in the CSV
-        // (including FAMILY_COSTS, future additions, etc.) is preserved as-is.
-        for (let i = 0; i < ncols; i++) {
-          const existing = budgetData?.months?.[i.toString()] ?? budgetData?.months?.[i] ?? {};
-          newMonths[i.toString()] = { ...existing };
+        for (let i = 0; i < 60; i++) {
+          newMonths[i.toString()] = { ...(budgetData?.months?.[i.toString()] ?? {}) };
         }
+
         for (const row of lines.slice(1)) {
-          const label = row[0];
-          const cat = ALL_KEYS.find(c => c.label === label);
-          if (cat) {
-            for (let i = 0; i < ncols; i++) {
-              const val = parseFloat(row[i + 2]);
-              if (!isNaN(val)) newMonths[i.toString()][cat.key] = val;
-            }
-          }
-          if (label === "Opening Balance") {
-            const val = parseFloat(row[2]);
-            if (!isNaN(val)) { newMonths["0"].openingBalance = val; }
+          const idxRaw = colMap["idx"] !== undefined ? parseInt(row[colMap["idx"]]) : NaN;
+          if (isNaN(idxRaw) || idxRaw < 0 || idxRaw >= 60) continue;
+          const target = newMonths[idxRaw.toString()];
+
+          for (const [key, colIdx] of Object.entries(colMap)) {
+            if (key === "Month" || key === "idx") continue;
+            const val = parseFloat(row[colIdx]);
+            if (!isNaN(val)) target[key] = val;
           }
         }
+
         const newData = { ...budgetData, months: newMonths };
         setBudgetData(newData); triggerSave(newData);
-        toast({ title: "Budget imported", description: file.name });
+        toast({ title: "Budget imported", description: `${file.name} — ${lines.length - 1} months loaded` });
       } catch {
-        toast({ title: "Import failed — check CSV format", variant: "destructive" });
+        toast({ title: "Import failed", description: "Ensure the file is in the master CSV format exported from this app", variant: "destructive" });
       }
     };
     reader.readAsText(file); e.target.value = "";
