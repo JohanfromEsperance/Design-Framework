@@ -58,11 +58,18 @@ interface SolarInput {
 
 interface VictronDevice {
   id: string;
+  deviceName: string;
   type: string;
   model: string;
+  partNumber: string;
   serialNumber: string;
   firmwareVersion: string;
   location: string;
+  bluetoothPin: string;
+  bluetoothPuk: string;
+  qrCodeUrl: string;
+  devicePhotoData: string;
+  devicePhotoName: string;
   absorptionV: string;
   floatV: string;
   maxCurrentA: string;
@@ -166,9 +173,12 @@ const DEFAULT_SOLAR_PANEL: SolarPanel = {
 };
 
 const DEFAULT_VICTRON: VictronDevice = {
-  id: crypto.randomUUID(), type: "MPPT", model: "", serialNumber: "",
-  firmwareVersion: "", location: "Caravan", absorptionV: "14.4", floatV: "13.8",
-  maxCurrentA: "", pdfName: "", pdfData: "", notes: "",
+  id: crypto.randomUUID(), deviceName: "", type: "MPPT", model: "",
+  partNumber: "", serialNumber: "", firmwareVersion: "", location: "Caravan",
+  bluetoothPin: "", bluetoothPuk: "", qrCodeUrl: "",
+  devicePhotoData: "", devicePhotoName: "",
+  absorptionV: "14.4", floatV: "13.8", maxCurrentA: "",
+  pdfName: "", pdfData: "", notes: "",
 };
 
 const DEFAULT_JBPRO: JBProBMS = {
@@ -755,6 +765,78 @@ const VICTRON_TYPES = [
   "SmartShunt", "Cerbo GX", "VE.Bus BMS", "Other",
 ];
 
+// ── Victron QR scanner ─────────────────────────────────────────────────────────
+interface VictronQrResult {
+  url: string;
+  photoData: string;
+  photoName: string;
+}
+
+function VictronQrScanner({ onResult }: { onResult: (r: VictronQrResult) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [scanning, setScanning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setScanning(true);
+    setError(null);
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { setScanning(false); return; }
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        setScanning(false);
+        if (code) {
+          onResult({ url: code.data, photoData: dataUrl, photoName: file.name });
+        } else {
+          setError("No QR code found in this image — photo saved without URL.");
+          onResult({ url: "", photoData: dataUrl, photoName: file.name });
+        }
+        if (inputRef.current) inputRef.current.value = "";
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  }, [onResult]);
+
+  return (
+    <div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleFile}
+      />
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-7 text-xs gap-1.5 border-primary/40 text-primary"
+        disabled={scanning}
+        onClick={() => inputRef.current?.click()}
+      >
+        <Camera className="h-3.5 w-3.5" />
+        {scanning ? "Reading QR..." : "Scan QR / Take Photo"}
+      </Button>
+      {error && <p className="text-[10px] text-amber-600 mt-1">{error}</p>}
+    </div>
+  );
+}
+
+// ── VictronTab ─────────────────────────────────────────────────────────────────
 function VictronTab({ cfg, update }: { cfg: PowerConfig; update: (c: PowerConfig) => void }) {
   const add = () => update({
     ...cfg, victronDevices: [...cfg.victronDevices, { ...DEFAULT_VICTRON, id: crypto.randomUUID() }],
@@ -770,8 +852,8 @@ function VictronTab({ cfg, update }: { cfg: PowerConfig; update: (c: PowerConfig
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          Record all Victron equipment — model, serial, firmware, and key charging parameters.
-          Attach the product manual PDF for each device.
+          Scan each device's QR code label to capture the Victron product link and a photo of the sticker.
+          Add Bluetooth PIN / PUK for activation. Attach the product manual PDF for each device.
         </p>
         <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 shrink-0" onClick={add}>
           <Plus className="h-3.5 w-3.5" /> Add Device
@@ -784,7 +866,9 @@ function VictronTab({ cfg, update }: { cfg: PowerConfig; update: (c: PowerConfig
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-primary" />
-                <span className="text-sm font-semibold">{d.model || d.type || "New Victron Device"}</span>
+                <span className="text-sm font-semibold">
+                  {d.deviceName || d.model || d.type || "New Victron Device"}
+                </span>
                 <span className="text-[10px] border border-primary/30 text-primary rounded px-1.5 py-0.5">{d.type}</span>
               </div>
               <button onClick={() => remove(d.id)} className="text-destructive hover:opacity-70 p-1">
@@ -792,24 +876,116 @@ function VictronTab({ cfg, update }: { cfg: PowerConfig; update: (c: PowerConfig
               </button>
             </div>
           </CardHeader>
-          <CardContent className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-            <FieldRow label="Device Type"><SelectF value={d.type} options={VICTRON_TYPES} onChange={v => setDevice(d.id, {type:v})} /></FieldRow>
-            <FieldRow label="Location"><TF value={d.location} onChange={v => setDevice(d.id,{location:v})} placeholder="Caravan / Vehicle" /></FieldRow>
-            <FieldRow label="Model"><TF value={d.model} onChange={v => setDevice(d.id,{model:v})} placeholder="e.g. SmartSolar 100/30" /></FieldRow>
-            <FieldRow label="Serial Number"><TF value={d.serialNumber} onChange={v => setDevice(d.id,{serialNumber:v})} /></FieldRow>
-            <FieldRow label="Firmware Version"><TF value={d.firmwareVersion} onChange={v => setDevice(d.id,{firmwareVersion:v})} placeholder="e.g. v3.12" /></FieldRow>
-            <FieldRow label="Absorption V"><NumF value={+d.absorptionV} step={0.1} unit="V" onChange={v => setDevice(d.id,{absorptionV:String(v)})} /></FieldRow>
-            <FieldRow label="Float V"><NumF value={+d.floatV} step={0.1} unit="V" onChange={v => setDevice(d.id,{floatV:String(v)})} /></FieldRow>
-            <FieldRow label="Max Charge A"><NumF value={+d.maxCurrentA||0} unit="A" onChange={v => setDevice(d.id,{maxCurrentA:String(v)})} /></FieldRow>
-            <div className="sm:col-span-2">
-              <FieldRow label="Notes"><TF value={d.notes} onChange={v => setDevice(d.id,{notes:v})} /></FieldRow>
+          <CardContent className="px-4 pb-4 space-y-3">
+
+            {/* ── QR photo strip ── */}
+            <div className="flex gap-3 items-start">
+              {d.devicePhotoData ? (
+                <div className="relative shrink-0">
+                  <img
+                    src={d.devicePhotoData}
+                    alt="Device label"
+                    className="h-28 w-28 object-cover rounded border border-border cursor-pointer"
+                    onClick={() => window.open(d.devicePhotoData, "_blank")}
+                    title="Click to view full size"
+                  />
+                  <button
+                    onClick={() => setDevice(d.id, { devicePhotoData: "", devicePhotoName: "" })}
+                    className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full h-4 w-4 flex items-center justify-center text-[10px] leading-none"
+                    title="Remove photo"
+                  >×</button>
+                </div>
+              ) : (
+                <div className="h-28 w-28 shrink-0 border border-dashed border-border rounded flex items-center justify-center bg-muted/30">
+                  <QrCode className="h-8 w-8 text-muted-foreground/40" />
+                </div>
+              )}
+              <div className="flex-1 space-y-2">
+                <VictronQrScanner onResult={r => setDevice(d.id, {
+                  qrCodeUrl: r.url || d.qrCodeUrl,
+                  devicePhotoData: r.photoData || d.devicePhotoData,
+                  devicePhotoName: r.photoName || d.devicePhotoName,
+                })} />
+                <p className="text-[10px] text-muted-foreground leading-snug">
+                  Point your camera at the QR code on the device sticker.
+                  The Victron product link and a photo of the label are saved automatically.
+                </p>
+                {d.qrCodeUrl && (
+                  <a
+                    href={d.qrCodeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Open Victron product page
+                  </a>
+                )}
+                {d.qrCodeUrl && (
+                  <p className="text-[10px] text-muted-foreground font-mono break-all leading-snug">{d.qrCodeUrl}</p>
+                )}
+              </div>
             </div>
-            <div className="sm:col-span-2 pt-1">
+
+            {/* ── Identity & location ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 pt-1 border-t border-border/50">
+              <FieldRow label="Device Name">
+                <TF value={d.deviceName} onChange={v => setDevice(d.id,{deviceName:v})} placeholder="e.g. Solar Input, Car Input, Computer" />
+              </FieldRow>
+              <FieldRow label="Location">
+                <TF value={d.location} onChange={v => setDevice(d.id,{location:v})} placeholder="Caravan / Vehicle" />
+              </FieldRow>
+              <FieldRow label="Device Type">
+                <SelectF value={d.type} options={VICTRON_TYPES} onChange={v => setDevice(d.id, {type:v})} />
+              </FieldRow>
+              <FieldRow label="Model">
+                <TF value={d.model} onChange={v => setDevice(d.id,{model:v})} placeholder="e.g. SmartSolar MPPT 100/50" />
+              </FieldRow>
+              <FieldRow label="Part Number">
+                <TF value={d.partNumber} onChange={v => setDevice(d.id,{partNumber:v})} placeholder="e.g. SCC110050210" />
+              </FieldRow>
+              <FieldRow label="Serial Number">
+                <TF value={d.serialNumber} onChange={v => setDevice(d.id,{serialNumber:v})} placeholder="e.g. HQ2547GJHCF" />
+              </FieldRow>
+              <FieldRow label="Firmware Version">
+                <TF value={d.firmwareVersion} onChange={v => setDevice(d.id,{firmwareVersion:v})} placeholder="e.g. v3.12" />
+              </FieldRow>
+            </div>
+
+            {/* ── Bluetooth credentials ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 pt-1 border-t border-border/50">
+              <div className="sm:col-span-2">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1">
+                  <Key className="h-3 w-3" /> Bluetooth / Communication
+                </p>
+              </div>
+              <FieldRow label="Bluetooth PIN">
+                <TF value={d.bluetoothPin} onChange={v => setDevice(d.id,{bluetoothPin:v})} placeholder="e.g. 558688" />
+              </FieldRow>
+              <FieldRow label="Bluetooth PUK">
+                <TF value={d.bluetoothPuk} onChange={v => setDevice(d.id,{bluetoothPuk:v})} placeholder="e.g. 537680A71137" />
+              </FieldRow>
+            </div>
+
+            {/* ── Charging parameters ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 pt-1 border-t border-border/50">
+              <div className="sm:col-span-2">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Charging Parameters</p>
+              </div>
+              <FieldRow label="Absorption V"><NumF value={+d.absorptionV} step={0.1} unit="V" onChange={v => setDevice(d.id,{absorptionV:String(v)})} /></FieldRow>
+              <FieldRow label="Float V"><NumF value={+d.floatV} step={0.1} unit="V" onChange={v => setDevice(d.id,{floatV:String(v)})} /></FieldRow>
+              <FieldRow label="Max Charge A"><NumF value={+d.maxCurrentA||0} unit="A" onChange={v => setDevice(d.id,{maxCurrentA:String(v)})} /></FieldRow>
+            </div>
+
+            {/* ── Notes + PDF ── */}
+            <div className="pt-1 border-t border-border/50 space-y-2">
+              <FieldRow label="Notes"><TF value={d.notes} onChange={v => setDevice(d.id,{notes:v})} /></FieldRow>
               <PdfAttachment pdfName={d.pdfName} pdfData={d.pdfData}
                 onUpload={(name,data) => setDevice(d.id,{pdfName:name,pdfData:data})}
                 onClear={() => setDevice(d.id,{pdfName:"",pdfData:""})}
               />
             </div>
+
           </CardContent>
         </Card>
       ))}
