@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
   Zap, Battery, Sun, ArrowRight, Upload, FileText, Trash2, Plus,
-  ChevronDown, ChevronUp, Settings, Cpu, Plug, CircuitBoard,
+  ChevronDown, ChevronUp, Settings, Cpu, Plug, CircuitBoard, Gauge,
   Cloud, CloudOff, Save, QrCode, ExternalLink, Camera, Key, User, Hash,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -190,6 +190,46 @@ const DEFAULT_VICTRON: VictronDevice = {
   pdfName: "", pdfData: "", notes: "",
 };
 
+const VICTRON_BMV712: VictronDevice = {
+  id: crypto.randomUUID(), deviceName: "Maisha", type: "BMV Battery Monitor",
+  model: "BMV-712 BLACK Smart", partNumber: "BAM030712200", serialNumber: "HQ2519NHK33",
+  firmwareVersion: "", location: "Caravan", bluetoothPin: "066252", bluetoothPuk: "5CA54EFF3139",
+  qrCodeUrl: "", devicePhotoData: "", devicePhotoName: "",
+  absorptionV: "14.6", floatV: "13.8", maxCurrentA: "",
+  pdfName: "", pdfData: "",
+  notes: "Battery voltage, current and state-of-charge monitor. Bluetooth via VictronConnect app.",
+};
+
+const VICTRON_SMARTSOLAR: VictronDevice = {
+  id: crypto.randomUUID(), deviceName: "Solar Input", type: "SmartSolar MPPT",
+  model: "SmartSolar MPPT 100/50", partNumber: "SCC110050210", serialNumber: "HQ2547GJHCF",
+  firmwareVersion: "", location: "Caravan", bluetoothPin: "558688", bluetoothPuk: "537680A71137",
+  qrCodeUrl: "", devicePhotoData: "", devicePhotoName: "",
+  absorptionV: "14.6", floatV: "13.8", maxCurrentA: "50",
+  pdfName: "", pdfData: "",
+  notes: "Solar MPPT controller. Max PV input 100V, 50A output. LiFePO4 preset.",
+};
+
+const VICTRON_ORION_XS: VictronDevice = {
+  id: crypto.randomUUID(), deviceName: "Car Input", type: "Orion-Tr DC-DC",
+  model: "Orion XS 12/12-50A DC-DC Battery Charger", partNumber: "ORI121217050", serialNumber: "HQ2529MAN2K",
+  firmwareVersion: "", location: "Caravan", bluetoothPin: "767024", bluetoothPuk: "41A455135811",
+  qrCodeUrl: "", devicePhotoData: "", devicePhotoName: "",
+  absorptionV: "14.6", floatV: "13.8", maxCurrentA: "50",
+  pdfName: "", pdfData: "",
+  notes: "50A DC-DC charger. Charges caravan battery from tow vehicle alternator. Smart alternator compatible.",
+};
+
+const VICTRON_ORION_TR: VictronDevice = {
+  id: crypto.randomUUID(), deviceName: "Computer", type: "Orion-Tr DC-DC",
+  model: "Orion-Tr 12/24-10A Isolated DC-DC Converter (240W)", partNumber: "ORI122424110", serialNumber: "HQ2447HUHUU",
+  firmwareVersion: "", location: "Caravan", bluetoothPin: "", bluetoothPuk: "",
+  qrCodeUrl: "", devicePhotoData: "", devicePhotoName: "",
+  absorptionV: "28.8", floatV: "27.6", maxCurrentA: "10",
+  pdfName: "", pdfData: "",
+  notes: "Isolated 12V to 24V DC-DC converter, 240W. Powers 24V equipment from 12V caravan battery. Galvanic isolation.",
+};
+
 const DEFAULT_JBPRO: JBProBMS = {
   id: crypto.randomUUID(), location: "Caravan", model: "JBProBMS", serialNumber: "",
   cellCount: 4, capacityAh: 100, balanceV: 3.5, ovProtectionV: 3.65, uvProtectionV: 2.8,
@@ -275,7 +315,12 @@ const DEFAULT_CONFIG: PowerConfig = {
     { ...DEFAULT_SOLAR_PANEL, label: "Panel 1" },
     { ...DEFAULT_SOLAR_PANEL, label: "Panel 2" },
   ],
-  victronDevices: [{ ...DEFAULT_VICTRON, id: crypto.randomUUID(), type: "SmartSolar MPPT" }],
+  victronDevices: [
+    { ...VICTRON_BMV712,    id: crypto.randomUUID() },
+    { ...VICTRON_SMARTSOLAR, id: crypto.randomUUID() },
+    { ...VICTRON_ORION_XS,  id: crypto.randomUUID() },
+    { ...VICTRON_ORION_TR,  id: crypto.randomUUID() },
+  ],
   jbproBms: [
     { ...BMPRO_JD35D,       id: crypto.randomUUID() },
     { ...BMPRO_CONTROLNODE, id: crypto.randomUUID() },
@@ -708,6 +753,12 @@ function SolarTab({ cfg, update }: { cfg: PowerConfig; update: (c: PowerConfig) 
     update({ ...cfg, solarPanels: cfg.solarPanels.filter((_, j) => j !== i) });
   };
 
+  const mpptDevices = cfg.victronDevices.filter(d =>
+    d.type === "SmartSolar MPPT" || d.type === "BlueSolar MPPT"
+  );
+  const totalWp = cfg.solarPanels.reduce((s, p) => s + p.wattPeak, 0);
+  const dailyWh = totalWp * cfg.peakSunHours * 0.8; // 80% derate for real-world losses
+
   return (
     <div className="space-y-5">
       <Section title="Peak Sun Hours" icon={Sun}>
@@ -724,26 +775,34 @@ function SolarTab({ cfg, update }: { cfg: PowerConfig; update: (c: PowerConfig) 
         </div>
       </Section>
 
-      <Section title="Solar Inputs / MPPT Controllers (3 inputs)" icon={Sun}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {cfg.solarInputs.map((si, i) => (
-            <div key={i} className="rounded-lg border border-[#d9b880]/30 bg-[#d9b880]/5 p-3 space-y-2">
-              <p className="text-[11px] font-bold text-[#b8943e]">{si.label}</p>
-              <FieldRow label="Label"><TF value={si.label} onChange={v => { const a=[...cfg.solarInputs]; a[i]={...si,label:v}; update({...cfg,solarInputs:a}); }} /></FieldRow>
-              <FieldRow label="MPPT Model"><TF value={si.mpptModel} onChange={v => { const a=[...cfg.solarInputs]; a[i]={...si,mpptModel:v}; update({...cfg,solarInputs:a}); }} placeholder="e.g. Victron 100/30" /></FieldRow>
-              <FieldRow label="Serial No."><TF value={si.mpptSerial} onChange={v => { const a=[...cfg.solarInputs]; a[i]={...si,mpptSerial:v}; update({...cfg,solarInputs:a}); }} /></FieldRow>
-              <FieldRow label="Max Voc"><NumF value={si.maxVoc} unit="V" step={0.1} onChange={v => { const a=[...cfg.solarInputs]; a[i]={...si,maxVoc:v}; update({...cfg,solarInputs:a}); }} /></FieldRow>
-              <FieldRow label="Max Current"><NumF value={si.maxCurrentA} unit="A" onChange={v => { const a=[...cfg.solarInputs]; a[i]={...si,maxCurrentA:v}; update({...cfg,solarInputs:a}); }} /></FieldRow>
-              <FieldRow label="Notes"><TF value={si.notes} onChange={v => { const a=[...cfg.solarInputs]; a[i]={...si,notes:v}; update({...cfg,solarInputs:a}); }} /></FieldRow>
-              <div className="pt-1">
-                <PdfAttachment pdfName={si.pdfName} pdfData={si.pdfData}
-                  onUpload={(name, data) => { const a=[...cfg.solarInputs]; a[i]={...si,pdfName:name,pdfData:data}; update({...cfg,solarInputs:a}); }}
-                  onClear={() => { const a=[...cfg.solarInputs]; a[i]={...si,pdfName:"",pdfData:""}; update({...cfg,solarInputs:a}); }}
-                />
+      <Section title="MPPT Controllers" icon={Sun}>
+        <p className="text-[11px] text-muted-foreground mb-3">
+          Derived from devices registered on the Victron tab. Add or edit MPPT controllers there.
+        </p>
+        {mpptDevices.length === 0 ? (
+          <p className="text-[11px] text-amber-600">No MPPT controllers found. Add a SmartSolar MPPT or BlueSolar MPPT device on the Victron tab.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {mpptDevices.map(d => (
+              <div key={d.id} className="rounded-lg border border-[#d9b880]/30 bg-[#d9b880]/5 p-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-[12px] font-bold text-[#b8943e]">{d.deviceName || d.model}</p>
+                  <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">{d.type}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px]">
+                  <span className="text-muted-foreground">Model</span><span className="font-medium">{d.model || "—"}</span>
+                  <span className="text-muted-foreground">Part No.</span><span className="font-medium">{d.partNumber || "—"}</span>
+                  <span className="text-muted-foreground">Serial No.</span><span className="font-medium">{d.serialNumber || "—"}</span>
+                  <span className="text-muted-foreground">Max Output</span><span className="font-medium">{d.maxCurrentA ? `${d.maxCurrentA} A` : "—"}</span>
+                  <span className="text-muted-foreground">Absorption</span><span className="font-medium">{d.absorptionV ? `${d.absorptionV} V` : "—"}</span>
+                  <span className="text-muted-foreground">Float</span><span className="font-medium">{d.floatV ? `${d.floatV} V` : "—"}</span>
+                  {d.bluetoothPin && <><span className="text-muted-foreground">BT PIN</span><span className="font-medium">{d.bluetoothPin}</span></>}
+                </div>
+                {d.notes && <p className="text-[10px] text-muted-foreground pt-1 border-t border-border/20">{d.notes}</p>}
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </Section>
 
       <Section title={`Solar Panels (${cfg.solarPanels.length} / 8 configured)`} icon={Sun}>
@@ -752,7 +811,7 @@ function SolarTab({ cfg, update }: { cfg: PowerConfig; update: (c: PowerConfig) 
             <table className="w-full text-xs border-collapse min-w-[800px]">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  {["Label", "Wp", "Voc", "Vmp", "Isc", "Imp", "Input", "Model", "Serial", ""].map(h => (
+                  {["Label", "Wp", "Voc", "Vmp", "Isc", "Imp", "MPPT Controller", "Model", "Serial", ""].map(h => (
                     <th key={h} className="text-left p-2 font-semibold text-muted-foreground text-[10px] uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
@@ -769,7 +828,10 @@ function SolarTab({ cfg, update }: { cfg: PowerConfig; update: (c: PowerConfig) 
                     <td className="p-1">
                       <select value={p.inputIndex} onChange={e => { const a=[...cfg.solarPanels]; a[i]={...p,inputIndex:+e.target.value}; update({...cfg,solarPanels:a}); }}
                         className="h-6 rounded border border-input bg-card px-1 text-xs">
-                        {[0,1,2].map(n => <option key={n} value={n}>Input {n+1}</option>)}
+                        {mpptDevices.length > 0
+                          ? mpptDevices.map((d, n) => <option key={d.id} value={n}>{d.deviceName || d.model || `MPPT ${n+1}`}</option>)
+                          : [0,1,2].map(n => <option key={n} value={n}>Input {n+1}</option>)
+                        }
                       </select>
                     </td>
                     <td className="p-1"><Input className="h-6 text-xs w-28" value={p.model} placeholder="Model" onChange={e => { const a=[...cfg.solarPanels]; a[i]={...p,model:e.target.value}; update({...cfg,solarPanels:a}); }} /></td>
@@ -790,10 +852,13 @@ function SolarTab({ cfg, update }: { cfg: PowerConfig; update: (c: PowerConfig) 
             </Button>
           )}
           {cfg.solarPanels.length > 0 && (
-            <div className="flex gap-6 text-[10px] text-muted-foreground pt-1">
-              <span>Total Wp: <strong className="text-foreground">{fmt(cfg.solarPanels.reduce((s,p)=>s+p.wattPeak,0))} W</strong></span>
+            <div className="flex gap-6 text-[10px] text-muted-foreground pt-1 flex-wrap">
+              <span>Total Wp: <strong className="text-foreground">{fmt(totalWp)} W</strong></span>
               <span>Total Imp: <strong className="text-foreground">{fmt(cfg.solarPanels.reduce((s,p)=>s+p.imp,0), 1)} A</strong></span>
               <span>Total Isc: <strong className="text-foreground">{fmt(cfg.solarPanels.reduce((s,p)=>s+p.isc,0), 1)} A</strong></span>
+              {cfg.peakSunHours > 0 && totalWp > 0 && (
+                <span>Est. daily yield @ {cfg.peakSunHours}h PSH: <strong className="text-foreground">{fmt(dailyWh)} Wh</strong></span>
+              )}
             </div>
           )}
         </div>
@@ -802,48 +867,87 @@ function SolarTab({ cfg, update }: { cfg: PowerConfig; update: (c: PowerConfig) 
   );
 }
 
-function ChargingTab({ cfg, update }: { cfg: PowerConfig; update: (c: PowerConfig) => void }) {
-  const dc = cfg.dcDcConverter;
-  const jayo = cfg.jayoBms;
+function ChargingTab({ cfg }: { cfg: PowerConfig }) {
+  const dcDcDevices = cfg.victronDevices.filter(d => d.type === "Orion-Tr DC-DC");
+  const monitorDevices = cfg.victronDevices.filter(d =>
+    d.type === "BMV Battery Monitor" || d.type === "SmartShunt"
+  );
+  const bmsDevices = cfg.jbproBms.filter(d => d.maxChargeA > 0 || d.capacityAh > 0);
+
+  const ReadOnlyCard = ({ d }: { d: typeof cfg.victronDevices[0] }) => (
+    <div className="rounded-lg border border-border bg-card p-3 space-y-1.5">
+      <div className="flex items-center justify-between">
+        <p className="text-[12px] font-bold text-foreground">{d.deviceName || d.model}</p>
+        <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">{d.type}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px]">
+        <span className="text-muted-foreground">Model</span><span className="font-medium">{d.model || "—"}</span>
+        <span className="text-muted-foreground">Part No.</span><span className="font-medium">{d.partNumber || "—"}</span>
+        <span className="text-muted-foreground">Serial No.</span><span className="font-medium">{d.serialNumber || "—"}</span>
+        <span className="text-muted-foreground">Max Current</span><span className="font-medium">{d.maxCurrentA ? `${d.maxCurrentA} A` : "—"}</span>
+        <span className="text-muted-foreground">Absorption</span><span className="font-medium">{d.absorptionV ? `${d.absorptionV} V` : "—"}</span>
+        <span className="text-muted-foreground">Float</span><span className="font-medium">{d.floatV ? `${d.floatV} V` : "—"}</span>
+        {d.bluetoothPin && <><span className="text-muted-foreground">BT PIN</span><span className="font-medium">{d.bluetoothPin}</span></>}
+        {d.bluetoothPuk && <><span className="text-muted-foreground">BT PUK</span><span className="font-medium font-mono">{d.bluetoothPuk}</span></>}
+      </div>
+      {d.notes && <p className="text-[10px] text-muted-foreground pt-1 border-t border-border/20">{d.notes}</p>}
+    </div>
+  );
 
   return (
     <div className="space-y-5">
-      <Section title="DC-DC Converter (Tow Vehicle → Caravan)" icon={ArrowRight}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-          <FieldRow label="Model"><TF value={dc.model} onChange={v => update({...cfg, dcDcConverter:{...dc,model:v}})} placeholder="e.g. Victron Orion-Tr" /></FieldRow>
-          <FieldRow label="Serial Number"><TF value={dc.serialNumber} onChange={v => update({...cfg, dcDcConverter:{...dc,serialNumber:v}})} /></FieldRow>
-          <FieldRow label="Input Voltage"><NumF value={dc.inputVoltage} unit="V" step={0.1} onChange={v => update({...cfg, dcDcConverter:{...dc,inputVoltage:v}})} /></FieldRow>
-          <FieldRow label="Output Voltage"><NumF value={dc.outputVoltage} unit="V" step={0.1} onChange={v => update({...cfg, dcDcConverter:{...dc,outputVoltage:v}})} /></FieldRow>
-          <FieldRow label="Max Current"><NumF value={dc.maxCurrentA} unit="A" onChange={v => update({...cfg, dcDcConverter:{...dc,maxCurrentA:v}})} /></FieldRow>
-          <div className="sm:col-span-2">
-            <FieldRow label="Notes"><TF value={dc.notes} onChange={v => update({...cfg, dcDcConverter:{...dc,notes:v}})} /></FieldRow>
+      <div className="rounded-md border border-[#d9b880]/30 bg-[#d9b880]/5 px-3 py-2 text-[11px] text-muted-foreground">
+        This tab displays charging data derived from devices registered on the <strong>Victron</strong> and <strong>JBPRO BMS</strong> tabs. Edit devices there.
+      </div>
+
+      <Section title="DC-DC Converters (Vehicle → Caravan)" icon={ArrowRight}>
+        {dcDcDevices.length === 0 ? (
+          <p className="text-[11px] text-amber-600">No DC-DC converters found. Add an Orion-Tr DC-DC device on the Victron tab.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {dcDcDevices.map(d => <ReadOnlyCard key={d.id} d={d} />)}
           </div>
-          <div className="sm:col-span-2 pt-1">
-            <PdfAttachment pdfName={dc.pdfName} pdfData={dc.pdfData}
-              onUpload={(name,data) => update({...cfg, dcDcConverter:{...dc,pdfName:name,pdfData:data}})}
-              onClear={() => update({...cfg, dcDcConverter:{...dc,pdfName:"",pdfData:""}})}
-            />
-          </div>
-        </div>
+        )}
       </Section>
 
-      <Section title="Jayo JD35D BMS (Charging Source)" icon={CircuitBoard}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-          <FieldRow label="Model"><TF value={jayo.model} onChange={v => update({...cfg, jayoBms:{...jayo,model:v}})} placeholder="JD35D" /></FieldRow>
-          <FieldRow label="Serial Number"><TF value={jayo.serialNumber} onChange={v => update({...cfg, jayoBms:{...jayo,serialNumber:v}})} /></FieldRow>
-          <FieldRow label="Cell Count"><NumF value={jayo.cellCount} onChange={v => update({...cfg, jayoBms:{...jayo,cellCount:v}})} /></FieldRow>
-          <FieldRow label="Capacity"><NumF value={jayo.capacityAh} unit="Ah" step={10} onChange={v => update({...cfg, jayoBms:{...jayo,capacityAh:v}})} /></FieldRow>
-          <FieldRow label="Max Charge"><NumF value={jayo.maxChargeA} unit="A" onChange={v => update({...cfg, jayoBms:{...jayo,maxChargeA:v}})} /></FieldRow>
-          <div className="sm:col-span-2">
-            <FieldRow label="Notes"><TF value={jayo.notes} onChange={v => update({...cfg, jayoBms:{...jayo,notes:v}})} /></FieldRow>
+      <Section title="Battery Monitors" icon={Gauge}>
+        {monitorDevices.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground">No battery monitors registered. Add a BMV Battery Monitor or SmartShunt on the Victron tab.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {monitorDevices.map(d => <ReadOnlyCard key={d.id} d={d} />)}
           </div>
-          <div className="sm:col-span-2 pt-1">
-            <PdfAttachment pdfName={jayo.pdfName} pdfData={jayo.pdfData}
-              onUpload={(name,data) => update({...cfg, jayoBms:{...jayo,pdfName:name,pdfData:data}})}
-              onClear={() => update({...cfg, jayoBms:{...jayo,pdfName:"",pdfData:""}})}
-            />
+        )}
+      </Section>
+
+      <Section title="BMS Charging Parameters" icon={CircuitBoard}>
+        <p className="text-[11px] text-muted-foreground mb-3">
+          Derived from JBPRO BMS devices with active charge ratings. Edit on the JBPRO BMS tab.
+        </p>
+        {bmsDevices.length === 0 ? (
+          <p className="text-[11px] text-amber-600">No BMS devices found. Configure BMS on the JBPRO BMS tab.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {bmsDevices.map(d => (
+              <div key={d.id} className="rounded-lg border border-border bg-card p-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-[12px] font-bold text-foreground">{d.model}</p>
+                  <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{d.location}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px]">
+                  {d.capacityAh > 0 && <><span className="text-muted-foreground">Capacity</span><span className="font-medium">{d.capacityAh} Ah</span></>}
+                  {d.maxChargeA > 0 && <><span className="text-muted-foreground">Max Charge</span><span className="font-medium">{d.maxChargeA} A</span></>}
+                  {d.maxDischargeA > 0 && <><span className="text-muted-foreground">Max Discharge</span><span className="font-medium">{d.maxDischargeA} A</span></>}
+                  {d.cellCount > 0 && <><span className="text-muted-foreground">Cell Count</span><span className="font-medium">{d.cellCount}S LiFePO4</span></>}
+                  {d.ovProtectionV > 0 && <><span className="text-muted-foreground">OV Protection</span><span className="font-medium">{d.ovProtectionV} V/cell</span></>}
+                  {d.uvProtectionV > 0 && <><span className="text-muted-foreground">UV Protection</span><span className="font-medium">{d.uvProtectionV} V/cell</span></>}
+                  {d.balanceV > 0 && <><span className="text-muted-foreground">Balance V</span><span className="font-medium">{d.balanceV} V/cell</span></>}
+                </div>
+                {d.notes && <p className="text-[10px] text-muted-foreground pt-1 border-t border-border/20">{d.notes}</p>}
+              </div>
+            ))}
           </div>
-        </div>
+        )}
       </Section>
     </div>
   );
@@ -862,28 +966,102 @@ interface VictronQrResult {
   photoName: string;
 }
 
+type BarcodeDetectorType = { detect(img: HTMLVideoElement | ImageBitmap): Promise<{ rawValue: string }[]> };
+declare const BarcodeDetector: new(o: object) => BarcodeDetectorType;
+const hasBarcodeDetector = () => "BarcodeDetector" in window;
+
+function LiveQrScanModal({ onResult, onClose }: {
+  onResult: (r: VictronQrResult) => void;
+  onClose: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const loopRef = useRef<number>(0);
+  const [status, setStatus] = useState<"starting" | "scanning" | "found" | "error">("starting");
+  const [errMsg, setErrMsg] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } })
+      .then(stream => {
+        if (!active) { stream.getTracks().forEach(t => t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().then(() => { if (active) setStatus("scanning"); });
+        }
+      })
+      .catch(err => { if (active) { setStatus("error"); setErrMsg(String(err.message || err)); } });
+    return () => {
+      active = false;
+      cancelAnimationFrame(loopRef.current);
+      streamRef.current?.getTracks().forEach(t => t.stop());
+    };
+  }, []);
+
+  useEffect(() => {
+    if (status !== "scanning") return;
+    const detector = new BarcodeDetector({ formats: ["qr_code"] });
+    const loop = async () => {
+      const vid = videoRef.current;
+      if (!vid || vid.readyState < 2) { loopRef.current = requestAnimationFrame(loop); return; }
+      try {
+        const codes = await detector.detect(vid);
+        if (codes.length > 0) {
+          const canvas = document.createElement("canvas");
+          canvas.width = vid.videoWidth; canvas.height = vid.videoHeight;
+          canvas.getContext("2d")!.drawImage(vid, 0, 0);
+          const photoData = canvas.toDataURL("image/jpeg", 0.85);
+          streamRef.current?.getTracks().forEach(t => t.stop());
+          setStatus("found");
+          onResult({ url: codes[0].rawValue, photoData, photoName: "qr-scan.jpg" });
+          return;
+        }
+      } catch { /* keep looping */ }
+      loopRef.current = requestAnimationFrame(loop);
+    };
+    loopRef.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(loopRef.current);
+  }, [status, onResult]);
+
+  return (
+    <div className="fixed inset-0 z-[200] bg-black flex flex-col">
+      <div className="flex items-center justify-between p-4 text-white">
+        <span className="text-sm font-semibold">Scan Victron QR Code</span>
+        <button onClick={onClose} className="text-white/70 hover:text-white text-3xl leading-none">×</button>
+      </div>
+      <div className="flex-1 relative overflow-hidden">
+        <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-60 h-60 relative">
+            <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-[#d9b880] rounded-tl-md" />
+            <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-[#d9b880] rounded-tr-md" />
+            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-[#d9b880] rounded-bl-md" />
+            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-[#d9b880] rounded-br-md" />
+          </div>
+        </div>
+      </div>
+      <div className="p-5 text-center">
+        {status === "starting" && <p className="text-white/70 text-sm">Starting camera...</p>}
+        {status === "scanning" && <p className="text-white/80 text-sm">Point the QR code inside the box</p>}
+        {status === "found"    && <p className="text-[#d9b880] text-sm font-semibold">QR code found</p>}
+        {status === "error"    && (
+          <div>
+            <p className="text-amber-400 text-sm mb-3">{errMsg || "Camera not available"}</p>
+            <button onClick={onClose} className="text-white/70 underline text-xs">Close — use Take Photo instead</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function VictronQrScanner({ onResult }: { onResult: (r: VictronQrResult) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [scanning, setScanning] = useState(false);
+  const [showLive, setShowLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const decodeQrFromImage = useCallback((img: HTMLImageElement): string | null => {
-    const MAX = 1600;
-    const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
-    const w = Math.round(img.naturalWidth * scale);
-    const h = Math.round(img.naturalHeight * scale);
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-    ctx.drawImage(img, 0, 0, w, h);
-    const imageData = ctx.getImageData(0, 0, w, h);
-    const code = jsQR(imageData.data, imageData.width, imageData.height, {
-      inversionAttempts: "attemptBoth",
-    });
-    return code?.data ?? null;
-  }, []);
 
   const handleFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -899,58 +1077,71 @@ function VictronQrScanner({ onResult }: { onResult: (r: VictronQrResult) => void
 
     let qrUrl = "";
 
-    // 1 — Try native BarcodeDetector (Android Chrome, iOS 17+ Safari) — most reliable
-    if ("BarcodeDetector" in window) {
+    // Try native BarcodeDetector with ImageBitmap (most reliable on Android/iOS 17+)
+    if (hasBarcodeDetector()) {
       try {
-        type BD = { detect(img: Blob): Promise<{ rawValue: string }[]> };
-        const detector = new (window as unknown as { BarcodeDetector: new(o: object) => BD }).BarcodeDetector({ formats: ["qr_code"] });
-        const results = await detector.detect(file);
+        const bitmap = await createImageBitmap(file);
+        const detector = new BarcodeDetector({ formats: ["qr_code"] });
+        const results = await detector.detect(bitmap);
         if (results.length > 0) qrUrl = results[0].rawValue;
-      } catch { /* fall through to jsQR */ }
+        bitmap.close();
+      } catch { /* fall through */ }
     }
 
-    // 2 — Fall back to jsQR with resized canvas
+    // Fall back to jsQR with resized canvas
     if (!qrUrl) {
       const img = await new Promise<HTMLImageElement>((res, rej) => {
-        const i = new Image();
-        i.onload = () => res(i);
-        i.onerror = rej;
-        i.src = dataUrl;
+        const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = dataUrl;
       });
-      qrUrl = decodeQrFromImage(img) ?? "";
+      const MAX = 1600;
+      const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.round(img.naturalWidth * scale);
+      const h = Math.round(img.naturalHeight * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, w, h);
+        const code = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: "attemptBoth" });
+        if (code?.data) qrUrl = code.data;
+      }
     }
 
     setScanning(false);
     if (qrUrl) {
       onResult({ url: qrUrl, photoData: dataUrl, photoName: file.name });
     } else {
-      setError("No QR code found — photo saved. Enter the URL manually or try a clearer shot.");
+      setError("Photo saved — no QR found. Enter URL manually or use Live Scan.");
       onResult({ url: "", photoData: dataUrl, photoName: file.name });
     }
     if (inputRef.current) inputRef.current.value = "";
-  }, [onResult, decodeQrFromImage]);
+  }, [onResult]);
 
   return (
     <div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={handleFile}
-      />
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        className="h-7 text-xs gap-1.5 border-primary/40 text-primary"
-        disabled={scanning}
-        onClick={() => inputRef.current?.click()}
-      >
-        <Camera className="h-3.5 w-3.5" />
-        {scanning ? "Reading QR..." : "Scan QR / Take Photo"}
-      </Button>
+      {showLive && (
+        <LiveQrScanModal
+          onResult={r => { setShowLive(false); onResult(r); }}
+          onClose={() => setShowLive(false)}
+        />
+      )}
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      <div className="flex items-center gap-2 flex-wrap">
+        {hasBarcodeDetector() && (
+          <Button type="button" size="sm" variant="default"
+            className="h-7 text-xs gap-1.5 bg-primary text-primary-foreground"
+            onClick={() => setShowLive(true)}>
+            <Camera className="h-3.5 w-3.5" /> Live Scan
+          </Button>
+        )}
+        <Button type="button" size="sm" variant="outline"
+          className="h-7 text-xs gap-1.5 border-primary/40 text-primary"
+          disabled={scanning}
+          onClick={() => inputRef.current?.click()}>
+          <Camera className="h-3.5 w-3.5" />
+          {scanning ? "Reading..." : "Take Photo"}
+        </Button>
+      </div>
       {error && <p className="text-[10px] text-amber-600 mt-1">{error}</p>}
     </div>
   );
@@ -1454,7 +1645,7 @@ export default function PowerConfigPage() {
       {tab === "overview"     && <OverviewTab cfg={cfg} />}
       {tab === "batteries"    && <BatteriesTab cfg={cfg} update={update} />}
       {tab === "solar"        && <SolarTab cfg={cfg} update={update} />}
-      {tab === "charging"     && <ChargingTab cfg={cfg} update={update} />}
+      {tab === "charging"     && <ChargingTab cfg={cfg} />}
       {tab === "victron"      && <VictronTab cfg={cfg} update={update} />}
       {tab === "bms"          && <BmsTab cfg={cfg} update={update} />}
       {tab === "accessories"  && <AccessoriesTab cfg={cfg} update={update} />}
