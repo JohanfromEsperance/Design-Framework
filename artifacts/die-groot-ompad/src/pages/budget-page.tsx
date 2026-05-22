@@ -370,11 +370,32 @@ export default function BudgetPage() {
     //   - New fields added to the template automatically appear with their default.
     //   - User-set values (including explicit 0s) always win.
 
+    // Savings sub-page is authoritative for openingBalance; monthly deposits are
+    // entered directly in the grid (savingsZandra / savingsJohan). On first load,
+    // if those grid cells are still at their default 0 but the savings sub-page
+    // has deposit values, sync them into savingsZandra so they become visible.
+    const withSavingsSync = (months: Record<string, any>, savingsData: any): Record<string, any> => {
+      if (!savingsData?.months) return months;
+      const out: Record<string, any> = {};
+      for (let i = 0; i < 60; i++) {
+        const existing = months[i.toString()] ?? {};
+        const deposit = Number(savingsData.months?.[i.toString()]?.deposit ?? 0);
+        // Only back-fill if the grid cell is still at its default zero
+        if (deposit > 0 && !existing.savingsZandra) {
+          out[i.toString()] = { ...existing, savingsZandra: deposit };
+        } else {
+          out[i.toString()] = existing;
+        }
+      }
+      return out;
+    };
+
     const applySubPageSyncs = (months: Record<string, any>): Record<string, any> => {
       let m = months;
       m = withRentalNet(m, budget?.rental);
       m = withSuperContribution(m, budget?.super);
       m = withIncomeSync(m, budget?.income);
+      m = withSavingsSync(m, budget?.savings);
       return m;
     };
 

@@ -364,20 +364,49 @@ interface SavingsWorksheetLocal {
   months?: Record<string, { deposit?: number; withdrawal?: number }>;
 }
 
-function computeSavingsRunning(savings: SavingsWorksheetLocal | undefined) {
+// Auto-compute savings pool from grid deposits (savingsZandra + savingsJohan) and
+// automatic drawdown once income falls short of spending from DRAWDOWN_START_IDX onwards.
+function computeSavingsPool(months: Record<string, BudgetMonth>, savings: SavingsWorksheetLocal | undefined) {
   let bal = savings?.openingBalance ?? 0;
+
   return Array.from({ length: 60 }, (_, i) => {
-    const m = savings?.months?.[i.toString()] ?? {};
-    const deposit    = Number(m.deposit    ?? 0);
-    const withdrawal = Number(m.withdrawal ?? 0);
-    const opening    = bal;
-    bal = bal + deposit - withdrawal;
+    const m: BudgetMonth = (months[i.toString()] as BudgetMonth) ?? {};
+
+    // Deposits come from the savings grid rows
+    const deposit = (Number(m.savingsZandra) || 0) + (Number(m.savingsJohan) || 0);
+
+    // Income excluding drawdown itself
+    let inc = 0;
+    for (const k of INCOME_KEYS) {
+      if (k === "savingsDrawdown") continue;
+      inc += Math.max(0, Number(m[k]) || 0);
+    }
+
+    // Spending expenses — exclude the savings contributions themselves
+    // (they are deposits into the pool, not real spending shortfall)
+    let exp = 0;
+    for (const k of EXPENSE_KEYS) {
+      if (k === "savingsZandra" || k === "savingsJohan") continue;
+      exp += Math.max(0, Number(m[k]) || 0);
+    }
+
+    const opening = bal;
+    bal += deposit;
+
+    // From drawdown month: auto-draw the income shortfall, capped by available pool
+    let withdrawal = 0;
+    if (i >= DRAWDOWN_START_IDX && bal > 0) {
+      const shortfall = Math.max(0, exp - inc);
+      withdrawal = Math.min(shortfall, bal);
+      bal -= withdrawal;
+    }
+
     return { opening, deposit, withdrawal, closing: bal };
   });
 }
 
 function buildChartData(months: Record<string, BudgetMonth>, savings?: SavingsWorksheetLocal) {
-  const savingsRunning = computeSavingsRunning(savings);
+  const pool = computeSavingsPool(months, savings);
 
   return Array.from({ length: 24 }, (_, i) => {
     const m: BudgetMonth = (months[i.toString()] as BudgetMonth) ?? {};
@@ -392,11 +421,9 @@ function buildChartData(months: Record<string, BudgetMonth>, savings?: SavingsWo
       if (v > 0) { incomes[k] = v; totalInc += v; }
     }
 
-    // Savings drawdown income — only from month DRAWDOWN_START_IDX onwards
-    if (i >= DRAWDOWN_START_IDX) {
-      const drawdown = savingsRunning[i]?.withdrawal ?? 0;
-      if (drawdown > 0) { incomes["savingsDrawdown"] = drawdown; totalInc += drawdown; }
-    }
+    // Auto-computed drawdown from pool shortfall calculation
+    const drawdown = pool[i]?.withdrawal ?? 0;
+    if (drawdown > 0) { incomes["savingsDrawdown"] = drawdown; totalInc += drawdown; }
 
     const expenses: Record<string, number> = {};
     let totalExp = 0;
@@ -405,8 +432,8 @@ function buildChartData(months: Record<string, BudgetMonth>, savings?: SavingsWo
       if (v > 0) { expenses[`exp_${k}`] = -v; totalExp += v; }
     }
 
-    // Savings pool running balance (closing balance after this month's deposit/withdrawal)
-    const savingsPoolBalance = savingsRunning[i]?.closing ?? 0;
+    // Savings pool running balance after this month's deposit + auto-withdrawal
+    const savingsPoolBalance = pool[i]?.closing ?? 0;
 
     return {
       idx: i,
@@ -450,12 +477,12 @@ function FinancialOverviewChart({ months, superPortfolio, savings }: FinancialOv
   const rawData   = buildChartData(months, savings);
   const chartData = addConfidenceBand(rawData);
 
-  // Savings pool calculations
-  const savingsRunning       = computeSavingsRunning(savings);
-  const savingsPoolAtDrawdown = savingsRunning[DRAWDOWN_START_IDX]?.opening ?? 0;
+  // Savings pool calculations — uses auto-drawdown logic
+  const savingsPool           = computeSavingsPool(months, savings);
+  const savingsPoolAtDrawdown = savingsPool[DRAWDOWN_START_IDX]?.opening ?? 0;
   const hasSavings            = savingsPoolAtDrawdown > 0 || (savings?.openingBalance ?? 0) > 0;
-  // Average monthly drawdown over the first 12 drawdown months
-  const drawdownMonths        = Array.from({ length: 12 }, (_, i) => savingsRunning[DRAWDOWN_START_IDX + i]?.withdrawal ?? 0);
+  // Average monthly auto-drawdown over the first 12 drawdown months
+  const drawdownMonths        = Array.from({ length: 12 }, (_, i) => savingsPool[DRAWDOWN_START_IDX + i]?.withdrawal ?? 0);
   const avgMonthlyDrawdown    = drawdownMonths.filter(v => v > 0).length > 0
     ? drawdownMonths.reduce((a, b) => a + b, 0) / drawdownMonths.filter(v => v > 0).length
     : 0;
@@ -856,8 +883,8 @@ export default function Dashboard() {
   const savings          = (budget as any)?.savings as SavingsWorksheetLocal | undefined;
 
   // Compute savings pool at drawdown start (month 12 = March 2027) for the KPI row
-  const savingsKpiRunning      = computeSavingsRunning(savings);
-  const savingsKpiPool         = savingsKpiRunning[DRAWDOWN_START_IDX]?.opening ?? 0;
+  const savingsKpiPool_        = computeSavingsPool(budgetMonths, savings);
+  const savingsKpiPool         = savingsKpiPool_[DRAWDOWN_START_IDX]?.opening ?? 0;
   const savingsKpiHas          = savingsKpiPool > 0 || ((savings?.openingBalance ?? 0) > 0);
 
   return (

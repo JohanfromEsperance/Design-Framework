@@ -247,7 +247,8 @@ function DateField({
 
   const commit = (raw: string) => {
     const iso = toIso(raw);
-    if (iso || raw === "") onChange(iso);
+    // Always persist: valid date as ISO, cleared field as "", invalid input ignored
+    if (iso || raw.trim() === "") onChange(iso);
   };
 
   return (

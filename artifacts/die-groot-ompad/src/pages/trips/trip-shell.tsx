@@ -2,18 +2,17 @@ import { useGetTrip, useUpdateTrip, getGetTripQueryKey } from "@workspace/api-cl
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Map, Route, Car, TrendingDown, BookOpen, BarChart3, CalendarCheck, Pencil, X, Check } from "lucide-react";
+import { Map, Route, TrendingDown, BookOpen, BarChart3, CalendarCheck, Pencil, X, Check } from "lucide-react";
 import { useState } from "react";
 import { HelpButton } from "@/components/help-panel";
 import {
-  HELP_TRIP_PLANNER, HELP_TRIP_MAP, HELP_TRIP_VEHICLE,
+  HELP_TRIP_PLANNER, HELP_TRIP_MAP,
   HELP_TRIP_COSTS, HELP_TRIP_JOURNAL, HELP_TRIP_ANALYSIS,
   HELP_TRIP_BOOKINGS,
 } from "@/lib/help-content";
 import { useQueryClient } from "@tanstack/react-query";
 import PlannerTab from "./tabs/planner-tab";
 import MapTab from "./tabs/map-tab";
-import VehicleTab from "./tabs/vehicle-tab";
 import TripCostsTab from "./tabs/trip-costs-tab";
 import JournalTab from "./tabs/journal-tab";
 import AnalysisTab from "./tabs/analysis-tab";
@@ -39,7 +38,6 @@ export default function TripShell({ params }: TripShellProps) {
   const TAB_HELP: Record<string, typeof HELP_TRIP_PLANNER> = {
     planner: HELP_TRIP_PLANNER,
     map: HELP_TRIP_MAP,
-    vehicle: HELP_TRIP_VEHICLE,
     costs: HELP_TRIP_COSTS,
     journal: HELP_TRIP_JOURNAL,
     analysis: HELP_TRIP_ANALYSIS,
@@ -142,15 +140,12 @@ export default function TripShell({ params }: TripShellProps) {
             <span className="text-xs text-muted-foreground capitalize font-medium">{activeTab}</span>
             {TAB_HELP[activeTab] && <HelpButton content={TAB_HELP[activeTab]} />}
           </div>
-          <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 mb-8">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 mb-8">
             <TabsTrigger value="planner" className="flex items-center gap-1.5">
               <Route className="h-4 w-4" /> <span className="hidden sm:inline">Planner</span>
             </TabsTrigger>
             <TabsTrigger value="map" className="flex items-center gap-1.5">
               <Map className="h-4 w-4" /> <span className="hidden sm:inline">Map</span>
-            </TabsTrigger>
-            <TabsTrigger value="vehicle" className="flex items-center gap-1.5">
-              <Car className="h-4 w-4" /> <span className="hidden sm:inline">Vehicle</span>
             </TabsTrigger>
             <TabsTrigger value="costs" className="flex items-center gap-1.5">
               <TrendingDown className="h-4 w-4" /> <span className="hidden sm:inline">Costs</span>
@@ -173,10 +168,6 @@ export default function TripShell({ params }: TripShellProps) {
 
             <TabsContent value="map" className="m-0">
               <MapTab tripId={trip.id} />
-            </TabsContent>
-
-            <TabsContent value="vehicle" className="m-0">
-              <VehicleTab tripId={trip.id} />
             </TabsContent>
 
             <TabsContent value="costs" className="m-0">
