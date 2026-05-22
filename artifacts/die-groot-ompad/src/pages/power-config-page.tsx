@@ -201,13 +201,33 @@ const VICTRON_BMV712: VictronDevice = {
 };
 
 const VICTRON_SMARTSOLAR: VictronDevice = {
-  id: crypto.randomUUID(), deviceName: "Solar Input", type: "SmartSolar MPPT",
+  id: crypto.randomUUID(), deviceName: "External Input", type: "SmartSolar MPPT",
   model: "SmartSolar MPPT 100/50", partNumber: "SCC110050210", serialNumber: "HQ2547GJHCF",
   firmwareVersion: "", location: "Caravan", bluetoothPin: "558688", bluetoothPuk: "537680A71137",
   qrCodeUrl: "", devicePhotoData: "", devicePhotoName: "",
   absorptionV: "14.6", floatV: "13.8", maxCurrentA: "50",
   pdfName: "", pdfData: "",
-  notes: "Solar MPPT controller. Max PV input 100V, 50A output. LiFePO4 preset.",
+  notes: "External MPPT input. Accepts portable panels: UTE 250W (car roof) and XTM 200W foldable blanket. Can charge car or caravan batteries.",
+};
+
+const VICTRON_SMARTSOLAR_ROOF: VictronDevice = {
+  id: crypto.randomUUID(), deviceName: "Caravan Roof", type: "SmartSolar MPPT",
+  model: "SmartSolar MPPT 100/50", partNumber: "SCC110050210", serialNumber: "",
+  firmwareVersion: "", location: "Caravan", bluetoothPin: "", bluetoothPuk: "",
+  qrCodeUrl: "", devicePhotoData: "", devicePhotoName: "",
+  absorptionV: "14.6", floatV: "13.8", maxCurrentA: "50",
+  pdfName: "", pdfData: "",
+  notes: "MPPT controller for fixed caravan roof panels. Connected to Jayco Large 1 + Jayco Large 2 (400W total). Max PV input 100V, 50A output.",
+};
+
+const VICTRON_SMARTSHUNT_500: VictronDevice = {
+  id: crypto.randomUUID(), deviceName: "Vehicle Monitor", type: "SmartShunt",
+  model: "SmartShunt 500A/50mV", partNumber: "SHU050210050", serialNumber: "",
+  firmwareVersion: "", location: "Tow Vehicle", bluetoothPin: "", bluetoothPuk: "",
+  qrCodeUrl: "", devicePhotoData: "", devicePhotoName: "",
+  absorptionV: "14.4", floatV: "13.8", maxCurrentA: "500",
+  pdfName: "", pdfData: "",
+  notes: "500A battery monitor shunt for tow vehicle dual battery bank. Measures SoC%, current, and voltage. Installs on battery negative terminal. Bluetooth via VictronConnect.",
 };
 
 const VICTRON_ORION_XS: VictronDevice = {
@@ -312,14 +332,20 @@ const DEFAULT_CONFIG: PowerConfig = {
     { ...DEFAULT_SOLAR_INPUT, label: "Solar Input 3" },
   ],
   solarPanels: [
-    { ...DEFAULT_SOLAR_PANEL, label: "Panel 1" },
-    { ...DEFAULT_SOLAR_PANEL, label: "Panel 2" },
+    { ...DEFAULT_SOLAR_PANEL, label: "Jayco Small 1",  wattPeak: 160, model: "Jayco 160W Fixed",   inputIndex: 0 },
+    { ...DEFAULT_SOLAR_PANEL, label: "Jayco Small 2",  wattPeak: 160, model: "Jayco 160W Fixed",   inputIndex: 0 },
+    { ...DEFAULT_SOLAR_PANEL, label: "Jayco Large 1",  wattPeak: 200, model: "Jayco 200W Fixed",   inputIndex: 0 },
+    { ...DEFAULT_SOLAR_PANEL, label: "Jayco Large 2",  wattPeak: 200, model: "Jayco 200W Fixed",   inputIndex: 0 },
+    { ...DEFAULT_SOLAR_PANEL, label: "UTE (Car Roof)", wattPeak: 250, model: "Flexible 250W",      inputIndex: 1 },
+    { ...DEFAULT_SOLAR_PANEL, label: "XTM Blanket",    wattPeak: 200, model: "XTM 200W Foldable",  inputIndex: 1 },
   ],
   victronDevices: [
-    { ...VICTRON_BMV712,    id: crypto.randomUUID() },
-    { ...VICTRON_SMARTSOLAR, id: crypto.randomUUID() },
-    { ...VICTRON_ORION_XS,  id: crypto.randomUUID() },
-    { ...VICTRON_ORION_TR,  id: crypto.randomUUID() },
+    { ...VICTRON_BMV712,         id: crypto.randomUUID() },
+    { ...VICTRON_SMARTSHUNT_500, id: crypto.randomUUID() },
+    { ...VICTRON_SMARTSOLAR_ROOF, id: crypto.randomUUID() }, // MPPT 0 — Caravan Roof (inputIndex 0)
+    { ...VICTRON_SMARTSOLAR,     id: crypto.randomUUID() },  // MPPT 1 — External Input (inputIndex 1)
+    { ...VICTRON_ORION_XS,       id: crypto.randomUUID() },
+    { ...VICTRON_ORION_TR,       id: crypto.randomUUID() },
   ],
   jbproBms: [
     { ...BMPRO_JD35D,       id: crypto.randomUUID() },
@@ -434,11 +460,16 @@ function TF({ value, onChange, placeholder, type = "text", unit }: {
   value: string | number; onChange: (v: string) => void;
   placeholder?: string; type?: string; unit?: string;
 }) {
+  const [local, setLocal] = useState(() => String(value ?? ""));
+  const focused = useRef(false);
+  useEffect(() => { if (!focused.current) setLocal(String(value ?? "")); }, [value]);
   return (
     <div className="flex items-center gap-1.5">
       <Input
-        type={type} value={value} placeholder={placeholder}
-        onChange={e => onChange(e.target.value)}
+        type={type} value={local} placeholder={placeholder}
+        onFocus={() => { focused.current = true; }}
+        onBlur={() => { focused.current = false; }}
+        onChange={e => { setLocal(e.target.value); onChange(e.target.value); }}
         className="h-7 text-xs"
       />
       {unit && <span className="text-[10px] text-muted-foreground shrink-0">{unit}</span>}
@@ -449,11 +480,16 @@ function TF({ value, onChange, placeholder, type = "text", unit }: {
 function NumF({ value, onChange, unit, min, step = 1 }: {
   value: number; onChange: (v: number) => void; unit?: string; min?: number; step?: number;
 }) {
+  const [local, setLocal] = useState(() => value === 0 ? "" : String(value));
+  const focused = useRef(false);
+  useEffect(() => { if (!focused.current) setLocal(value === 0 ? "" : String(value)); }, [value]);
   return (
     <div className="flex items-center gap-1.5">
       <Input
-        type="number" value={value === 0 ? "" : value} min={min} step={step}
-        placeholder="0" onChange={e => onChange(parseFloat(e.target.value) || 0)}
+        type="number" value={local} min={min} step={step} placeholder="0"
+        onFocus={() => { focused.current = true; }}
+        onBlur={() => { focused.current = false; }}
+        onChange={e => { setLocal(e.target.value); onChange(parseFloat(e.target.value) || 0); }}
         className="h-7 text-xs"
       />
       {unit && <span className="text-[10px] text-muted-foreground shrink-0">{unit}</span>}
@@ -599,6 +635,243 @@ function BatteryCard({ bat, onChange, index }: {
   );
 }
 
+// ── Topology Diagram ──────────────────────────────────────────────────────────
+
+function TopoBlock({ title, titleColor, borderColor, bgColor, children }: {
+  title: string; titleColor: string; borderColor: string; bgColor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn("rounded-lg border p-3 space-y-1.5 h-full", borderColor, bgColor)}>
+      <p className={cn("text-[10px] font-bold uppercase tracking-widest mb-2", titleColor)}>{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function TopoRow({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="flex justify-between items-start text-[11px] gap-2">
+      <span className="text-muted-foreground truncate">{label}</span>
+      <span className="font-semibold tabular-nums text-right shrink-0">{value}{sub && <span className="text-[9px] text-muted-foreground font-normal ml-1">{sub}</span>}</span>
+    </div>
+  );
+}
+
+function TopoDivider({ label }: { label?: string }) {
+  return (
+    <div className="flex items-center gap-1.5 py-0.5">
+      <div className="flex-1 h-px bg-border/60" />
+      {label && <span className="text-[9px] text-muted-foreground/60 uppercase tracking-wider shrink-0">{label}</span>}
+      <div className="flex-1 h-px bg-border/60" />
+    </div>
+  );
+}
+
+function TopologyDiagram({ cfg }: { cfg: PowerConfig }) {
+  const mpptDevices = cfg.victronDevices.filter(d =>
+    d.type === "SmartSolar MPPT" || d.type === "BlueSolar MPPT"
+  );
+  const dcDcDevices = cfg.victronDevices.filter(d =>
+    d.type === "Orion-Tr DC-DC" || d.type === "Orion-Tr Smart DC-DC"
+  );
+  const shuntDevices = cfg.victronDevices.filter(d =>
+    (d.type === "SmartShunt" || d.type === "BMV Battery Monitor") &&
+    d.location.toLowerCase().includes("tow")
+  );
+  const bmvDevices = cfg.victronDevices.filter(d =>
+    d.type === "BMV Battery Monitor" && !d.location.toLowerCase().includes("tow")
+  );
+
+  // Group panels by MPPT index (inputIndex → position in mpptDevices)
+  const panelsByMppt: Record<number, typeof cfg.solarPanels> = {};
+  cfg.solarPanels.forEach(p => {
+    const idx = p.inputIndex ?? 0;
+    if (!panelsByMppt[idx]) panelsByMppt[idx] = [];
+    panelsByMppt[idx].push(p);
+  });
+
+  // External panels = panels on the last MPPT if ≥2 MPPTs exist, keyed by the highest inputIndex
+  const maxMpptIdx = mpptDevices.length > 1 ? mpptDevices.length - 1 : -1;
+  const externalPanels = maxMpptIdx >= 0 ? (panelsByMppt[maxMpptIdx] ?? []) : [];
+  const roofPanelGroups = mpptDevices.length > 0
+    ? Object.entries(panelsByMppt)
+        .filter(([idx]) => Number(idx) < maxMpptIdx || maxMpptIdx < 0)
+        .sort(([a], [b]) => Number(a) - Number(b))
+    : [];
+
+  const primaryDcDc = dcDcDevices[0];
+  const bmsDevice = cfg.jbproBms.find(b => b.capacityAh > 0 || b.maxChargeA > 0 || b.model);
+
+  return (
+    <div className="space-y-3 text-xs">
+      {/* Row: TOW VEHICLE | POWER MGMT | CARAVAN */}
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_180px_1fr] gap-3 items-stretch">
+
+        {/* ── TOW VEHICLE ── */}
+        <TopoBlock title="Tow Vehicle" titleColor="text-[#b8943e]" borderColor="border-[#b8943e]/35" bgColor="bg-[#b8943e]/5">
+          {cfg.vehicleBatteries.map((b, i) => (
+            <TopoRow key={i}
+              label={b.label || `Battery ${i + 1}`}
+              value={`${b.capacityAh} Ah`}
+              sub={b.chemistry}
+            />
+          ))}
+          {shuntDevices.length > 0 && (
+            <>
+              <TopoDivider label="Monitor" />
+              {shuntDevices.map(d => (
+                <div key={d.id} className="flex items-center gap-1.5 text-[11px]">
+                  <div className="h-2 w-2 rounded-full bg-[#b8943e] shrink-0" />
+                  <span className="text-[#b8943e] font-medium">{d.deviceName || d.model}</span>
+                  <span className="text-muted-foreground text-[10px] ml-auto">{d.model.split(" ").slice(-1)[0]}</span>
+                </div>
+              ))}
+            </>
+          )}
+        </TopoBlock>
+
+        {/* ── POWER MANAGEMENT (middle column) ── */}
+        <div className="flex flex-col gap-2 justify-center">
+          {/* DC-DC converter */}
+          {primaryDcDc ? (
+            <div className="rounded border border-primary/35 bg-primary/5 px-2.5 py-2 text-center">
+              <p className="text-[10px] font-bold text-primary">{primaryDcDc.deviceName || "DC-DC"}</p>
+              <p className="text-[9px] text-muted-foreground leading-tight mt-0.5">
+                {primaryDcDc.model.split(" ").slice(0, 3).join(" ")}
+              </p>
+              {primaryDcDc.maxCurrentA && (
+                <p className="text-[9px] font-semibold text-primary/80 mt-0.5">{primaryDcDc.maxCurrentA}A</p>
+              )}
+            </div>
+          ) : (
+            <div className="rounded border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-center">
+              <p className="text-[9px] text-muted-foreground">DC-DC Converter</p>
+            </div>
+          )}
+
+          {/* Horizontal wire between panels */}
+          <div className="flex items-center gap-1 justify-center">
+            <div className="flex-1 h-px bg-primary/25" />
+            <div className="h-1.5 w-1.5 rounded-full bg-primary/40 shrink-0" />
+            <div className="flex-1 h-px bg-primary/25" />
+          </div>
+
+          {/* MPPT controllers */}
+          {mpptDevices.map((mppt, i) => {
+            const isExternal = i === maxMpptIdx && maxMpptIdx >= 0;
+            const panels = panelsByMppt[i] ?? [];
+            return (
+              <div key={mppt.id} className={cn(
+                "rounded border px-2.5 py-2",
+                isExternal
+                  ? "border-dashed border-[#d9b880]/50 bg-[#d9b880]/5"
+                  : "border-[#d9b880]/40 bg-[#d9b880]/5"
+              )}>
+                <p className={cn("text-[10px] font-bold", isExternal ? "text-[#b8943e]/80" : "text-[#b8943e]")}>
+                  {mppt.deviceName || `MPPT ${i + 1}`}
+                </p>
+                <p className="text-[9px] text-muted-foreground leading-tight">
+                  {mppt.model.split(" ").slice(-2).join(" ")}
+                </p>
+                {panels.length > 0 && (
+                  <div className="mt-1.5 pt-1.5 border-t border-[#d9b880]/25 space-y-0.5">
+                    {panels.map((p, j) => (
+                      <div key={j} className="flex justify-between text-[9px] gap-1">
+                        <span className="text-muted-foreground truncate">{p.label}</span>
+                        <span className="font-medium shrink-0">{p.wattPeak}W</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {mpptDevices.length === 0 && (
+            <div className="rounded border border-[#d9b880]/20 bg-muted/10 px-2.5 py-1.5 text-center">
+              <p className="text-[9px] text-muted-foreground">No MPPT configured</p>
+            </div>
+          )}
+
+          {/* BMS */}
+          {bmsDevice && (
+            <div className="rounded border border-border/60 bg-muted/15 px-2.5 py-2 text-center">
+              <p className="text-[9px] font-semibold text-muted-foreground">{bmsDevice.model}</p>
+              <p className="text-[9px] text-muted-foreground/60">BMS</p>
+            </div>
+          )}
+        </div>
+
+        {/* ── CARAVAN ── */}
+        <TopoBlock title="Caravan" titleColor="text-primary" borderColor="border-primary/35" bgColor="bg-primary/5">
+          {cfg.caravanBatteries.map((b, i) => (
+            <TopoRow key={i}
+              label={b.label || `Battery ${i + 1}`}
+              value={`${b.capacityAh} Ah`}
+              sub={b.chemistry}
+            />
+          ))}
+          {bmvDevices.length > 0 && (
+            <>
+              <TopoDivider label="Monitor" />
+              {bmvDevices.map(d => (
+                <div key={d.id} className="flex items-center gap-1.5 text-[11px]">
+                  <div className="h-2 w-2 rounded-full bg-primary shrink-0" />
+                  <span className="text-primary font-medium">{d.deviceName || d.model}</span>
+                </div>
+              ))}
+            </>
+          )}
+          {roofPanelGroups.length > 0 && (
+            <>
+              <TopoDivider label="Roof Panels" />
+              {roofPanelGroups.map(([, panels]) =>
+                panels.map((p, j) => (
+                  <div key={j} className="flex justify-between items-center text-[11px]">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      <Sun className="h-2.5 w-2.5 text-[#d9b880]" />{p.label}
+                    </span>
+                    <span className="tabular-nums font-medium">{p.wattPeak}W</span>
+                  </div>
+                ))
+              )}
+            </>
+          )}
+        </TopoBlock>
+      </div>
+
+      {/* External / Portable Panels */}
+      {externalPanels.length > 0 && (
+        <div className="rounded-lg border border-dashed border-[#d9b880]/45 bg-[#d9b880]/4 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Sun className="h-3 w-3 text-[#b8943e]" />
+            <p className="text-[10px] font-bold text-[#b8943e] uppercase tracking-widest">
+              External / Portable Panels
+              {mpptDevices[maxMpptIdx] && (
+                <span className="font-normal normal-case tracking-normal text-muted-foreground ml-1.5">
+                  via {mpptDevices[maxMpptIdx].deviceName || `MPPT ${maxMpptIdx + 1}`}
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {externalPanels.map((p, i) => (
+              <div key={i} className="rounded border border-[#d9b880]/30 bg-card px-2.5 py-2">
+                <p className="text-[11px] font-semibold">{p.label}</p>
+                <p className="text-[10px] text-muted-foreground">{p.wattPeak}W</p>
+                {p.model && <p className="text-[9px] text-muted-foreground/70 truncate">{p.model}</p>}
+              </div>
+            ))}
+          </div>
+          <p className="text-[9px] text-muted-foreground/60 italic mt-2">
+            Portable panels — can connect to tow vehicle or caravan depending on campsite setup
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Sub-pages ────────────────────────────────────────────────────────────────
 
 function OverviewTab({ cfg }: { cfg: PowerConfig }) {
@@ -658,59 +931,7 @@ function OverviewTab({ cfg }: { cfg: PowerConfig }) {
           <CardTitle className="text-sm">System Topology</CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            {/* Tow Vehicle */}
-            <div className="rounded-lg border border-[#b8943e]/30 bg-[#b8943e]/5 p-3 space-y-2">
-              <p className="font-bold text-[#b8943e] text-[11px] uppercase tracking-wide">Tow Vehicle</p>
-              {cfg.vehicleBatteries.map((b, i) => (
-                <div key={i} className="flex justify-between items-center text-[11px]">
-                  <span className="text-muted-foreground">{b.label || `Battery ${i + 1}`}</span>
-                  <span className="font-semibold tabular-nums">{b.capacityAh} Ah {b.chemistry}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* DC-DC Link */}
-            <div className="flex items-center justify-center">
-              <div className="text-center space-y-1">
-                <div className="flex items-center gap-2 justify-center">
-                  <div className="h-px w-8 bg-primary/40" />
-                  <div className="rounded border border-primary/30 bg-primary/5 px-2 py-1 text-[10px] font-semibold text-primary">
-                    DC-DC {cfg.dcDcConverter.maxCurrentA}A
-                  </div>
-                  <div className="h-px w-8 bg-primary/40" />
-                </div>
-                <p className="text-[9px] text-muted-foreground">{cfg.dcDcConverter.model || "DC-DC Converter"}</p>
-                {cfg.solarInputs.map((si, i) => si.mpptModel && (
-                  <div key={i} className="rounded border border-[#d9b880]/30 bg-[#d9b880]/5 px-2 py-0.5 text-[9px] text-center">
-                    Solar {i + 1}: {si.mpptModel}
-                  </div>
-                ))}
-                <div className="rounded border border-border bg-muted/20 px-2 py-0.5 text-[9px] text-center">
-                  Jayo {cfg.jayoBms.model || "JD35D"} BMS
-                </div>
-              </div>
-            </div>
-
-            {/* Caravan */}
-            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
-              <p className="font-bold text-primary text-[11px] uppercase tracking-wide">Caravan</p>
-              {cfg.caravanBatteries.map((b, i) => (
-                <div key={i} className="flex justify-between items-center text-[11px]">
-                  <span className="text-muted-foreground">{b.label || `Battery ${i + 1}`}</span>
-                  <span className="font-semibold tabular-nums">{b.capacityAh} Ah {b.chemistry}</span>
-                </div>
-              ))}
-              <div className="border-t border-primary/20 pt-2 space-y-1">
-                {cfg.solarPanels.map((p, i) => p.wattPeak > 0 && (
-                  <div key={i} className="flex justify-between items-center text-[10px]">
-                    <span className="text-muted-foreground flex items-center gap-1"><Sun className="h-2.5 w-2.5" />{p.label}</span>
-                    <span className="tabular-nums">{p.wattPeak}W</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <TopologyDiagram cfg={cfg} />
         </CardContent>
       </Card>
     </div>
@@ -1159,8 +1380,33 @@ function VictronTab({ cfg, update }: { cfg: PowerConfig; update: (c: PowerConfig
     ...cfg, victronDevices: cfg.victronDevices.map(d => d.id === id ? { ...d, ...patch } : d),
   });
 
+  // Detect which DEFAULT_CONFIG devices are missing from the current list (match by model)
+  const existingModels = new Set(cfg.victronDevices.map(d => d.model.trim().toLowerCase()));
+  const missingDefaults = DEFAULT_CONFIG.victronDevices.filter(
+    d => d.model && !existingModels.has(d.model.trim().toLowerCase())
+  );
+  const mergeDefaults = () => {
+    const toAdd = missingDefaults.map(d => ({ ...d, id: crypto.randomUUID() }));
+    update({ ...cfg, victronDevices: [...cfg.victronDevices, ...toAdd] });
+  };
+
   return (
     <div className="space-y-4">
+      {missingDefaults.length > 0 && (
+        <div className="flex items-start gap-3 rounded-lg border border-[#d9b880]/40 bg-[#d9b880]/8 px-3 py-2.5">
+          <Sun className="h-4 w-4 text-[#b8943e] shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-semibold text-[#b8943e]">New default devices available</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {missingDefaults.map(d => d.deviceName || d.model).join(", ")}
+            </p>
+          </div>
+          <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 shrink-0 border-[#b8943e]/40 text-[#b8943e] hover:bg-[#b8943e]/10"
+            onClick={mergeDefaults}>
+            <Plus className="h-3.5 w-3.5" /> Add Missing
+          </Button>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
           Scan each device's QR code label to capture the Victron product link and a photo of the sticker.
@@ -1558,7 +1804,11 @@ export default function PowerConfigPage() {
         {
           onSuccess: (saved) => {
             budgetRef.current = { ...base, ...saved };
-            queryClient.invalidateQueries({ queryKey: getGetGlobalBudgetQueryKey() });
+            // Update cache directly — do NOT invalidate (refetch would overwrite cfg mid-typing)
+            queryClient.setQueryData(getGetGlobalBudgetQueryKey(), (old: unknown) => ({
+              ...(old as object ?? {}),
+              ...(saved as object),
+            }));
             isDirtyRef.current = false;
             setSaveState("saved");
             setTimeout(() => setSaveState("idle"), 2500);
