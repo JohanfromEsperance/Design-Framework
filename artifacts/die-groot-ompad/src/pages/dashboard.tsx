@@ -546,15 +546,13 @@ function FinancialOverviewChart({ months, superPortfolio, savings }: FinancialOv
               <XAxis dataKey="label" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} interval={1} />
               <YAxis yAxisId="left" tick={{ fontSize: 9 }} tickFormatter={v => fmtAudK(v)} width={52} axisLine={false} tickLine={false}
                 domain={[yMin || -1, yMax || 1]} />
-              {hasSavings && (
-                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 9 }} tickFormatter={v => fmtAudK(v)}
-                  width={52} axisLine={false} tickLine={false} />
-              )}
+              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 9 }} tickFormatter={v => fmtAudK(v)}
+                width={hasSavings ? 52 : 0} axisLine={false} tickLine={false} hide={!hasSavings} />
 
               <RechartsTooltip
                 contentStyle={{ fontSize: 10, borderRadius: 6, border: "1px solid #e5e7eb", background: "#ffffff" }}
                 formatter={(val: number, name: string) => {
-                  if (name === "savingsPoolBalance") return [fmtAud(Math.abs(val)), "Savings Pool Balance"];
+                  if (name === "Savings Pool") return [fmtAud(Math.abs(val)), "Savings Pool Balance"];
                   const isExp = name.startsWith("exp_");
                   const label = isExp ? (EXPENSE_LABELS[name.replace("exp_", "")] ?? name) : (INCOME_LABELS[name] ?? name);
                   return [fmtAud(Math.abs(val)), label];
