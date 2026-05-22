@@ -51,6 +51,7 @@ const TRAVEL_EXPENSES = [
   { key: "entertainment", label: "Entertainment & Activities" },
   { key: "passesPermits", label: "Passes & Permits" },
   { key: "ferries",       label: "Ferries & Transport" },
+  { key: "gasBottles",    label: "Gas Bottle Filling" },
 ];
 
 const VEHICLE_COSTS = [
@@ -202,7 +203,7 @@ const BASE_BILLS = {
   starlink: 80, johanMobile: 60, zandraMobile: 60,
   medical: 500, prescriptions: 250, apartmentInsurance: 112,
   superContribution: 1161, savingsZandra: 0, savingsJohan: 0,
-  rentalWater: 0, rentalElectricity: 0,
+  rentalWater: 0, rentalElectricity: 0, gasBottles: 0,
   vehicleService: 0, caravanService: 0, tyresVehicle: 0, tyresCaravan: 0, repairs: 0,
   vehicleLicence: 0, caravanLicence: 0, vehicleInsurance: 0, caravanInsurance: 0, roadsideAssist: 0,
   rentalNet: 1611, salary: 0, businessIncome: 0, refunds: 0, otherIncome1: 0, otherIncome2: 0,
@@ -315,13 +316,35 @@ export default function BudgetPage() {
 
     // ── Sub-page injection helpers ───────────────────────────────────────────
 
-    // Rental sub-page is authoritative for rentalNet.
+    // Rental sub-page is authoritative for rentalNet and all rental expense rows.
+    // Mirrors the calculation in handleRentalChange so on-load values match user-entered values.
     const withRentalNet = (months: Record<string, any>, rental: any): Record<string, any> => {
-      const net = computeMonthlyRentalNet(rental);
-      if (net === 0) return months;
+      if (!rental || Object.keys(rental).length === 0) return months;
+      const cfg = { ...DEFAULT_RENTAL, ...rental } as RentalConfig;
+      const grossRent   = cfg.weeklyRent * (52 - cfg.vacancyWeeks);
+      const mgmtFees    = (cfg.managementFeeRate / 100) * grossRent;
+      const lettingFees = cfg.lettingFeeWeeks * cfg.weeklyRent;
+      const interestExp = (cfg.loanBalance * cfg.interestRate) / 100;
+      const monthlyGrossRent   = Math.round(grossRent / 12);
+      if (monthlyGrossRent === 0) return months;
+      const monthlyInterest    = Math.round(interestExp / 12);
+      const monthlyRates       = Math.round((cfg.councilRates + cfg.strataLevies + cfg.landTax) / 12);
+      const monthlyWater       = Math.round(cfg.waterRates / 12);
+      const monthlyElectricity = Math.round((cfg.electricity ?? 0) / 12);
+      const monthlyMgmt        = Math.round((mgmtFees + lettingFees) / 12);
+      const monthlyOther       = Math.round((cfg.landlordInsurance + cfg.repairs + cfg.advertising + cfg.accountingFees + cfg.legalFees + cfg.bankCharges) / 12);
       const out: Record<string, any> = {};
       for (let i = 0; i < 60; i++) {
-        out[i.toString()] = { ...(months[i.toString()] ?? {}), rentalNet: net };
+        out[i.toString()] = {
+          ...(months[i.toString()] ?? {}),
+          rentalNet:         monthlyGrossRent,
+          rentalInterest:    monthlyInterest,
+          rentalRatesLevies: monthlyRates,
+          rentalWater:       monthlyWater,
+          rentalElectricity: monthlyElectricity,
+          rentalMgmtFees:    monthlyMgmt,
+          rentalOtherCosts:  monthlyOther,
+        };
       }
       return out;
     };
@@ -720,12 +743,28 @@ export default function BudgetPage() {
     [computedTotals, viewStart, viewEnd]
   );
 
+  // Index of the current month relative to budget base (March 2026 = 0)
+  const todayMonthIdx = useMemo(() => {
+    const now = new Date();
+    return Math.max(0, Math.min(59,
+      (now.getFullYear() - 2026) * 12 + (now.getMonth() - 2)
+    ));
+  }, []);
+
   const balanceOverview = useMemo(() =>
     computedTotals.map((t, i) => ({
-      name: i % 12 === 0 ? `Y${Math.floor(i / 12) + 1}` : "",
+      name: i === todayMonthIdx
+        ? (i % 12 === 0 ? `Y${Math.floor(i / 12) + 1}/Now` : "Now")
+        : (i % 12 === 0 ? `Y${Math.floor(i / 12) + 1}` : ""),
       balance: t.closingBalance,
       year: Math.floor(i / 12),
     })),
+    [computedTotals, todayMonthIdx]
+  );
+
+  // Monthly drawdown = net budget outflow (positive = drawing from savings, negative = surplus)
+  const monthlyDrawdown = useMemo(() =>
+    computedTotals.map(t => t.totalExpenses - t.totalIncome),
     [computedTotals]
   );
 
@@ -1017,6 +1056,7 @@ export default function BudgetPage() {
           <SavingsSub
             data={{ ...DEFAULT_SAVINGS, ...(budgetData.savings as SavingsWorksheet ?? {}) }}
             onChange={handleSavingsChange}
+            drawdown={monthlyDrawdown}
           />
         )}
 
@@ -1217,6 +1257,8 @@ export default function BudgetPage() {
                   <RechartsTooltip contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", fontSize: 10 }}
                     formatter={(v: number) => [`$${v.toLocaleString()}`, "Balance"]} />
                   <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 2" strokeWidth={1.5} />
+                  <ReferenceLine x="Now" stroke="#d9b880" strokeWidth={2} strokeDasharray="5 3"
+                    label={{ value: "Today", position: "insideTopLeft", fontSize: 9, fill: "#d9b880", fontWeight: "bold" }} />
                   <Area dataKey="balance" name="Balance" type="monotone"
                     fill="#1f6f5f" fillOpacity={0.18} stroke="#1f6f5f" strokeWidth={2} />
                 </AreaChart>

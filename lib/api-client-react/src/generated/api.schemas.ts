@@ -123,7 +123,12 @@ export interface RentalConfig {
   vacancyWeeks?: number;
   councilRates?: number;
   waterRates?: number;
+  electricity?: number;
   landlordInsurance?: number;
+  landlordInsurancePolicy?: string;
+  ownersInsurance?: number;
+  ownersInsurancePolicy?: string;
+  leaseSigningDate?: string;
   strataLevies?: number;
   landTax?: number;
   managementFeeRate?: number;

@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { PiggyBank, TrendingUp, ArrowDownCircle, ArrowUpCircle, Wallet } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PiggyBank, TrendingUp, ArrowDownCircle, ArrowUpCircle, Wallet, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
+  CartesianGrid, Tooltip, ReferenceLine,
+} from "recharts";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -25,12 +29,21 @@ export const DEFAULT_SAVINGS: SavingsWorksheet = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const BUDGET_BASE = new Date(2026, 2, 1);
+
 const monthLabel = (i: number, style: "short" | "long" = "short"): string => {
   const d = new Date(BUDGET_BASE.getFullYear(), BUDGET_BASE.getMonth() + i, 1);
   return d.toLocaleDateString("en-AU", style === "short"
     ? { month: "short", year: "2-digit" }
     : { month: "long", year: "numeric" });
 };
+
+// Current month index relative to budget base (March 2026 = 0)
+const todayMonthIdx = (() => {
+  const now = new Date();
+  return Math.max(0, Math.min(59,
+    (now.getFullYear() - 2026) * 12 + (now.getMonth() - 2)
+  ));
+})();
 
 const fmt = (n: number) => new Intl.NumberFormat("en-AU", {
   style: "currency", currency: "AUD", maximumFractionDigits: 0,
@@ -111,23 +124,25 @@ function BalanceInput({ value, onChange }: { value: number; onChange: (v: number
 interface SavingsSubProps {
   data: SavingsWorksheet;
   onChange: (updated: SavingsWorksheet) => void;
+  drawdown?: number[];
 }
 
-export default function SavingsSub({ data, onChange }: SavingsSubProps) {
+export default function SavingsSub({ data, onChange, drawdown }: SavingsSubProps) {
   const ws = { ...DEFAULT_SAVINGS, ...data, months: data.months ?? {} };
   const [viewYear, setViewYear] = useState(0);
 
   const viewStart = viewYear * 12;
   const visibleMonths = Array.from({ length: 12 }, (_, i) => viewStart + i);
 
-  // Compute running balance across all 60 months
+  // Compute running balance across all 60 months (factors in drawdown)
   const runningBalance = (() => {
     let bal = ws.openingBalance;
     return Array.from({ length: 60 }, (_, i) => {
-      const m = getMonth(ws, i);
+      const m    = getMonth(ws, i);
+      const draw = drawdown?.[i] ?? 0;
       const opening = bal;
-      bal = bal + m.deposit - m.withdrawal;
-      return { opening, deposit: m.deposit, withdrawal: m.withdrawal, closing: bal };
+      bal = bal + m.deposit - m.withdrawal - draw;
+      return { opening, deposit: m.deposit, withdrawal: m.withdrawal, drawdown: draw, closing: bal };
     });
   })();
 
@@ -141,12 +156,26 @@ export default function SavingsSub({ data, onChange }: SavingsSubProps) {
 
   const periodDeposits    = visibleMonths.reduce((s, i) => s + runningBalance[i].deposit, 0);
   const periodWithdrawals = visibleMonths.reduce((s, i) => s + runningBalance[i].withdrawal, 0);
-  const periodNet         = periodDeposits - periodWithdrawals;
+  const periodDrawdown    = visibleMonths.reduce((s, i) => s + Math.max(0, runningBalance[i].drawdown), 0);
+  const periodNet         = periodDeposits - periodWithdrawals - periodDrawdown;
   const closingBalance    = runningBalance[viewStart + 11]?.closing ?? ws.openingBalance;
   const openingThisYear   = runningBalance[viewStart]?.opening ?? ws.openingBalance;
 
   const minBalance = Math.min(...runningBalance.slice(0, 60).map(b => b.closing));
   const maxBalance = Math.max(...runningBalance.slice(0, 60).map(b => b.closing));
+
+  // 60-month chart data
+  const chartData = runningBalance.map((b, i) => ({
+    name: i === todayMonthIdx ? "Now" : (i % 6 === 0 ? monthLabel(i, "short") : ""),
+    mi: i,
+    balance: b.closing,
+    drawdownVal: Math.max(0, b.drawdown),
+  }));
+
+  const total5yrDeposits    = runningBalance.reduce((s, b) => s + b.deposit, 0);
+  const total5yrWithdrawals = runningBalance.reduce((s, b) => s + b.withdrawal, 0);
+  const total5yrDrawdown    = runningBalance.reduce((s, b) => s + Math.max(0, b.drawdown), 0);
+  const finalBalance        = runningBalance[59]?.closing ?? ws.openingBalance;
 
   return (
     <div className="space-y-4 p-0">
@@ -174,12 +203,45 @@ export default function SavingsSub({ data, onChange }: SavingsSubProps) {
         </div>
       </div>
 
+      {/* ── 60-Month Pool Balance Chart ── */}
+      <Card>
+        <CardHeader className="pb-1 pt-3 px-4">
+          <CardTitle className="text-sm">60-Month Savings Pool Balance</CardTitle>
+          <p className="text-[11px] text-muted-foreground">
+            Opening balance minus budget drawdown, plus your manual deposits and withdrawals.
+            Amber dashed line = today ({monthLabel(todayMonthIdx, "short")}).
+          </p>
+        </CardHeader>
+        <CardContent className="h-48 px-2 pb-3">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.12} />
+              <XAxis dataKey="name" tick={{ fontSize: 9 }} tickLine={false} axisLine={{ stroke: "#e5e7eb40" }} />
+              <YAxis tick={{ fontSize: 9 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} tickLine={false} axisLine={false} />
+              <Tooltip
+                contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", fontSize: 10 }}
+                formatter={(v: number) => [fmt(v), "Pool Balance"]}
+                labelFormatter={(_: any, payload: any[]) => payload?.[0] ? monthLabel(payload[0].payload.mi, "long") : ""}
+              />
+              <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 2" strokeWidth={1.5} />
+              <ReferenceLine
+                x="Now"
+                stroke="#d9b880" strokeWidth={2} strokeDasharray="5 3"
+                label={{ value: "Today", position: "insideTopLeft", fontSize: 9, fill: "#d9b880", fontWeight: "bold" }}
+              />
+              <Area dataKey="balance" name="Pool Balance" type="monotone"
+                fill="#1f6f5f" fillOpacity={0.18} stroke="#1f6f5f" strokeWidth={2} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
       {/* KPI strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: `Year ${viewYear + 1} Opening`, value: fmt(openingThisYear), icon: Wallet, color: "text-foreground" },
           { label: `Year ${viewYear + 1} Deposits`, value: fmt(periodDeposits), icon: ArrowDownCircle, color: "text-primary" },
-          { label: `Year ${viewYear + 1} Withdrawals`, value: fmt(periodWithdrawals), icon: ArrowUpCircle, color: "text-[#b8943e]" },
+          { label: `Year ${viewYear + 1} Drawdown`, value: fmt(periodDrawdown), icon: TrendingDown, color: "text-destructive" },
           {
             label: `Year ${viewYear + 1} Closing`,
             value: fmt(closingBalance),
@@ -280,6 +342,30 @@ export default function SavingsSub({ data, onChange }: SavingsSubProps) {
                   </td>
                 </tr>
 
+                {/* Drawdown row — read-only, from budget calculation */}
+                <tr className="border-b border-border/20 bg-destructive/3">
+                  <td className="p-2 pl-3">
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <TrendingDown className="h-3 w-3 text-destructive shrink-0" />
+                        <span className="font-semibold text-destructive">Drawdown</span>
+                      </div>
+                      <span className="text-[9px] text-muted-foreground leading-tight">Monthly budget deficit pulled from savings</span>
+                    </div>
+                  </td>
+                  {visibleMonths.map(mi => {
+                    const draw = Math.max(0, runningBalance[mi].drawdown);
+                    return (
+                      <td key={mi} className="p-2 text-right tabular-nums font-medium text-destructive">
+                        {draw > 0 ? fmt(draw) : <span className="text-muted-foreground/40">—</span>}
+                      </td>
+                    );
+                  })}
+                  <td className="p-2 pr-3 text-right tabular-nums font-semibold text-destructive">
+                    {periodDrawdown > 0 ? fmt(periodDrawdown) : "—"}
+                  </td>
+                </tr>
+
                 {/* Closing balance row */}
                 <tr className="border-t-2 border-border bg-primary/5">
                   <td className="p-2 pl-3 font-bold text-xs uppercase tracking-wide text-primary">Closing Balance</td>
@@ -307,10 +393,40 @@ export default function SavingsSub({ data, onChange }: SavingsSubProps) {
         </CardContent>
       </Card>
 
+      {/* ── 5-Year Total Savings Calculation ── */}
+      <Card>
+        <CardHeader className="py-3 px-4">
+          <CardTitle className="text-sm">5-Year Total Savings Calculation</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="divide-y divide-border/30">
+            {[
+              { label: "Opening Balance (Month 0)",      value: ws.openingBalance,    color: "text-foreground",  sign: "" },
+              { label: "Total Deposits (60 months)",     value: total5yrDeposits,     color: "text-primary",     sign: "+" },
+              { label: "Total Withdrawals (60 months)",  value: total5yrWithdrawals,  color: "text-[#b8943e]",   sign: "−" },
+              { label: "Total Drawdown (60 months)",     value: total5yrDrawdown,     color: "text-destructive", sign: "−" },
+            ].map(({ label, value, color, sign }) => (
+              <div key={label} className="flex items-center justify-between px-4 py-2.5">
+                <span className="text-xs text-muted-foreground">{label}</span>
+                <span className={cn("text-sm font-semibold tabular-nums", color)}>
+                  {sign} {fmt(value)}
+                </span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between px-4 py-3 bg-primary/5">
+              <span className="text-xs font-bold text-foreground uppercase tracking-wide">Closing Pool Balance (Month 60)</span>
+              <span className={cn("text-lg font-bold tabular-nums", finalBalance >= 0 ? "text-primary" : "text-destructive")}>
+                {fmt(finalBalance)}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex gap-6 text-[10px] text-muted-foreground">
         <span><span className="inline-block w-2 h-2 rounded-full bg-primary mr-1" />Deposit — money moved into this bucket</span>
         <span><span className="inline-block w-2 h-2 rounded-full bg-[#d9b880] mr-1" />Withdrawal — money taken from this bucket</span>
-        <span>Running balance starts from Opening Balance (Month 0) and rolls forward each month.</span>
+        <span><span className="inline-block w-2 h-2 rounded-full bg-destructive mr-1" />Drawdown — monthly budget deficit (auto from Budget overview)</span>
       </div>
     </div>
   );

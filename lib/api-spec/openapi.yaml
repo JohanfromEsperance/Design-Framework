@@ -785,7 +785,12 @@ components:
         vacancyWeeks: { type: number }
         councilRates: { type: number }
         waterRates: { type: number }
+        electricity: { type: number }
         landlordInsurance: { type: number }
+        landlordInsurancePolicy: { type: string }
+        ownersInsurance: { type: number }
+        ownersInsurancePolicy: { type: string }
+        leaseSigningDate: { type: string }
         strataLevies: { type: number }
         landTax: { type: number }
         managementFeeRate: { type: number }

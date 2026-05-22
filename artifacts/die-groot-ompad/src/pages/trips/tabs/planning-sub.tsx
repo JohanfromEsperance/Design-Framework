@@ -34,12 +34,12 @@ const PLANNING_DEFAULTS: PlanningMonth = {
   atHome: false,
   freeNights: 12,
   paidNights: 18,
-  paidRate: 55,
+  paidRate: 75,
   plannedKm: 1200,
   fuelConsumption: 18,
-  fuelPrice: 2.20,
+  fuelPrice: 2.80,
   totalDays: 30,
-  foodDailyRate: 50,
+  foodDailyRate: 30,
   eatingOut: 150,
   entertainment: 120,
   passesPermits: 0,
@@ -326,8 +326,9 @@ interface ChartDatum {
   aiTrend: number;
 }
 
-function PlanningChart({ data, chartMonths }: { data: ChartDatum[]; chartMonths: 24 | 60 }) {
-  const slice = data.slice(0, chartMonths);
+function PlanningChart({ data, from, to }: { data: ChartDatum[]; from: number; to: number }) {
+  const slice = data.slice(from, to + 1);
+  const count = slice.length;
 
   const maxCost  = Math.max(...slice.map(d => d.aiBandHigh), 1);
   const maxNight = Math.max(...slice.map(d => d.freeNights + d.paidNights), 1);
@@ -367,7 +368,7 @@ function PlanningChart({ data, chartMonths }: { data: ChartDatum[]; chartMonths:
           tick={{ fontSize: 10, fill: "#9ca3af" }}
           tickLine={false}
           axisLine={{ stroke: "#e5e7eb40" }}
-          interval={chartMonths === 24 ? 1 : 4}
+          interval={count <= 24 ? 1 : count <= 36 ? 2 : 4}
         />
         <YAxis
           yAxisId="cost"
@@ -482,8 +483,9 @@ interface PlanningSubProps {
 }
 
 export default function PlanningSub({ months, tripStartDate, onChange }: PlanningSubProps) {
-  const [viewYear, setViewYear]     = useState(0);
-  const [chartMonths, setChartMonths] = useState<24 | 60>(24);
+  const [viewYear, setViewYear] = useState(0);
+  const [chartFrom, setChartFrom] = useState(0);
+  const [chartTo,   setChartTo]   = useState(59);
   const start = viewYear * 12;
 
   // All 60 months for chart computation
@@ -677,34 +679,63 @@ export default function PlanningSub({ months, tripStartDate, onChange }: Plannin
         ))}
       </div>
 
-      {/* ── 24-Month Summary Chart ── */}
+      {/* ── Travel Cost Summary Chart ── */}
       <Card>
         <CardHeader className="py-3 px-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
-              <CardTitle className="text-sm">Travel Cost Trend — {chartMonths}-Month Overview</CardTitle>
+              <CardTitle className="text-sm">
+                Travel Cost Trend — {monthLabel(tripStartDate, chartFrom, "medium")} to {monthLabel(tripStartDate, chartTo, "medium")} ({chartTo - chartFrom + 1} months)
+              </CardTitle>
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 Stacked bars = cost breakdown · Red band = AI projected range (±1 std dev) ·
                 Right axis: free nights (green), paid nights (orange), km÷20 (sand)
               </p>
             </div>
-            <div className="flex gap-1">
-              {([24, 60] as const).map(n => (
-                <button key={n} onClick={() => setChartMonths(n)}
-                  className={cn(
-                    "px-3 py-1 rounded text-xs font-semibold border transition-colors",
-                    chartMonths === n
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "border-border text-muted-foreground hover:bg-muted"
-                  )}>
-                  {n} months
-                </button>
-              ))}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] text-muted-foreground">From</span>
+              <select
+                value={chartFrom}
+                onChange={e => { const v = Number(e.target.value); setChartFrom(v); if (v > chartTo) setChartTo(v); }}
+                className="border border-border rounded px-2 py-1 text-xs bg-card text-foreground"
+              >
+                {Array.from({ length: 60 }, (_, i) => (
+                  <option key={i} value={i}>{monthLabel(tripStartDate, i, "medium")}</option>
+                ))}
+              </select>
+              <span className="text-[11px] text-muted-foreground">To</span>
+              <select
+                value={chartTo}
+                onChange={e => setChartTo(Number(e.target.value))}
+                className="border border-border rounded px-2 py-1 text-xs bg-card text-foreground"
+              >
+                {Array.from({ length: 60 }, (_, i) => (
+                  <option key={i} value={i} disabled={i < chartFrom}>{monthLabel(tripStartDate, i, "medium")}</option>
+                ))}
+              </select>
+              <div className="flex gap-1 ml-1">
+                {[
+                  { label: "12 mo", from: 0, to: 11 },
+                  { label: "24 mo", from: 0, to: 23 },
+                  { label: "All",   from: 0, to: 59 },
+                ].map(p => (
+                  <button key={p.label}
+                    onClick={() => { setChartFrom(p.from); setChartTo(p.to); }}
+                    className={cn(
+                      "px-2 py-1 rounded text-xs font-semibold border transition-colors",
+                      chartFrom === p.from && chartTo === p.to
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-border text-muted-foreground hover:bg-muted"
+                    )}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </CardHeader>
         <CardContent className="px-2 pb-4">
-          <PlanningChart data={chartData} chartMonths={chartMonths} />
+          <PlanningChart data={chartData} from={chartFrom} to={chartTo} />
         </CardContent>
       </Card>
 
