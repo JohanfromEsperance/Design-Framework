@@ -139,6 +139,12 @@ interface ComputerController {
   notes: string;
 }
 
+interface SafetyDevice {
+  model: string;
+  serialNumber: string;
+  notes: string;
+}
+
 interface PowerConfig {
   vehicleBatteries: BatteryConfig[];
   caravanBatteries: BatteryConfig[];
@@ -150,6 +156,9 @@ interface PowerConfig {
   jayoBms: JayoBMS;
   subPowerBoard: SubPowerBoard;
   computerController: ComputerController;
+  swayCommand: SafetyDevice;
+  towSecure: SafetyDevice;
+  brakeController: SafetyDevice;
   utilities12v: UtilityDevice[];
   peakSunHours: number;
 }
@@ -187,6 +196,61 @@ const DEFAULT_JBPRO: JBProBMS = {
   maxChargeA: 100, maxDischargeA: 200, pdfName: "", pdfData: "", notes: "",
 };
 
+const BMPRO_JD35D: JBProBMS = {
+  id: crypto.randomUUID(), location: "Caravan",
+  model: "BMPRO J35D",
+  serialNumber: "",
+  cellCount: 4, capacityAh: 100,
+  balanceV: 3.50, ovProtectionV: 3.65, uvProtectionV: 2.80,
+  maxChargeA: 35, maxDischargeA: 200,
+  pdfName: "", pdfData: "",
+  notes: "35A DC-DC charger + solar MPPT + BMS. Supports LiFePO4 (4S). Input: 9–32V DC. Pairs with ControlNODE, PX Gateway and JCONTROL display.",
+};
+
+const BMPRO_CONTROLNODE: JBProBMS = {
+  id: crypto.randomUUID(), location: "Caravan",
+  model: "BMPRO ControlNODE",
+  serialNumber: "",
+  cellCount: 0, capacityAh: 0,
+  balanceV: 0, ovProtectionV: 0, uvProtectionV: 0,
+  maxChargeA: 0, maxDischargeA: 0,
+  pdfName: "", pdfData: "",
+  notes: "Wireless remote control node for BMPRO power system. Connects to J35D via CAN bus. Enables remote monitoring and control.",
+};
+
+const BMPRO_PXSHUNT500: JBProBMS = {
+  id: crypto.randomUUID(), location: "Caravan",
+  model: "BMPRO PXShunt500",
+  serialNumber: "",
+  cellCount: 0, capacityAh: 0,
+  balanceV: 0, ovProtectionV: 0, uvProtectionV: 0,
+  maxChargeA: 0, maxDischargeA: 500,
+  pdfName: "", pdfData: "",
+  notes: "500A current shunt for precision battery monitoring. Measures charge/discharge current for accurate state-of-charge. Wired between battery negative and loads.",
+};
+
+const BMPRO_GATEWAY: JBProBMS = {
+  id: crypto.randomUUID(), location: "Caravan",
+  model: "BMPRO PX Gateway",
+  serialNumber: "",
+  cellCount: 0, capacityAh: 0,
+  balanceV: 0, ovProtectionV: 0, uvProtectionV: 0,
+  maxChargeA: 0, maxDischargeA: 0,
+  pdfName: "", pdfData: "",
+  notes: "Wi-Fi / Bluetooth gateway for BMPRO system. Connects BMPRO ecosystem to the Journey app for remote monitoring, alerts, and firmware updates.",
+};
+
+const BMPRO_JCONTROL: JBProBMS = {
+  id: crypto.randomUUID(), location: "Caravan",
+  model: "BMPRO JCONTROL",
+  serialNumber: "",
+  cellCount: 0, capacityAh: 0,
+  balanceV: 0, ovProtectionV: 0, uvProtectionV: 0,
+  maxChargeA: 0, maxDischargeA: 0,
+  pdfName: "", pdfData: "",
+  notes: "Touchscreen control panel and display for BMPRO J35D system. Shows battery voltage, SoC%, charge current, solar input, and system alerts.",
+};
+
 const DEFAULT_UTILITY: UtilityDevice = {
   label: "12V Appliance", powerW: 0, estimatedHoursPerDay: 0, notes: "",
 };
@@ -212,17 +276,40 @@ const DEFAULT_CONFIG: PowerConfig = {
     { ...DEFAULT_SOLAR_PANEL, label: "Panel 2" },
   ],
   victronDevices: [{ ...DEFAULT_VICTRON, id: crypto.randomUUID(), type: "SmartSolar MPPT" }],
-  jbproBms: [{ ...DEFAULT_JBPRO, id: crypto.randomUUID() }],
+  jbproBms: [
+    { ...BMPRO_JD35D,       id: crypto.randomUUID() },
+    { ...BMPRO_CONTROLNODE, id: crypto.randomUUID() },
+    { ...BMPRO_PXSHUNT500,  id: crypto.randomUUID() },
+    { ...BMPRO_GATEWAY,     id: crypto.randomUUID() },
+    { ...BMPRO_JCONTROL,    id: crypto.randomUUID() },
+  ],
   dcDcConverter: {
-    model: "", serialNumber: "", inputVoltage: 12, outputVoltage: 12,
-    maxCurrentA: 40, pdfName: "", pdfData: "", notes: "",
+    model: "BMPRO J35D (DC-DC channel)", serialNumber: "", inputVoltage: 12, outputVoltage: 12,
+    maxCurrentA: 35, pdfName: "", pdfData: "",
+    notes: "DC-DC charging channel of the integrated J35D unit. 35A, 9–32V input.",
   },
   jayoBms: {
-    model: "JD35D", serialNumber: "", cellCount: 4, capacityAh: 100,
-    maxChargeA: 35, pdfName: "", pdfData: "", notes: "",
+    model: "BMPRO J35D", serialNumber: "", cellCount: 4, capacityAh: 100,
+    maxChargeA: 35, pdfName: "", pdfData: "",
+    notes: "Integrated Jayco/BMPRO BMS + 35A DC-DC + solar MPPT. LiFePO4 4S. OV: 3.65V, UV: 2.8V, balance: 3.50V.",
   },
   subPowerBoard: { model: "", serialNumber: "", maxAmps: 100, circuits: 8, notes: "" },
-  computerController: { model: "", serialNumber: "", powerW: 0, notes: "" },
+  computerController: { model: "BMPRO JCONTROL", serialNumber: "", powerW: 5, notes: "BMPRO touchscreen control panel. ~5W standby draw." },
+  swayCommand: {
+    model: "BMPRO SwayCommand",
+    serialNumber: "",
+    notes: "Integrated caravan sway detection and correction system. Works in conjunction with the electric brake controller to apply independent caravan brakes when sway is detected. Mounts inside the caravan.",
+  },
+  towSecure: {
+    model: "TOW-SECURE Breakaway System",
+    serialNumber: "",
+    notes: "12V breakaway battery and activation system. Automatically applies caravan brakes if the caravan separates from the tow vehicle. Battery requires annual charge check. Lanyard connects to tow ball mount.",
+  },
+  brakeController: {
+    model: "REDARC Tow-Pro Elite",
+    serialNumber: "",
+    notes: "Electric brake controller. Supports up to 4 axles with electric or electric-over-hydraulic brakes. Proportional (inertia) or user-controlled modes. Mounts in vehicle cabin. Part: EBRH-TPELITEV4.",
+  },
   utilities12v: Array.from({ length: 6 }, (_, i) => ({ ...DEFAULT_UTILITY, label: `Utility ${i + 1}` })),
   peakSunHours: 5.5,
 };
@@ -238,10 +325,13 @@ function mergeCfg(raw: unknown): PowerConfig {
       vehicleBatteries: parsed.vehicleBatteries?.length ? parsed.vehicleBatteries : DEFAULT_CONFIG.vehicleBatteries,
       caravanBatteries: parsed.caravanBatteries?.length ? parsed.caravanBatteries : DEFAULT_CONFIG.caravanBatteries,
       solarInputs: parsed.solarInputs?.length ? parsed.solarInputs : DEFAULT_CONFIG.solarInputs,
-      solarPanels: parsed.solarPanels ?? DEFAULT_CONFIG.solarPanels,
-      victronDevices: parsed.victronDevices ?? DEFAULT_CONFIG.victronDevices,
-      jbproBms: parsed.jbproBms ?? DEFAULT_CONFIG.jbproBms,
+      solarPanels: parsed.solarPanels?.length ? parsed.solarPanels : DEFAULT_CONFIG.solarPanels,
+      victronDevices: parsed.victronDevices?.length ? parsed.victronDevices : DEFAULT_CONFIG.victronDevices,
+      jbproBms: parsed.jbproBms?.length ? parsed.jbproBms : DEFAULT_CONFIG.jbproBms,
       utilities12v: parsed.utilities12v?.length ? parsed.utilities12v : DEFAULT_CONFIG.utilities12v,
+      swayCommand: parsed.swayCommand ?? DEFAULT_CONFIG.swayCommand,
+      towSecure: parsed.towSecure ?? DEFAULT_CONFIG.towSecure,
+      brakeController: parsed.brakeController ?? DEFAULT_CONFIG.brakeController,
     };
   } catch { return DEFAULT_CONFIG; }
 }
@@ -777,38 +867,68 @@ function VictronQrScanner({ onResult }: { onResult: (r: VictronQrResult) => void
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const decodeQrFromImage = useCallback((img: HTMLImageElement): string | null => {
+    const MAX = 1600;
+    const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.round(img.naturalWidth * scale);
+    const h = Math.round(img.naturalHeight * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, w, h);
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: "attemptBoth",
+    });
+    return code?.data ?? null;
+  }, []);
+
+  const handleFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setScanning(true);
     setError(null);
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) { setScanning(false); return; }
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
-        setScanning(false);
-        if (code) {
-          onResult({ url: code.data, photoData: dataUrl, photoName: file.name });
-        } else {
-          setError("No QR code found in this image — photo saved without URL.");
-          onResult({ url: "", photoData: dataUrl, photoName: file.name });
-        }
-        if (inputRef.current) inputRef.current.value = "";
-      };
-      img.src = dataUrl;
-    };
-    reader.readAsDataURL(file);
-  }, [onResult]);
+    const dataUrl: string = await new Promise(res => {
+      const reader = new FileReader();
+      reader.onload = ev => res(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    });
+
+    let qrUrl = "";
+
+    // 1 — Try native BarcodeDetector (Android Chrome, iOS 17+ Safari) — most reliable
+    if ("BarcodeDetector" in window) {
+      try {
+        type BD = { detect(img: Blob): Promise<{ rawValue: string }[]> };
+        const detector = new (window as unknown as { BarcodeDetector: new(o: object) => BD }).BarcodeDetector({ formats: ["qr_code"] });
+        const results = await detector.detect(file);
+        if (results.length > 0) qrUrl = results[0].rawValue;
+      } catch { /* fall through to jsQR */ }
+    }
+
+    // 2 — Fall back to jsQR with resized canvas
+    if (!qrUrl) {
+      const img = await new Promise<HTMLImageElement>((res, rej) => {
+        const i = new Image();
+        i.onload = () => res(i);
+        i.onerror = rej;
+        i.src = dataUrl;
+      });
+      qrUrl = decodeQrFromImage(img) ?? "";
+    }
+
+    setScanning(false);
+    if (qrUrl) {
+      onResult({ url: qrUrl, photoData: dataUrl, photoName: file.name });
+    } else {
+      setError("No QR code found — photo saved. Enter the URL manually or try a clearer shot.");
+      onResult({ url: "", photoData: dataUrl, photoName: file.name });
+    }
+    if (inputRef.current) inputRef.current.value = "";
+  }, [onResult, decodeQrFromImage]);
 
   return (
     <div>
@@ -1092,6 +1212,36 @@ function AccessoriesTab({ cfg, update }: { cfg: PowerConfig; update: (c: PowerCo
           <div className="sm:col-span-2">
             <FieldRow label="Notes"><TF value={cc.notes} onChange={v => update({...cfg,computerController:{...cc,notes:v}})} /></FieldRow>
           </div>
+        </div>
+      </Section>
+
+      <Section title="Caravan Sway Control" icon={Settings}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+          {(() => { const sw = cfg.swayCommand; return (<>
+            <FieldRow label="Model"><TF value={sw.model} onChange={v => update({...cfg,swayCommand:{...sw,model:v}})} placeholder="BMPRO SwayCommand" /></FieldRow>
+            <FieldRow label="Serial Number"><TF value={sw.serialNumber} onChange={v => update({...cfg,swayCommand:{...sw,serialNumber:v}})} /></FieldRow>
+            <div className="sm:col-span-2"><FieldRow label="Notes"><TF value={sw.notes} onChange={v => update({...cfg,swayCommand:{...sw,notes:v}})} /></FieldRow></div>
+          </>); })()}
+        </div>
+      </Section>
+
+      <Section title="Breakaway System" icon={Settings}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+          {(() => { const ts = cfg.towSecure; return (<>
+            <FieldRow label="Model"><TF value={ts.model} onChange={v => update({...cfg,towSecure:{...ts,model:v}})} placeholder="TOW-SECURE" /></FieldRow>
+            <FieldRow label="Serial Number"><TF value={ts.serialNumber} onChange={v => update({...cfg,towSecure:{...ts,serialNumber:v}})} /></FieldRow>
+            <div className="sm:col-span-2"><FieldRow label="Notes"><TF value={ts.notes} onChange={v => update({...cfg,towSecure:{...ts,notes:v}})} /></FieldRow></div>
+          </>); })()}
+        </div>
+      </Section>
+
+      <Section title="Electric Brake Controller" icon={Settings}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+          {(() => { const bc = cfg.brakeController; return (<>
+            <FieldRow label="Model"><TF value={bc.model} onChange={v => update({...cfg,brakeController:{...bc,model:v}})} placeholder="REDARC Tow-Pro Elite" /></FieldRow>
+            <FieldRow label="Serial Number"><TF value={bc.serialNumber} onChange={v => update({...cfg,brakeController:{...bc,serialNumber:v}})} /></FieldRow>
+            <div className="sm:col-span-2"><FieldRow label="Notes"><TF value={bc.notes} onChange={v => update({...cfg,brakeController:{...bc,notes:v}})} /></FieldRow></div>
+          </>); })()}
         </div>
       </Section>
 

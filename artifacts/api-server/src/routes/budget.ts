@@ -38,6 +38,7 @@ router.get("/budget", async (req, res): Promise<void> => {
       rental: {},
       super: {},
       shares: {},
+      powerConfig: {},
       updatedAt: new Date().toISOString(),
     }));
     return;
