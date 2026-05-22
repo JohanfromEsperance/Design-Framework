@@ -189,6 +189,11 @@ export type BudgetPlanVehicleDocs = { [key: string]: unknown };
  */
 export type BudgetPlanChecklists = { [key: string]: unknown };
 
+/**
+ * Power and BMS system configuration (batteries, solar, Victron, JBPRO)
+ */
+export type BudgetPlanPowerConfig = { [key: string]: unknown };
+
 export interface SuperAccount {
   id: string;
   name: string;
@@ -323,6 +328,8 @@ export interface BudgetPlan {
   /** Checklist item states keyed by checklist id then item id */
   checklists?: BudgetPlanChecklists;
   savings?: SavingsWorksheet;
+  /** Power and BMS system configuration (batteries, solar, Victron, JBPRO) */
+  powerConfig?: BudgetPlanPowerConfig;
   updatedAt: string;
 }
 
@@ -343,6 +350,11 @@ export type BudgetPlanInputVehicleDocs = { [key: string]: unknown };
  */
 export type BudgetPlanInputChecklists = { [key: string]: unknown };
 
+/**
+ * Power and BMS system configuration (batteries, solar, Victron, JBPRO)
+ */
+export type BudgetPlanInputPowerConfig = { [key: string]: unknown };
+
 export interface BudgetPlanInput {
   year: string;
   months: BudgetPlanInputMonths;
@@ -358,6 +370,8 @@ export interface BudgetPlanInput {
   /** Checklist item states keyed by checklist id then item id */
   checklists?: BudgetPlanInputChecklists;
   savings?: SavingsWorksheet;
+  /** Power and BMS system configuration (batteries, solar, Victron, JBPRO) */
+  powerConfig?: BudgetPlanInputPowerConfig;
 }
 
 export interface MonthCashflow {

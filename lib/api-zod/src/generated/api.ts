@@ -385,6 +385,7 @@ export const GetGlobalBudgetResponse = zod.object({
   "withdrawal": zod.number().optional()
 })).optional().describe('Map of month index (0-59) to SavingsMonth')
 }).optional(),
+  "powerConfig": zod.record(zod.string(), zod.unknown()).optional().describe('Power and BMS system configuration (batteries, solar, Victron, JBPRO)'),
   "updatedAt": zod.string()
 })
 
@@ -520,7 +521,8 @@ export const SaveGlobalBudgetBody = zod.object({
   "deposit": zod.number().optional(),
   "withdrawal": zod.number().optional()
 })).optional().describe('Map of month index (0-59) to SavingsMonth')
-}).optional()
+}).optional(),
+  "powerConfig": zod.record(zod.string(), zod.unknown()).optional().describe('Power and BMS system configuration (batteries, solar, Victron, JBPRO)')
 })
 
 export const SaveGlobalBudgetResponse = zod.object({
@@ -654,6 +656,7 @@ export const SaveGlobalBudgetResponse = zod.object({
   "withdrawal": zod.number().optional()
 })).optional().describe('Map of month index (0-59) to SavingsMonth')
 }).optional(),
+  "powerConfig": zod.record(zod.string(), zod.unknown()).optional().describe('Power and BMS system configuration (batteries, solar, Victron, JBPRO)'),
   "updatedAt": zod.string()
 })
 
@@ -812,6 +815,7 @@ export const GetBudgetResponse = zod.object({
   "withdrawal": zod.number().optional()
 })).optional().describe('Map of month index (0-59) to SavingsMonth')
 }).optional(),
+  "powerConfig": zod.record(zod.string(), zod.unknown()).optional().describe('Power and BMS system configuration (batteries, solar, Victron, JBPRO)'),
   "updatedAt": zod.string()
 })
 
@@ -951,7 +955,8 @@ export const SaveBudgetBody = zod.object({
   "deposit": zod.number().optional(),
   "withdrawal": zod.number().optional()
 })).optional().describe('Map of month index (0-59) to SavingsMonth')
-}).optional()
+}).optional(),
+  "powerConfig": zod.record(zod.string(), zod.unknown()).optional().describe('Power and BMS system configuration (batteries, solar, Victron, JBPRO)')
 })
 
 export const SaveBudgetResponse = zod.object({
@@ -1085,6 +1090,7 @@ export const SaveBudgetResponse = zod.object({
   "withdrawal": zod.number().optional()
 })).optional().describe('Map of month index (0-59) to SavingsMonth')
 }).optional(),
+  "powerConfig": zod.record(zod.string(), zod.unknown()).optional().describe('Power and BMS system configuration (batteries, solar, Victron, JBPRO)'),
   "updatedAt": zod.string()
 })
 

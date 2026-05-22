@@ -7,6 +7,7 @@
  */
 import type { BudgetPlanInputChecklists } from './budgetPlanInputChecklists';
 import type { BudgetPlanInputMonths } from './budgetPlanInputMonths';
+import type { BudgetPlanInputPowerConfig } from './budgetPlanInputPowerConfig';
 import type { BudgetPlanInputVehicleDocs } from './budgetPlanInputVehicleDocs';
 import type { BudgetPlanInputVehicleProfile } from './budgetPlanInputVehicleProfile';
 import type { IncomeWorksheet } from './incomeWorksheet';
@@ -31,4 +32,6 @@ export interface BudgetPlanInput {
   /** Checklist item states keyed by checklist id then item id */
   checklists?: BudgetPlanInputChecklists;
   savings?: SavingsWorksheet;
+  /** Power and BMS system configuration (batteries, solar, Victron, JBPRO) */
+  powerConfig?: BudgetPlanInputPowerConfig;
 }

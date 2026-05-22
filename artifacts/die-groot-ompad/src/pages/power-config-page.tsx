@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import {
   Zap, Battery, Sun, ArrowRight, Upload, FileText, Trash2, Plus,
   ChevronDown, ChevronUp, Settings, Cpu, Plug, CircuitBoard,
+  Cloud, CloudOff, Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-
-// ── Storage ───────────────────────────────────────────────────────────────────
-
-const STORAGE_KEY = "power_config_v1";
+import { useGetGlobalBudget, useSaveGlobalBudget, getGetGlobalBudgetQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useSaveContext } from "@/lib/save-context";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -218,28 +218,24 @@ const DEFAULT_CONFIG: PowerConfig = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function load(): PowerConfig {
+function mergeCfg(raw: unknown): PowerConfig {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_CONFIG;
-    const parsed = JSON.parse(raw) as Partial<PowerConfig>;
+    const parsed = (raw ?? {}) as Partial<PowerConfig>;
     return {
       ...DEFAULT_CONFIG,
       ...parsed,
-      vehicleBatteries: parsed.vehicleBatteries ?? DEFAULT_CONFIG.vehicleBatteries,
-      caravanBatteries: parsed.caravanBatteries ?? DEFAULT_CONFIG.caravanBatteries,
-      solarInputs: parsed.solarInputs ?? DEFAULT_CONFIG.solarInputs,
+      vehicleBatteries: parsed.vehicleBatteries?.length ? parsed.vehicleBatteries : DEFAULT_CONFIG.vehicleBatteries,
+      caravanBatteries: parsed.caravanBatteries?.length ? parsed.caravanBatteries : DEFAULT_CONFIG.caravanBatteries,
+      solarInputs: parsed.solarInputs?.length ? parsed.solarInputs : DEFAULT_CONFIG.solarInputs,
       solarPanels: parsed.solarPanels ?? DEFAULT_CONFIG.solarPanels,
       victronDevices: parsed.victronDevices ?? DEFAULT_CONFIG.victronDevices,
       jbproBms: parsed.jbproBms ?? DEFAULT_CONFIG.jbproBms,
-      utilities12v: parsed.utilities12v ?? DEFAULT_CONFIG.utilities12v,
+      utilities12v: parsed.utilities12v?.length ? parsed.utilities12v : DEFAULT_CONFIG.utilities12v,
     };
   } catch { return DEFAULT_CONFIG; }
 }
 
-function save(cfg: PowerConfig) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
-}
+type SaveState = "idle" | "saving" | "saved" | "error";
 
 const fmt = (n: number, decimals = 0) =>
   n.toLocaleString("en-AU", { maximumFractionDigits: decimals });
@@ -991,19 +987,105 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
 ];
 
 export default function PowerConfigPage() {
-  const [cfg, setCfg] = useState<PowerConfig>(() => load());
-  const [tab, setTab] = useState<Tab>("overview");
+  const { data: globalBudget, isLoading } = useGetGlobalBudget();
+  const saveBudget = useSaveGlobalBudget();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const [cfg, setCfg] = useState<PowerConfig>(DEFAULT_CONFIG);
+  const [tab, setTab] = useState<Tab>("overview");
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+
+  const budgetRef   = useRef<any>(null);
+  const cfgRef      = useRef<PowerConfig>(DEFAULT_CONFIG);
+  const isDirtyRef  = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load powerConfig from DB when global budget arrives
+  useEffect(() => {
+    if (!globalBudget) return;
+    budgetRef.current = globalBudget;
+    if (globalBudget.powerConfig && typeof globalBudget.powerConfig === "object") {
+      const merged = mergeCfg(globalBudget.powerConfig);
+      setCfg(merged);
+      cfgRef.current = merged;
+    }
+  }, [globalBudget]);
+
+  // Force-save impl — reads from refs, no stale closures
+  const forceSaveImpl = useRef<() => void>(() => {});
+  useEffect(() => {
+    forceSaveImpl.current = () => {
+      if (!isDirtyRef.current) return;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      const base = budgetRef.current ?? {};
+      setSaveState("saving");
+      saveBudget.mutate(
+        {
+          data: {
+            year:           base.year ?? new Date().getFullYear().toString(),
+            months:         base.months ?? {},
+            rental:         base.rental,
+            super:          base.super,
+            shares:         base.shares,
+            income:         base.income,
+            tax:            base.tax,
+            vehicleProfile: base.vehicleProfile,
+            vehicleDocs:    base.vehicleDocs,
+            checklists:     base.checklists,
+            savings:        base.savings,
+            powerConfig:    cfgRef.current as unknown as Record<string, unknown>,
+          },
+        },
+        {
+          onSuccess: (saved) => {
+            budgetRef.current = { ...base, ...saved };
+            queryClient.invalidateQueries({ queryKey: getGetGlobalBudgetQueryKey() });
+            isDirtyRef.current = false;
+            setSaveState("saved");
+            setTimeout(() => setSaveState("idle"), 2500);
+          },
+          onError: () => setSaveState("error"),
+        }
+      );
+    };
+  }, [saveBudget, queryClient]);
+
+  // Register with global SaveContext (flush on tab-nav or page unload)
+  const { register, unregister } = useSaveContext();
+  const stableSave = useCallback(() => forceSaveImpl.current(), []);
+  useEffect(() => {
+    register(stableSave);
+    return () => {
+      if (isDirtyRef.current) forceSaveImpl.current();
+      unregister();
+    };
+  }, [register, unregister, stableSave]);
+
+  // Debounced auto-save on every change
   const update = useCallback((next: PowerConfig) => {
     setCfg(next);
-    save(next);
+    cfgRef.current = next;
+    isDirtyRef.current = true;
+    setSaveState("saving");
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => forceSaveImpl.current(), 1200);
   }, []);
 
-  const handleSave = () => {
-    save(cfg);
-    toast({ title: "Configuration saved", description: "All power system parameters saved locally." });
-  };
+  const saveIndicator = {
+    idle:   null,
+    saving: <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><Save className="h-3.5 w-3.5 animate-pulse" /> Saving…</span>,
+    saved:  <span className="flex items-center gap-1.5 text-xs text-primary"><Cloud className="h-3.5 w-3.5" /> Saved to cloud</span>,
+    error:  <span className="flex items-center gap-1.5 text-xs text-destructive"><CloudOff className="h-3.5 w-3.5" /> Save failed</span>,
+  }[saveState];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+        Loading configuration…
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 space-y-5">
@@ -1018,10 +1100,12 @@ export default function PowerConfigPage() {
             Battery management, solar system, Victron energy equipment, JBPRO BMS, and 12V accessories
           </p>
         </div>
-        <Button size="sm" onClick={handleSave} className="gap-2">
-          <Settings className="h-4 w-4" />
-          Save Configuration
-        </Button>
+        <div className="flex items-center gap-3">
+          {saveIndicator}
+          <Button size="sm" variant="outline" onClick={() => forceSaveImpl.current()} className="gap-2 h-8">
+            <Save className="h-3.5 w-3.5" /> Save Now
+          </Button>
+        </div>
       </div>
 
       {/* Tab bar */}
