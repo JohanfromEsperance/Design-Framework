@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './assetRegisterData';
+export * from './assetRegisterDataLocationsItem';
 export * from './budgetPlan';
 export * from './budgetPlanChecklists';
 export * from './budgetPlanInput';

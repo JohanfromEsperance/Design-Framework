@@ -4,3 +4,4 @@ export * from "./budget";
 export * from "./journal";
 export * from "./vehicle";
 export * from "./gps";
+export * from "./storage";

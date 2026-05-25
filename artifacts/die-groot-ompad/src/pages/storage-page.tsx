@@ -30,6 +30,7 @@ import {
   STORAGE_KEY, QR_PREFIX, makeQrPayload, parseQrPayload,
   loadRegister, saveRegister, buildPowerSeedLocations,
 } from "@/lib/storage-store";
+import { useGetStorageRegister, useSaveStorageRegister } from "@workspace/api-client-react";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -988,6 +989,9 @@ function ScanResultModal({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function StoragePage() {
+  const { data: remoteData } = useGetStorageRegister();
+  const saveToApi = useSaveStorageRegister();
+  const firstRender = React.useRef(true);
   const [register, setRegister] = useState(() => loadRegister());
   const [activeCategory, setActiveCategory] = useState<LocationCategory | "ALL">("ALL");
   const [search, setSearch] = useState("");
@@ -999,8 +1003,24 @@ export default function StoragePage() {
   const [addItemForSerial, setAddItemForSerial] = useState(false);
   const { toast } = useToast();
 
-  // Persist on every change
-  useEffect(() => { saveRegister(register); }, [register]);
+  // On first API load: if local is empty, restore from DB
+  useEffect(() => {
+    if (!remoteData || register.locations.length > 0) return;
+    const remote = remoteData as unknown as typeof register;
+    if (remote.locations.length > 0) {
+      setRegister(remote);
+      saveRegister(remote);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remoteData]);
+
+  // Persist on every change (skip first render to avoid overwriting fresher API data)
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    saveRegister(register);
+    saveToApi.mutate({ data: register as unknown as import("@workspace/api-client-react").AssetRegisterData });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [register]);
 
   // Offer to seed power equipment on first load
   const [showSeedPrompt, setShowSeedPrompt] = useState(() => {

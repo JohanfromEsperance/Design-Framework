@@ -528,3 +528,10 @@ export interface DashboardStats {
   tripBreakdown: TripCostBreakdown[];
 }
 
+export type AssetRegisterDataLocationsItem = { [key: string]: unknown };
+
+export interface AssetRegisterData {
+  locations: AssetRegisterDataLocationsItem[];
+  lastModified: string;
+}
+

@@ -9,6 +9,7 @@ import vehicleRouter from "./vehicle";
 import gpsRouter from "./gps";
 import analyticsRouter from "./analytics";
 import seedRouter from "./seed";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(journalRouter);
 router.use(vehicleRouter);
 router.use(gpsRouter);
 router.use(analyticsRouter);
+router.use(storageRouter);
 
 export default router;

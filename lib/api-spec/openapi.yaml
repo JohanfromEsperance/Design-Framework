@@ -24,6 +24,8 @@ tags:
     description: GPS track logging
   - name: analytics
     description: Analytics and summaries
+  - name: storage
+    description: Asset register and storage locations
 
 paths:
   /healthz:
@@ -581,6 +583,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DashboardStats"
+
+  # ── Storage ───────────────────────────────────────────────────────────────
+  /storage/register:
+    get:
+      operationId: getStorageRegister
+      tags: [storage]
+      summary: Get asset register for the current user
+      responses:
+        "200":
+          description: Asset register
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetRegisterData"
+    put:
+      operationId: saveStorageRegister
+      tags: [storage]
+      summary: Save asset register for the current user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetRegisterData"
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetRegisterData"
 
 components:
   schemas:
@@ -1411,3 +1444,16 @@ components:
                 type: number
               withdrawal:
                 type: number
+
+    # ── Storage ────────────────────────────────────────────────────────────────
+    AssetRegisterData:
+      type: object
+      required: [locations, lastModified]
+      properties:
+        locations:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        lastModified:
+          type: string

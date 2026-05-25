@@ -13,7 +13,7 @@ import {
   loadAdvanceBookings, bookingStatus, outstandingAmount,
   ADV_TYPE_LABELS, ADV_TYPE_COLORS,
 } from "@/lib/advance-bookings-store";
-import type { Booking } from "./bookings-tab";
+import type { Booking } from "@/lib/bookings-store";
 
 const STORAGE_KEY = (tripId: number) => `bookings_trip_${tripId}`;
 const NOTES_KEY = (tripId: number) => `trip_notes_${tripId}`;

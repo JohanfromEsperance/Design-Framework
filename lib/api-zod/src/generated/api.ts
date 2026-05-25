@@ -1373,3 +1373,26 @@ export const GetDashboardResponse = zod.object({
 })
 
 
+/**
+ * @summary Get asset register for the current user
+ */
+export const GetStorageRegisterResponse = zod.object({
+  "locations": zod.array(zod.record(zod.string(), zod.unknown())),
+  "lastModified": zod.string()
+})
+
+
+/**
+ * @summary Save asset register for the current user
+ */
+export const SaveStorageRegisterBody = zod.object({
+  "locations": zod.array(zod.record(zod.string(), zod.unknown())),
+  "lastModified": zod.string()
+})
+
+export const SaveStorageRegisterResponse = zod.object({
+  "locations": zod.array(zod.record(zod.string(), zod.unknown())),
+  "lastModified": zod.string()
+})
+
+

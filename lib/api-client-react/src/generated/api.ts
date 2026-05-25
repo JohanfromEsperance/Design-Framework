@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AssetRegisterData,
   BudgetPlan,
   BudgetPlanInput,
   BudgetSummary,
@@ -2133,4 +2134,152 @@ export function useGetDashboard<TData = Awaited<ReturnType<typeof getDashboard>>
 
 
 
+
+export const getGetStorageRegisterUrl = () => {
+
+
+
+
+  return `/api/storage/register`
+}
+
+/**
+ * @summary Get asset register for the current user
+ */
+export const getStorageRegister = async ( options?: RequestInit): Promise<AssetRegisterData> => {
+
+  return customFetch<AssetRegisterData>(getGetStorageRegisterUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStorageRegisterQueryKey = () => {
+    return [
+    `/api/storage/register`
+    ] as const;
+    }
+
+
+export const getGetStorageRegisterQueryOptions = <TData = Awaited<ReturnType<typeof getStorageRegister>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStorageRegister>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStorageRegisterQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStorageRegister>>> = ({ signal }) => getStorageRegister({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStorageRegister>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetStorageRegisterQueryResult = NonNullable<Awaited<ReturnType<typeof getStorageRegister>>>
+export type GetStorageRegisterQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get asset register for the current user
+ */
+
+export function useGetStorageRegister<TData = Awaited<ReturnType<typeof getStorageRegister>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStorageRegister>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetStorageRegisterQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getSaveStorageRegisterUrl = () => {
+
+
+
+
+  return `/api/storage/register`
+}
+
+/**
+ * @summary Save asset register for the current user
+ */
+export const saveStorageRegister = async (assetRegisterData: AssetRegisterData, options?: RequestInit): Promise<AssetRegisterData> => {
+
+  return customFetch<AssetRegisterData>(getSaveStorageRegisterUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      assetRegisterData,)
+  }
+);}
+
+
+
+
+export const getSaveStorageRegisterMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveStorageRegister>>, TError,{data: BodyType<AssetRegisterData>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveStorageRegister>>, TError,{data: BodyType<AssetRegisterData>}, TContext> => {
+
+const mutationKey = ['saveStorageRegister'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveStorageRegister>>, {data: BodyType<AssetRegisterData>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  saveStorageRegister(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveStorageRegisterMutationResult = NonNullable<Awaited<ReturnType<typeof saveStorageRegister>>>
+    export type SaveStorageRegisterMutationBody = BodyType<AssetRegisterData>
+    export type SaveStorageRegisterMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Save asset register for the current user
+ */
+export const useSaveStorageRegister = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveStorageRegister>>, TError,{data: BodyType<AssetRegisterData>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveStorageRegister>>,
+        TError,
+        {data: BodyType<AssetRegisterData>},
+        TContext
+      > => {
+      return useMutation(getSaveStorageRegisterMutationOptions(options));
+    }
 

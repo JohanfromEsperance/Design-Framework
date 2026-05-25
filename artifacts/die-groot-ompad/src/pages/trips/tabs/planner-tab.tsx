@@ -30,6 +30,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import TripReferencePanel from "./trip-reference-panel";
+import LegBookingsPanel from "@/components/leg-bookings-panel";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { VoiceField } from "@/components/voice-button";
@@ -671,6 +672,12 @@ export default function PlannerTab({ trip, onSwitchToBookings }: PlannerTabProps
                 </Card>
               </div>
             </div>
+
+            <LegBookingsPanel
+              tripId={trip.id}
+              legId={activeLeg.id.toString()}
+              legLabel={`${activeLeg.fromPlace || "?"} → ${activeLeg.toPlace || "?"}`}
+            />
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center p-8 text-muted-foreground">
