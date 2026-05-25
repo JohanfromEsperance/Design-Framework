@@ -263,12 +263,29 @@ function ItemDialog({
   onClose: () => void;
 }) {
   const [item, setItem] = useState<StorageItem>(blankItem());
+  const [scanOpen, setScanOpen] = useState(false);
+  const { toast } = useToast();
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setItem(initial ? { ...initial } : blankItem());
   }, [initial, open]);
+
+  const handleItemScan = useCallback((payload: string) => {
+    setScanOpen(false);
+    const isUrl = payload.startsWith("http://") || payload.startsWith("https://");
+    if (isUrl) {
+      setItem(prev => ({
+        ...prev,
+        urls: [...prev.urls, { id: uid(), label: "Scanned link", url: payload }],
+      }));
+      toast({ description: "URL added to item links." });
+    } else {
+      setItem(prev => ({ ...prev, serialNumber: payload }));
+      toast({ description: "Scanned text saved as serial number." });
+    }
+  }, [toast]);
 
   const set = (field: keyof StorageItem) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setItem(prev => ({ ...prev, [field]: e.target.value }));
@@ -303,12 +320,19 @@ function ItemDialog({
   const isValid = item.name.trim().length > 0;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle className="text-sm font-semibold">
-            {initial ? "Edit Item" : "Add Item"}
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-sm font-semibold">
+              {initial ? "Edit Item" : "Add Item"}
+            </DialogTitle>
+            <Button size="sm" variant="outline" className="h-7 px-2.5 gap-1.5 text-xs"
+              onClick={() => setScanOpen(true)}>
+              <ScanLine className="h-3.5 w-3.5" /> Scan QR Tag
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -441,6 +465,12 @@ function ItemDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <QrScannerModal
+      open={scanOpen}
+      onClose={() => setScanOpen(false)}
+      onScanned={handleItemScan}
+    />
+    </>
   );
 }
 
@@ -458,6 +488,8 @@ function LocationDialog({
   onClose: () => void;
 }) {
   const [loc, setLoc] = useState<StorageLocation>(blankLocation());
+  const [scanOpen, setScanOpen] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     setLoc(initial ? { ...initial } : blankLocation());
@@ -466,20 +498,52 @@ function LocationDialog({
   const set = (field: keyof StorageLocation) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setLoc(prev => ({ ...prev, [field]: e.target.value }));
 
+  const handleLocScan = useCallback((payload: string) => {
+    setScanOpen(false);
+    // If it's already a known storage QR, pull out the raw ID and use it as a note
+    // otherwise use the scanned text as the location name (most common case: user has a label QR)
+    const isStorageQr = payload.startsWith("STORAGE:");
+    if (isStorageQr) {
+      // The QR is already a registered location tag — inform the user
+      toast({ description: "That QR belongs to an existing location. Scan from the main screen to open it." });
+    } else {
+      // Plain text or product code — pre-fill the name
+      setLoc(prev => ({ ...prev, name: payload.slice(0, 60).toUpperCase() }));
+      toast({ description: "Scanned text set as location name." });
+    }
+  }, [toast]);
+
   return (
+    <>
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent className="max-w-md" aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle className="text-sm font-semibold">
-            {initial ? "Edit Location" : "New Storage Location"}
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-sm font-semibold">
+              {initial ? "Edit Location" : "New Storage Location"}
+            </DialogTitle>
+            <Button size="sm" variant="outline" className="h-7 px-2.5 gap-1.5 text-xs"
+              onClick={() => setScanOpen(true)}>
+              <ScanLine className="h-3.5 w-3.5" /> Scan QR Tag
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="space-y-3">
           <div className="space-y-1">
             <Label className="text-xs">Location Name *</Label>
-            <Input value={loc.name} onChange={set("name")}
-              placeholder="e.g. FRONT TUNNEL DOOR LEFT" className="text-xs h-8 font-semibold" />
+            <div className="flex gap-2">
+              <Input value={loc.name} onChange={set("name")}
+                placeholder="e.g. FRONT TUNNEL DOOR LEFT" className="text-xs h-8 font-semibold flex-1" />
+              <Button size="sm" variant="outline" className="h-8 px-2 shrink-0"
+                title="Scan QR tag to fill name"
+                onClick={() => setScanOpen(true)}>
+                <ScanLine className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Scan the QR tag attached to this location to auto-fill its name
+            </p>
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Category</Label>
@@ -515,6 +579,12 @@ function LocationDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <QrScannerModal
+      open={scanOpen}
+      onClose={() => setScanOpen(false)}
+      onScanned={handleLocScan}
+    />
+    </>
   );
 }
 
