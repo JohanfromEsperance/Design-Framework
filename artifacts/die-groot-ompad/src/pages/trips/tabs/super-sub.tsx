@@ -368,6 +368,10 @@ function AccountCard({ account, onChange }: { account: SuperAccount; onChange: (
                 />
                 <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
 
+                {/* Today / projection start */}
+                <ReferenceLine x={CURRENT_YEAR} stroke="#6b5c3e" strokeWidth={1.5}
+                  label={{ value: `Today  ${CURRENT_YEAR}`, fontSize: 8, fill: "#6b5c3e", position: "insideTopRight" }} />
+
                 {/* Milestone reference lines */}
                 {preservYear !== null && preservYear >= CURRENT_YEAR && (
                   <ReferenceLine x={preservYear} stroke="#1f6f5f" strokeDasharray="5 3"
@@ -495,6 +499,10 @@ function CombinedChart({ accounts }: { accounts: SuperAccount[] }) {
             <RechartsTooltip formatter={(val: number, name: string) => [fmt(val), name]}
               labelFormatter={v => `${v}`} contentStyle={{ fontSize: 11 }} />
             <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
+            {/* Today / projection start */}
+            <ReferenceLine x={CURRENT_YEAR} stroke="#6b5c3e" strokeWidth={1.5}
+              label={{ value: `Today  ${CURRENT_YEAR}`, fontSize: 8, fill: "#6b5c3e", position: "insideTopRight" }} />
+
             {milestones.map(m => (
               <ReferenceLine key={`${m.label}-${m.year}`} x={m.year}
                 stroke={m.stroke} strokeDasharray={m.dash}
