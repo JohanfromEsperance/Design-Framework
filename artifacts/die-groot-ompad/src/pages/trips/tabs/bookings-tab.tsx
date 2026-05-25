@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,7 @@ import {
 import {
   Plus, Pencil, Trash2, Save, CalendarCheck, DollarSign,
   MapPin, Receipt, ExternalLink, Upload, X, AlertCircle,
+  Link2, Camera, ClipboardPaste, Image,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -30,7 +31,19 @@ interface BookingsTabProps {
 
 type BookingType = "free_camp" | "national_park" | "caravan_park" | "holiday_park" | "station_stay" | "bush_camp" | "rest_area";
 
-interface Booking {
+export interface SiteLink {
+  id: string;
+  label: string;
+  url: string;
+}
+
+export interface SitePhoto {
+  id: string;
+  name: string;
+  data: string;
+}
+
+export interface Booking {
   id: string;
   parkName: string;
   type: BookingType;
@@ -44,6 +57,9 @@ interface Booking {
   notes: string;
   receiptName?: string;
   receiptData?: string;
+  siteUrl?: string;
+  links?: SiteLink[];
+  referencePhotos?: SitePhoto[];
 }
 
 const TYPE_LABELS: Record<BookingType, string> = {
@@ -79,6 +95,9 @@ const EMPTY_BOOKING: Omit<Booking, "id"> = {
   membershipUsed: "",
   location: "",
   notes: "",
+  siteUrl: "",
+  links: [],
+  referencePhotos: [],
 };
 
 function loadBookings(tripId: number): Booking[] {
@@ -102,6 +121,17 @@ function googleMapsUrl(location: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location + ", Australia")}`;
 }
 
+function isValidUrl(s: string): boolean {
+  try { new URL(s); return true; } catch { return false; }
+}
+
+function normaliseUrl(s: string): string {
+  const trimmed = s.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+  return "https://" + trimmed;
+}
+
 export default function BookingsTab({ tripId }: BookingsTabProps) {
   const { toast } = useToast();
   const [bookings, setBookings] = useState<Booking[]>(() => loadBookings(tripId));
@@ -109,7 +139,12 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Omit<Booking, "id">>(EMPTY_BOOKING);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [newLinkLabel, setNewLinkLabel] = useState("");
+  const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [photoName, setPhotoName] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   const persist = (next: Booking[]) => {
     setBookings(next);
@@ -119,13 +154,19 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
   const openAdd = () => {
     setEditingId(null);
     setForm(EMPTY_BOOKING);
+    setNewLinkLabel("");
+    setNewLinkUrl("");
+    setPhotoName(null);
     setDialogOpen(true);
   };
 
   const openEdit = (b: Booking) => {
     setEditingId(b.id);
     const { id: _id, ...rest } = b;
-    setForm(rest);
+    setForm({ ...EMPTY_BOOKING, ...rest });
+    setNewLinkLabel("");
+    setNewLinkUrl("");
+    setPhotoName(null);
     setDialogOpen(true);
   };
 
@@ -165,6 +206,68 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
     reader.readAsDataURL(file);
   };
 
+  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      toast({ title: "Photo too large — max 8 MB", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const id = crypto.randomUUID();
+      const name = file.name || `photo-${Date.now()}.jpg`;
+      setPhotoName(name);
+      setForm(f => ({
+        ...f,
+        referencePhotos: [
+          ...(f.referencePhotos ?? []),
+          { id, name, data: reader.result as string },
+        ],
+      }));
+      toast({ title: "Photo saved", description: name });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const removePhoto = (photoId: string) => {
+    setForm(f => ({
+      ...f,
+      referencePhotos: (f.referencePhotos ?? []).filter(p => p.id !== photoId),
+    }));
+  };
+
+  const addLink = () => {
+    const url = normaliseUrl(newLinkUrl);
+    if (!url || !isValidUrl(url)) {
+      toast({ title: "Enter a valid URL", variant: "destructive" });
+      return;
+    }
+    setForm(f => ({
+      ...f,
+      links: [
+        ...(f.links ?? []),
+        { id: crypto.randomUUID(), label: newLinkLabel.trim() || new URL(url).hostname, url },
+      ],
+    }));
+    setNewLinkLabel("");
+    setNewLinkUrl("");
+  };
+
+  const removeLink = (linkId: string) => {
+    setForm(f => ({ ...f, links: (f.links ?? []).filter(l => l.id !== linkId) }));
+  };
+
+  const pasteUrl = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text.trim()) setNewLinkUrl(text.trim());
+    } catch {
+      toast({ title: "Paste from clipboard not supported", description: "Type or paste manually into the URL field", variant: "destructive" });
+    }
+  };
+
   const sorted = [...bookings].sort((a, b) => {
     if (!a.dateFrom) return 1;
     if (!b.dateFrom) return -1;
@@ -178,7 +281,6 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
   return (
     <div className="space-y-6 pb-8">
 
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-foreground">Park & Site Bookings</h2>
         <Button onClick={openAdd} size="sm">
@@ -186,7 +288,6 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
         </Button>
       </div>
 
-      {/* Summary strip */}
       {bookings.length > 0 && (
         <div className="grid grid-cols-3 gap-4">
           {[
@@ -214,7 +315,6 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
         </div>
       )}
 
-      {/* Booking list */}
       {sorted.length === 0 ? (
         <Card className="bg-card">
           <CardContent className="py-16 text-center">
@@ -231,6 +331,8 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
           {sorted.map(b => {
             const isExpanded = expandedId === b.id;
             const isPast = b.dateFrom && new Date(b.dateTo || b.dateFrom) < new Date();
+            const linkCount = (b.links?.length ?? 0) + (b.siteUrl ? 1 : 0);
+            const photoCount = b.referencePhotos?.length ?? 0;
             return (
               <Card key={b.id} className={cn("bg-card overflow-hidden transition-all", isPast ? "opacity-70" : "")}>
                 <CardContent className="p-0">
@@ -238,12 +340,9 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
                     className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-muted/20 transition-colors"
                     onClick={() => setExpandedId(isExpanded ? null : b.id)}
                   >
-                    {/* Type badge */}
                     <span className={cn("text-[10px] font-bold px-2 py-1 rounded-full shrink-0", TYPE_COLORS[b.type])}>
                       {TYPE_LABELS[b.type]}
                     </span>
-
-                    {/* Park name + location */}
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm text-foreground truncate">{b.parkName}</p>
                       {b.location && (
@@ -252,8 +351,6 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
                         </p>
                       )}
                     </div>
-
-                    {/* Dates */}
                     <div className="text-right shrink-0">
                       {b.dateFrom ? (
                         <>
@@ -269,18 +366,16 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
                         <p className="text-xs text-muted-foreground">No date</p>
                       )}
                     </div>
-
-                    {/* Cost */}
                     <div className="text-right shrink-0 w-20">
                       <p className="text-sm font-bold text-foreground">${(b.cost || 0).toFixed(0)}</p>
                       {b.nights > 0 && b.cost > 0 && (
                         <p className="text-[10px] text-muted-foreground">${(b.cost / b.nights).toFixed(0)}/night</p>
                       )}
                     </div>
-
-                    {/* Indicators */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      {b.receiptData && <Receipt className="h-4 w-4 text-primary" aria-label="Receipt attached" />}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {b.receiptData && <Receipt className="h-3.5 w-3.5 text-primary" />}
+                      {linkCount > 0 && <Link2 className="h-3.5 w-3.5 text-blue-500" />}
+                      {photoCount > 0 && <Image className="h-3.5 w-3.5 text-[#b8943e]" />}
                       {b.confirmationNumber && (
                         <span className="text-[10px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
                           #{b.confirmationNumber}
@@ -289,7 +384,6 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
                     </div>
                   </div>
 
-                  {/* Expanded details */}
                   {isExpanded && (
                     <div className="border-t border-border/50 px-5 py-4 space-y-4 bg-muted/10">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -313,31 +407,66 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
                         )}
                       </div>
 
-                      {/* Receipt preview */}
+                      {/* Site URL */}
+                      {b.siteUrl && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Site URL</p>
+                          <a href={b.siteUrl} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline break-all">
+                            <ExternalLink className="h-3 w-3 shrink-0" />
+                            {b.siteUrl}
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Saved links */}
+                      {b.links && b.links.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1.5">Saved Links</p>
+                          <div className="flex flex-wrap gap-2">
+                            {b.links.map(l => (
+                              <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 text-xs bg-blue-500/8 border border-blue-500/20 text-blue-700 rounded-full px-3 py-1 hover:bg-blue-500/15 transition-colors">
+                                <Link2 className="h-3 w-3 shrink-0" />
+                                {l.label}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Reference photos */}
+                      {b.referencePhotos && b.referencePhotos.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1.5">Reference Photos</p>
+                          <div className="flex flex-wrap gap-2">
+                            {b.referencePhotos.map(p => (
+                              <a key={p.id} href={p.data} download={p.name}
+                                className="flex items-center gap-1.5 text-xs bg-[#d9b880]/10 border border-[#d9b880]/30 text-[#b8943e] rounded-full px-3 py-1 hover:bg-[#d9b880]/20 transition-colors">
+                                <Image className="h-3 w-3 shrink-0" />
+                                {p.name}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Receipt */}
                       {b.receiptData && (
                         <div className="border border-border rounded-lg p-3 bg-card flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2">
                             <Receipt className="h-4 w-4 text-primary shrink-0" />
                             <span className="text-xs text-foreground font-medium">{b.receiptName || "Receipt"}</span>
                           </div>
-                          <a
-                            href={b.receiptData}
-                            download={b.receiptName || "receipt"}
-                            className="text-xs text-primary hover:underline"
-                          >
-                            Download
-                          </a>
+                          <a href={b.receiptData} download={b.receiptName || "receipt"}
+                            className="text-xs text-primary hover:underline">Download</a>
                         </div>
                       )}
 
                       <div className="flex items-center gap-2 flex-wrap">
                         {b.location && (
-                          <a
-                            href={googleMapsUrl(b.location)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-xs text-primary hover:underline"
-                          >
+                          <a href={googleMapsUrl(b.location)} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-xs text-primary hover:underline">
                             <ExternalLink className="h-3.5 w-3.5" /> View on Google Maps
                           </a>
                         )}
@@ -358,7 +487,6 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
         </div>
       )}
 
-      {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -366,6 +494,7 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
           </DialogHeader>
 
           <div className="space-y-5 pt-2">
+            {/* Core details */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Park / Site Name *</Label>
@@ -435,12 +564,111 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
 
             <div className="space-y-1.5">
               <Label>Notes</Label>
-              <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} placeholder="Access notes, pet policy, dump point, power availability..." className="resize-none" />
+              <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Access notes, pet policy, dump point, power availability..." className="resize-none" />
             </div>
 
-            {/* Receipt upload */}
-            <div className="space-y-2">
-              <Label>Receipt / Payment Proof</Label>
+            {/* ── Site URL ────────────────────────────────────────────────── */}
+            <div className="border-t border-border/40 pt-4 space-y-3">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Site Links & References</p>
+
+              <div className="space-y-1.5">
+                <Label>Main Site URL</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={form.siteUrl ?? ""}
+                    onChange={e => setForm(f => ({ ...f, siteUrl: e.target.value }))}
+                    placeholder="https://park-website.com.au or paste booking URL"
+                    className="flex-1"
+                  />
+                  <Button type="button" variant="outline" size="sm" className="shrink-0 px-3"
+                    onClick={async () => {
+                      try {
+                        const text = await navigator.clipboard.readText();
+                        if (text.trim()) setForm(f => ({ ...f, siteUrl: text.trim() }));
+                      } catch { /* ignore */ }
+                    }}
+                    title="Paste from clipboard"
+                  >
+                    <ClipboardPaste className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Additional links */}
+              <div className="space-y-2">
+                <Label>Additional Links</Label>
+                {(form.links ?? []).length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {(form.links ?? []).map(l => (
+                      <div key={l.id} className="flex items-center gap-1.5 text-xs bg-blue-500/8 border border-blue-500/20 text-blue-700 rounded-full pl-3 pr-1.5 py-0.5">
+                        <Link2 className="h-3 w-3 shrink-0" />
+                        <span className="max-w-[160px] truncate">{l.label}</span>
+                        <button onClick={() => removeLink(l.id)} className="hover:text-destructive ml-0.5">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Input
+                    value={newLinkLabel}
+                    onChange={e => setNewLinkLabel(e.target.value)}
+                    placeholder="Label (e.g. Booking page)"
+                    className="w-36 shrink-0"
+                  />
+                  <Input
+                    value={newLinkUrl}
+                    onChange={e => setNewLinkUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="flex-1"
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addLink(); } }}
+                  />
+                  <Button type="button" variant="outline" size="sm" className="shrink-0 px-3" onClick={pasteUrl} title="Paste URL">
+                    <ClipboardPaste className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="shrink-0 px-3" onClick={addLink} title="Add link">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Reference photos — camera + file upload */}
+              <div className="space-y-2">
+                <Label>Reference Photos</Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Take a photo of a booking page, park sign, QR code, or any site reference.
+                </p>
+                {(form.referencePhotos ?? []).length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {(form.referencePhotos ?? []).map(p => (
+                      <div key={p.id} className="flex items-center gap-1.5 text-xs bg-[#d9b880]/10 border border-[#d9b880]/30 text-[#b8943e] rounded-full pl-3 pr-1.5 py-0.5">
+                        <Image className="h-3 w-3 shrink-0" />
+                        <span className="max-w-[140px] truncate">{p.name}</span>
+                        <button onClick={() => removePhoto(p.id)} className="hover:text-destructive ml-0.5">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2 flex-wrap">
+                  <Button type="button" variant="outline" size="sm" onClick={() => cameraRef.current?.click()}>
+                    <Camera className="mr-1.5 h-3.5 w-3.5" /> Take Photo
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => photoRef.current?.click()}>
+                    <Upload className="mr-1.5 h-3.5 w-3.5" /> Upload Image
+                  </Button>
+                  <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} />
+                  <input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoCapture} />
+                  {photoName && <span className="text-[10px] text-muted-foreground self-center">{photoName}</span>}
+                </div>
+              </div>
+            </div>
+
+            {/* Receipt */}
+            <div className="border-t border-border/40 pt-4 space-y-2">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Receipt / Payment Proof</p>
               {form.receiptData ? (
                 <div className="flex items-center gap-3 border border-border rounded-lg p-3 bg-muted/20">
                   <Receipt className="h-4 w-4 text-primary shrink-0" />

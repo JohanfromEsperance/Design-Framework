@@ -27,7 +27,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  BookOpen,
 } from "lucide-react";
+import TripReferencePanel from "./trip-reference-panel";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { VoiceField } from "@/components/voice-button";
@@ -107,6 +109,7 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
   const [legData, setLegData] = useState(defaultLegState);
   const [calculatingDistance, setCalculatingDistance] = useState(false);
   const [routeInfo, setRouteInfo] = useState<{ distanceKm: number; durationMin: number } | null>(null);
+  const [refPanelOpen, setRefPanelOpen] = useState(false);
 
   // Drag-to-reorder state
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -731,6 +734,24 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
         </div>
       </div>
     )}
+
+    {/* ── Floating reference panel trigger ── */}
+    <button
+      onClick={() => setRefPanelOpen(true)}
+      className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg border border-primary/30 text-sm font-semibold transition-all hover:scale-105 active:scale-95"
+      style={{ background: "#1f6f5f", color: "#f6f1e7" }}
+      title="Trip Reference — bookings, links, receipts, notes"
+    >
+      <BookOpen className="h-4 w-4 shrink-0" />
+      <span className="hidden sm:inline">Trip Reference</span>
+    </button>
+
+    <TripReferencePanel
+      open={refPanelOpen}
+      onClose={() => setRefPanelOpen(false)}
+      tripId={trip.id}
+      tripName={trip.name}
+    />
     </div>
   );
 }

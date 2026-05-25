@@ -20,6 +20,11 @@ export interface AdvanceBooking {
   confirmationNumber: string;
   tripName: string;
   notes: string;
+  siteUrl?: string;
+  receiptData?: string;
+  receiptName?: string;
+  receiptOcrText?: string;
+  comments?: string;
 }
 
 export const ADV_TYPE_LABELS: Record<AdvBookingType, string> = {

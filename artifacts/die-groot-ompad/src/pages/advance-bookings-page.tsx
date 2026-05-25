@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import {
 import {
   Plus, Pencil, Trash2, Save, CalendarCheck, DollarSign,
   AlertCircle, CheckCircle2, Clock, TrendingDown,
+  Upload, X, Receipt, ScanLine, Loader2, Link2, ClipboardPaste,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -23,12 +24,26 @@ import {
 } from "@/lib/advance-bookings-store";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell, Legend,
+  ResponsiveContainer, Legend,
 } from "recharts";
+
+// ── OCR helper (lazy‑loaded tesseract.js) ──────────────────────────────────────
+
+async function runOcr(imageDataUrl: string): Promise<string> {
+  const { createWorker } = await import("tesseract.js");
+  const worker = await createWorker("eng", 1, { logger: () => {} });
+  const { data: { text } } = await worker.recognize(imageDataUrl);
+  await worker.terminate();
+  return text.trim();
+}
+
+// ── Form shape ────────────────────────────────────────────────────────────────
 
 const EMPTY: Omit<AdvanceBooking, "id"> = {
   name: "", type: "caravan_park", stayDate: "", checkoutDate: "",
   cost: 0, amountPaid: 0, confirmationNumber: "", tripName: "", notes: "",
+  siteUrl: "", receiptData: undefined, receiptName: undefined,
+  receiptOcrText: undefined, comments: "",
 };
 
 const STATUS_FILTERS = ["all", "outstanding", "partial", "paid"] as const;
@@ -62,6 +77,9 @@ export default function AdvanceBookingsPage() {
   const [form, setForm] = useState<Omit<AdvanceBooking, "id">>(EMPTY);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [ocrRunning, setOcrRunning] = useState(false);
+  const receiptRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   const persist = (next: AdvanceBooking[]) => {
     setBookings(next);
@@ -72,7 +90,7 @@ export default function AdvanceBookingsPage() {
   const openEdit = (b: AdvanceBooking) => {
     setEditingId(b.id);
     const { id: _id, ...rest } = b;
-    setForm(rest);
+    setForm({ ...EMPTY, ...rest });
     setDialogOpen(true);
   };
 
@@ -97,6 +115,54 @@ export default function AdvanceBookingsPage() {
     toast({ title: "Booking removed" });
   };
 
+  // ── Receipt upload ──────────────────────────────────────────────────────────
+
+  const handleReceiptFile = (file: File) => {
+    if (file.size > 8 * 1024 * 1024) {
+      toast({ title: "File too large — max 8 MB", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setForm(f => ({
+        ...f,
+        receiptData: reader.result as string,
+        receiptName: file.name,
+        receiptOcrText: undefined,
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleReceiptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleReceiptFile(file);
+    e.target.value = "";
+  };
+
+  const handleRunOcr = async () => {
+    if (!form.receiptData || !form.receiptData.startsWith("data:image")) {
+      toast({ title: "OCR requires an image receipt (JPG, PNG, WEBP)", variant: "destructive" });
+      return;
+    }
+    setOcrRunning(true);
+    try {
+      const text = await runOcr(form.receiptData);
+      if (!text) {
+        toast({ title: "No text found in image", variant: "destructive" });
+      } else {
+        setForm(f => ({ ...f, receiptOcrText: text }));
+        toast({ title: "OCR complete", description: `${text.split("\n").filter(Boolean).length} lines extracted` });
+      }
+    } catch {
+      toast({ title: "OCR failed — check image quality", variant: "destructive" });
+    } finally {
+      setOcrRunning(false);
+    }
+  };
+
+  // ── Sorted / filtered ──────────────────────────────────────────────────────
+
   const sorted = useMemo(() =>
     [...bookings].sort((a, b) => {
       if (!a.stayDate) return 1;
@@ -111,8 +177,8 @@ export default function AdvanceBookingsPage() {
     [sorted, statusFilter]
   );
 
-  const totalCost       = bookings.reduce((s, b) => s + (b.cost || 0), 0);
-  const totalPaid       = bookings.reduce((s, b) => s + Math.min(b.amountPaid || 0, b.cost || 0), 0);
+  const totalCost        = bookings.reduce((s, b) => s + (b.cost || 0), 0);
+  const totalPaid        = bookings.reduce((s, b) => s + Math.min(b.amountPaid || 0, b.cost || 0), 0);
   const totalOutstanding = bookings.reduce((s, b) => s + outstandingAmount(b), 0);
   const countOutstanding = bookings.filter(b => bookingStatus(b) === "outstanding").length;
   const countPartial     = bookings.filter(b => bookingStatus(b) === "partial").length;
@@ -259,29 +325,25 @@ export default function AdvanceBookingsPage() {
                     className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-black/5 transition-colors"
                     onClick={() => setExpandedId(isExpanded ? null : b.id)}
                   >
-                    {/* Status icon */}
                     <div className="shrink-0">{sc.icon}</div>
-
-                    {/* Type badge */}
                     <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 hidden sm:inline", ADV_TYPE_COLORS[b.type])}>
                       {ADV_TYPE_LABELS[b.type]}
                     </span>
-
-                    {/* Name + trip */}
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm text-foreground truncate">{b.name}</p>
                       {b.tripName && (
                         <p className="text-[10px] text-muted-foreground truncate">Trip: {b.tripName}</p>
                       )}
                     </div>
-
-                    {/* Date */}
                     <div className="text-right shrink-0 hidden sm:block">
                       <p className="text-xs font-medium text-foreground">{fmtDate(b.stayDate)}</p>
                       {nights > 0 && <p className="text-[10px] text-muted-foreground">{nights} night{nights !== 1 ? "s" : ""}</p>}
                     </div>
-
-                    {/* Cost */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {b.receiptData && <Receipt className="h-3.5 w-3.5 text-primary" />}
+                      {b.receiptOcrText && <ScanLine className="h-3.5 w-3.5 text-[#b8943e]" />}
+                      {b.siteUrl && <Link2 className="h-3.5 w-3.5 text-blue-500" />}
+                    </div>
                     <div className="text-right shrink-0 min-w-[72px]">
                       <p className="text-sm font-bold text-foreground">{fmtAud(b.cost)}</p>
                       {b.amountPaid > 0 && b.amountPaid < b.cost && (
@@ -326,7 +388,50 @@ export default function AdvanceBookingsPage() {
                             <p className="leading-relaxed text-foreground">{b.notes}</p>
                           </div>
                         )}
+                        {b.comments && (
+                          <div className="col-span-2 sm:col-span-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-0.5">Comments</p>
+                            <p className="leading-relaxed text-foreground">{b.comments}</p>
+                          </div>
+                        )}
                       </div>
+
+                      {/* Site URL */}
+                      {b.siteUrl && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-0.5">Site URL</p>
+                          <a href={b.siteUrl} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline break-all">
+                            <Link2 className="h-3 w-3 shrink-0" />{b.siteUrl}
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Receipt */}
+                      {b.receiptData && (
+                        <div className="border border-border rounded-lg p-3 bg-card space-y-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <Receipt className="h-4 w-4 text-primary shrink-0" />
+                              <span className="text-xs text-foreground font-medium">{b.receiptName || "Receipt"}</span>
+                            </div>
+                            <a href={b.receiptData} download={b.receiptName || "receipt"}
+                              className="text-xs text-primary hover:underline">Download</a>
+                          </div>
+                          {b.receiptData.startsWith("data:image") && (
+                            <img src={b.receiptData} alt="Receipt" className="max-h-40 rounded object-contain border border-border" />
+                          )}
+                          {b.receiptOcrText && (
+                            <details className="text-xs" open>
+                              <summary className="cursor-pointer text-[#b8943e] font-semibold flex items-center gap-1">
+                                <ScanLine className="h-3 w-3" /> OCR Text
+                              </summary>
+                              <pre className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground bg-muted/30 rounded p-2 whitespace-pre-wrap font-mono overflow-auto max-h-32">{b.receiptOcrText}</pre>
+                            </details>
+                          )}
+                        </div>
+                      )}
+
                       <div className="flex justify-end gap-2">
                         <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openEdit(b)}>
                           <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
@@ -344,13 +449,15 @@ export default function AdvanceBookingsPage() {
         </div>
       )}
 
-      {/* Add/Edit Dialog */}
+      {/* ── Add / Edit Dialog ──────────────────────────────────────────────────── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit Advance Booking" : "Add Advance Booking"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
+
+            {/* Core fields */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>Venue / Park Name *</Label>
@@ -417,6 +524,100 @@ export default function AdvanceBookingsPage() {
             <div className="space-y-1.5">
               <Label>Notes</Label>
               <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Access details, pet policy, cancellation terms..." className="resize-none" />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Comments</Label>
+              <Textarea value={form.comments ?? ""} onChange={e => setForm(f => ({ ...f, comments: e.target.value }))} rows={2} placeholder="Personal comments, reminders, things to check..." className="resize-none" />
+            </div>
+
+            {/* ── Site URL ── */}
+            <div className="border-t border-border/40 pt-3 space-y-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Booking URL</p>
+              <div className="flex gap-2">
+                <Input
+                  value={form.siteUrl ?? ""}
+                  onChange={e => setForm(f => ({ ...f, siteUrl: e.target.value }))}
+                  placeholder="Paste or type the booking / park website URL"
+                  className="flex-1"
+                />
+                <Button type="button" variant="outline" size="sm" className="shrink-0 px-3"
+                  onClick={async () => {
+                    try {
+                      const text = await navigator.clipboard.readText();
+                      if (text.trim()) setForm(f => ({ ...f, siteUrl: text.trim() }));
+                    } catch { /* clipboard API not available — user can type */ }
+                  }}
+                  title="Paste from clipboard"
+                >
+                  <ClipboardPaste className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* ── Receipt + OCR ── */}
+            <div className="border-t border-border/40 pt-3 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Receipt / Proof of Payment</p>
+              <p className="text-[10px] text-muted-foreground -mt-1">
+                Upload a photo or file. Use "Scan Receipt" to extract the text automatically.
+              </p>
+
+              {form.receiptData ? (
+                <div className="border border-border rounded-lg p-3 bg-muted/10 space-y-3">
+                  {/* Preview */}
+                  {form.receiptData.startsWith("data:image") && (
+                    <img src={form.receiptData} alt="Receipt preview" className="max-h-36 rounded object-contain border border-border" />
+                  )}
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Receipt className="h-4 w-4 text-primary shrink-0" />
+                    <span className="text-xs text-foreground flex-1 truncate">{form.receiptName}</span>
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground"
+                      onClick={() => setForm(f => ({ ...f, receiptData: undefined, receiptName: undefined, receiptOcrText: undefined }))}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+
+                  {/* OCR */}
+                  {form.receiptData.startsWith("data:image") && (
+                    <div className="space-y-2">
+                      <Button
+                        type="button" variant="outline" size="sm"
+                        onClick={handleRunOcr}
+                        disabled={ocrRunning}
+                        className="w-full"
+                      >
+                        {ocrRunning
+                          ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Reading receipt...</>
+                          : <><ScanLine className="mr-1.5 h-3.5 w-3.5" /> Scan Receipt (OCR)</>
+                        }
+                      </Button>
+                      {form.receiptOcrText && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Extracted Text</p>
+                          <Textarea
+                            value={form.receiptOcrText}
+                            onChange={e => setForm(f => ({ ...f, receiptOcrText: e.target.value }))}
+                            rows={4}
+                            className="resize-none text-[10px] font-mono bg-muted/20"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex gap-2 flex-wrap">
+                  <Button type="button" variant="outline" size="sm" onClick={() => cameraRef.current?.click()}>
+                    <Receipt className="mr-1.5 h-3.5 w-3.5" /> Take Photo
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => receiptRef.current?.click()}>
+                    <Upload className="mr-1.5 h-3.5 w-3.5" /> Upload Receipt
+                  </Button>
+                  <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleReceiptChange} />
+                  <input ref={receiptRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={handleReceiptChange} />
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-border">
