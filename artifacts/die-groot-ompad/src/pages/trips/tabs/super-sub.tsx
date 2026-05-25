@@ -67,6 +67,17 @@ const REFERENCE_DATE = new Date(2026, 4, 26); // 26 May 2026
 const CURRENT_YEAR = REFERENCE_DATE.getFullYear();
 const CURRENT_DATE = REFERENCE_DATE;
 
+// Australian Financial Year: starts 1 July, ends 30 June.
+// FY_START_YEAR is the calendar year in which the CURRENT FY started.
+// 26 May 2026 → month index 4 < 6 (July) → FY started July 2025 → FY_START_YEAR = 2025
+// All chart x-axes use FY labels: FY25, FY26, FY27 ...
+const FY_START_YEAR =
+  REFERENCE_DATE.getMonth() >= 6
+    ? REFERENCE_DATE.getFullYear()       // Jul–Dec → FY started this cal year
+    : REFERENCE_DATE.getFullYear() - 1;  // Jan–Jun → FY started prior cal year
+
+const fyLabel = (y: number) => `FY${String(y).slice(2)}`; // 2025 → "FY25"
+
 function ageAt(dob: string, onDate?: Date): number | null {
   if (!dob) return null;
   const d = new Date(dob);
@@ -114,7 +125,7 @@ function projectBalance(acc: SuperAccount): ProjectRow[] {
   const rows: ProjectRow[] = [];
 
   for (let y = 0; y <= forecastYears; y++) {
-    const calYear = CURRENT_YEAR + y;
+    const calYear = FY_START_YEAR + y;
     const inContribPhase = contribEndYr === null || calYear <= contribEndYr;
 
     // Lump sum withdrawal
@@ -178,7 +189,7 @@ function FieldRow({
 
 function AgeBadge({ label, year, color }: { label: string; year: number | null; color: string }) {
   if (!year) return null;
-  const yearsFrom = year - CURRENT_YEAR;
+  const yearsFrom = year - FY_START_YEAR;
   return (
     <div className={cn("rounded px-2 py-1.5 text-center border", color)}>
       <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70">{label}</p>
@@ -197,7 +208,7 @@ function AccountCard({ account, onChange }: { account: SuperAccount; onChange: (
 
   const wYear = account.lumpSumDate ? parseInt(account.lumpSumDate, 10) : null;
   const wPoint = wYear !== null ? projection.find(p => p.calYear === wYear) : null;
-  const yearsToWithdrawal = wYear !== null ? Math.max(0, wYear - CURRENT_YEAR) : null;
+  const yearsToWithdrawal = wYear !== null ? Math.max(0, wYear - FY_START_YEAR) : null;
   const currentAge = ageAt(account.dateOfBirth);
 
   const preservYear  = yearAtAge(account.dateOfBirth, account.preservationAge || 60);
@@ -210,7 +221,7 @@ function AccountCard({ account, onChange }: { account: SuperAccount; onChange: (
     ? { stroke: "#1f6f5f", fill: "#1f6f5f22", contrib: "#d9b880" }
     : { stroke: "#60a5fa", fill: "#60a5fa22", contrib: "#a78bfa" };
 
-  const yearOptions = Array.from({ length: 41 }, (_, i) => CURRENT_YEAR + i);
+  const yearOptions = Array.from({ length: 41 }, (_, i) => FY_START_YEAR + i);
 
   return (
     <Card className="border-border/60">
@@ -359,34 +370,34 @@ function AccountCard({ account, onChange }: { account: SuperAccount; onChange: (
               <AreaChart data={projection} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb44" />
                 <XAxis dataKey="calYear" tick={{ fontSize: 10 }}
-                  tickFormatter={v => `${v}`} interval={Math.ceil(account.forecastYears / 6)} />
+                  tickFormatter={v => fyLabel(v)} interval={Math.ceil(account.forecastYears / 6)} />
                 <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} width={52} />
                 <RechartsTooltip
                   formatter={(val: number, name: string) => [fmt(val), name]}
-                  labelFormatter={v => `${v}`}
+                  labelFormatter={v => fyLabel(v)}
                   contentStyle={{ fontSize: 11 }}
                 />
                 <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
 
                 {/* Today / projection start */}
-                <ReferenceLine x={CURRENT_YEAR} stroke="#6b5c3e" strokeWidth={1.5}
-                  label={{ value: `Today  ${CURRENT_YEAR}`, fontSize: 8, fill: "#6b5c3e", position: "insideTopRight" }} />
+                <ReferenceLine x={FY_START_YEAR} stroke="#6b5c3e" strokeWidth={1.5}
+                  label={{ value: `Today  ${fyLabel(FY_START_YEAR)}`, fontSize: 8, fill: "#6b5c3e", position: "insideTopRight" }} />
 
                 {/* Milestone reference lines */}
-                {preservYear !== null && preservYear >= CURRENT_YEAR && (
+                {preservYear !== null && preservYear >= FY_START_YEAR && (
                   <ReferenceLine x={preservYear} stroke="#1f6f5f" strokeDasharray="5 3"
                     label={{ value: `Age ${account.preservationAge || 60} — Super`, fontSize: 8, fill: "#1f6f5f",
-                      position: preservYear === CURRENT_YEAR ? "insideTopRight" : "insideTopLeft" }} />
+                      position: preservYear === FY_START_YEAR ? "insideTopRight" : "insideTopLeft" }} />
                 )}
-                {pension67Year !== null && pension67Year >= CURRENT_YEAR && (
+                {pension67Year !== null && pension67Year >= FY_START_YEAR && (
                   <ReferenceLine x={pension67Year} stroke="#d9b880" strokeDasharray="5 3"
                     label={{ value: "Age 67 — Pension", fontSize: 8, fill: "#b8943e",
-                      position: pension67Year === CURRENT_YEAR ? "insideTopLeft" : "insideTopRight" }} />
+                      position: pension67Year === FY_START_YEAR ? "insideTopLeft" : "insideTopRight" }} />
                 )}
-                {contribEndYr !== null && contribEndYr >= CURRENT_YEAR && (
+                {contribEndYr !== null && contribEndYr >= FY_START_YEAR && (
                   <ReferenceLine x={contribEndYr} stroke="#f97316" strokeDasharray="3 2"
                     label={{ value: "Contribs End", fontSize: 8, fill: "#f97316",
-                      position: contribEndYr === CURRENT_YEAR ? "insideTopRight" : "insideTopLeft" }} />
+                      position: contribEndYr === FY_START_YEAR ? "insideTopRight" : "insideTopLeft" }} />
                 )}
                 {wYear !== null && account.lumpSumWithdrawal > 0 && (
                   <ReferenceLine x={wYear} stroke="#ef4444" strokeDasharray="4 2"
@@ -433,7 +444,7 @@ function AccountCard({ account, onChange }: { account: SuperAccount; onChange: (
 function CombinedChart({ accounts }: { accounts: SuperAccount[] }) {
   const maxYears = Math.max(...accounts.map(a => a.forecastYears), 10);
   const data = Array.from({ length: maxYears + 1 }, (_, y) => {
-    const calYear = CURRENT_YEAR + y;
+    const calYear = FY_START_YEAR + y;
     const row: Record<string, number> = { year: y, calYear };
     let combined = 0;
     for (const acc of accounts) {
@@ -461,23 +472,23 @@ function CombinedChart({ accounts }: { accounts: SuperAccount[] }) {
   for (const acc of accounts) {
     const preservYear = yearAtAge(acc.dateOfBirth, acc.preservationAge || 60);
     const pension67Year = yearAtAge(acc.dateOfBirth, 67);
-    if (preservYear !== null && preservYear >= CURRENT_YEAR && !seen.has(preservYear)) {
+    if (preservYear !== null && preservYear >= FY_START_YEAR && !seen.has(preservYear)) {
       milestones.push({
         year: preservYear,
         label: `${acc.name} age ${acc.preservationAge || 60}`,
         stroke: "#1f6f5f",
         dash: "5 3",
-        labelPos: preservYear === CURRENT_YEAR ? "insideTopRight" : "insideTopLeft",
+        labelPos: preservYear === FY_START_YEAR ? "insideTopRight" : "insideTopLeft",
       });
       seen.add(preservYear);
     }
-    if (pension67Year !== null && pension67Year >= CURRENT_YEAR && !seen.has(pension67Year)) {
+    if (pension67Year !== null && pension67Year >= FY_START_YEAR && !seen.has(pension67Year)) {
       milestones.push({
         year: pension67Year,
         label: `${acc.name} age 67`,
         stroke: "#d9b880",
         dash: "5 3",
-        labelPos: pension67Year === CURRENT_YEAR ? "insideTopLeft" : "insideTopRight",
+        labelPos: pension67Year === FY_START_YEAR ? "insideTopLeft" : "insideTopRight",
       });
       seen.add(pension67Year);
     }
@@ -494,14 +505,15 @@ function CombinedChart({ accounts }: { accounts: SuperAccount[] }) {
         <ResponsiveContainer width="100%" height={220}>
           <AreaChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb44" />
-            <XAxis dataKey="calYear" tick={{ fontSize: 10 }} interval={Math.ceil(maxYears / 8)} />
+            <XAxis dataKey="calYear" tick={{ fontSize: 10 }} interval={Math.ceil(maxYears / 8)}
+              tickFormatter={v => fyLabel(v)} />
             <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} width={58} />
             <RechartsTooltip formatter={(val: number, name: string) => [fmt(val), name]}
-              labelFormatter={v => `${v}`} contentStyle={{ fontSize: 11 }} />
+              labelFormatter={v => fyLabel(v)} contentStyle={{ fontSize: 11 }} />
             <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
             {/* Today / projection start */}
-            <ReferenceLine x={CURRENT_YEAR} stroke="#6b5c3e" strokeWidth={1.5}
-              label={{ value: `Today  ${CURRENT_YEAR}`, fontSize: 8, fill: "#6b5c3e", position: "insideTopRight" }} />
+            <ReferenceLine x={FY_START_YEAR} stroke="#6b5c3e" strokeWidth={1.5}
+              label={{ value: `Today  ${fyLabel(FY_START_YEAR)}`, fontSize: 8, fill: "#6b5c3e", position: "insideTopRight" }} />
 
             {milestones.map(m => (
               <ReferenceLine key={`${m.label}-${m.year}`} x={m.year}
