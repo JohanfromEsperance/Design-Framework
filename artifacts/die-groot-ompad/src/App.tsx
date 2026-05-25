@@ -232,6 +232,23 @@ function AccessDenied() {
   );
 }
 
+// ── Branded loading screen (shown while Clerk initialises) ─────────────────────
+
+function LoadingScreen() {
+  return (
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center gap-6"
+      style={{ background: "#f6f1e7" }}>
+      <img
+        src={`${basePath}/logo.png`}
+        alt="Die Groot Ompad"
+        className="h-24 w-auto object-contain rounded-xl shadow-md"
+      />
+      <div className="w-7 h-7 border-2 rounded-full animate-spin"
+        style={{ borderColor: "#d9c9a8", borderTopColor: "#1f6f5f" }} />
+    </div>
+  );
+}
+
 // ── Admin allowlist ────────────────────────────────────────────────────────────
 
 const ADMIN_EMAILS = ["johan@asset-academy.com", "johansnyman800@gmail.com"];
@@ -240,7 +257,7 @@ const ADMIN_EMAILS = ["johan@asset-academy.com", "johansnyman800@gmail.com"];
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
-  if (!isLoaded) return null;
+  if (!isLoaded) return <LoadingScreen />;
   const email = user?.primaryEmailAddress?.emailAddress ?? "";
   if (!ADMIN_EMAILS.includes(email)) return <AccessDenied />;
   return <>{children}</>;
@@ -250,7 +267,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 function HomeRedirect() {
   const { isSignedIn, isLoaded } = useAuth();
-  if (!isLoaded) return null;
+  if (!isLoaded) return <LoadingScreen />;
   if (isSignedIn) return <AuthGate><Redirect to="/dashboard" /></AuthGate>;
   return <Redirect to="/sign-in" />;
 }
@@ -259,8 +276,13 @@ function HomeRedirect() {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded } = useAuth();
-  if (!isLoaded) return null;
-  if (!isSignedIn) return <Redirect to="/sign-in" />;
+  const [location] = useLocation();
+  if (!isLoaded) return <LoadingScreen />;
+  if (!isSignedIn) {
+    // Preserve the deep-link path so Clerk redirects back after sign-in
+    const dest = location && location !== "/" ? `?redirect_url=${encodeURIComponent(basePath + location)}` : "";
+    return <Redirect to={`/sign-in${dest}`} />;
+  }
   return <AuthGate>{children}</AuthGate>;
 }
 

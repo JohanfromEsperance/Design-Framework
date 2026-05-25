@@ -150,7 +150,8 @@ function calcPension(ws: PensionWorksheet, eligible: boolean): PensionCalcResult
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD", maximumFractionDigits: 0 }).format(n);
 
-const CURRENT_DATE = new Date();
+// Fixed reference date — age and projection calculations are anchored to 26 May 2026.
+const CURRENT_DATE = new Date(2026, 4, 26);
 
 function ageAt(dob: string): number | null {
   if (!dob) return null;

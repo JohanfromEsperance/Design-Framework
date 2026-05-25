@@ -61,8 +61,11 @@ export const DEFAULT_SUPER: SuperPortfolio = {
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD", maximumFractionDigits: 0 }).format(n);
 
-const CURRENT_YEAR = new Date().getFullYear();
-const CURRENT_DATE = new Date();
+// Fixed reference date — "current balance" inputs are always as of this date.
+// All projections start from here regardless of when the app is opened.
+const REFERENCE_DATE = new Date(2026, 4, 26); // 26 May 2026
+const CURRENT_YEAR = REFERENCE_DATE.getFullYear();
+const CURRENT_DATE = REFERENCE_DATE;
 
 function ageAt(dob: string, onDate?: Date): number | null {
   if (!dob) return null;
