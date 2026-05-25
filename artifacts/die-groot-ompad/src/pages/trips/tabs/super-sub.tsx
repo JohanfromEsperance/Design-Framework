@@ -371,15 +371,18 @@ function AccountCard({ account, onChange }: { account: SuperAccount; onChange: (
                 {/* Milestone reference lines */}
                 {preservYear !== null && preservYear >= CURRENT_YEAR && (
                   <ReferenceLine x={preservYear} stroke="#1f6f5f" strokeDasharray="5 3"
-                    label={{ value: `Pres. Age ${account.preservationAge || 60}`, fontSize: 8, fill: "#1f6f5f", position: "insideTopLeft" }} />
+                    label={{ value: `Age ${account.preservationAge || 60} — Super`, fontSize: 8, fill: "#1f6f5f",
+                      position: preservYear === CURRENT_YEAR ? "insideTopRight" : "insideTopLeft" }} />
                 )}
                 {pension67Year !== null && pension67Year >= CURRENT_YEAR && (
                   <ReferenceLine x={pension67Year} stroke="#d9b880" strokeDasharray="5 3"
-                    label={{ value: "Age 67", fontSize: 8, fill: "#b8943e", position: "insideTopRight" }} />
+                    label={{ value: "Age 67 — Pension", fontSize: 8, fill: "#b8943e",
+                      position: pension67Year === CURRENT_YEAR ? "insideTopLeft" : "insideTopRight" }} />
                 )}
                 {contribEndYr !== null && contribEndYr >= CURRENT_YEAR && (
                   <ReferenceLine x={contribEndYr} stroke="#f97316" strokeDasharray="3 2"
-                    label={{ value: "Contribs End", fontSize: 8, fill: "#f97316", position: "insideTopLeft" }} />
+                    label={{ value: "Contribs End", fontSize: 8, fill: "#f97316",
+                      position: contribEndYr === CURRENT_YEAR ? "insideTopRight" : "insideTopLeft" }} />
                 )}
                 {wYear !== null && account.lumpSumWithdrawal > 0 && (
                   <ReferenceLine x={wYear} stroke="#ef4444" strokeDasharray="4 2"
@@ -441,6 +444,41 @@ function CombinedChart({ accounts }: { accounts: SuperAccount[] }) {
 
   const PALETTE = ["#1f6f5f", "#60a5fa", "#d9b880"];
 
+  // Collect milestone reference lines across all accounts
+  interface MilestoneLine {
+    year: number;
+    label: string;
+    stroke: string;
+    dash: string;
+    labelPos: "insideTopLeft" | "insideTopRight";
+  }
+  const milestones: MilestoneLine[] = [];
+  const seen = new Set<number>();
+  for (const acc of accounts) {
+    const preservYear = yearAtAge(acc.dateOfBirth, acc.preservationAge || 60);
+    const pension67Year = yearAtAge(acc.dateOfBirth, 67);
+    if (preservYear !== null && preservYear >= CURRENT_YEAR && !seen.has(preservYear)) {
+      milestones.push({
+        year: preservYear,
+        label: `${acc.name} age ${acc.preservationAge || 60}`,
+        stroke: "#1f6f5f",
+        dash: "5 3",
+        labelPos: preservYear === CURRENT_YEAR ? "insideTopRight" : "insideTopLeft",
+      });
+      seen.add(preservYear);
+    }
+    if (pension67Year !== null && pension67Year >= CURRENT_YEAR && !seen.has(pension67Year)) {
+      milestones.push({
+        year: pension67Year,
+        label: `${acc.name} age 67`,
+        stroke: "#d9b880",
+        dash: "5 3",
+        labelPos: pension67Year === CURRENT_YEAR ? "insideTopLeft" : "insideTopRight",
+      });
+      seen.add(pension67Year);
+    }
+  }
+
   return (
     <Card className="border-border/60">
       <CardHeader className="pb-2 pt-4 px-4">
@@ -457,6 +495,11 @@ function CombinedChart({ accounts }: { accounts: SuperAccount[] }) {
             <RechartsTooltip formatter={(val: number, name: string) => [fmt(val), name]}
               labelFormatter={v => `${v}`} contentStyle={{ fontSize: 11 }} />
             <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
+            {milestones.map(m => (
+              <ReferenceLine key={`${m.label}-${m.year}`} x={m.year}
+                stroke={m.stroke} strokeDasharray={m.dash}
+                label={{ value: m.label, fontSize: 8, fill: m.stroke, position: m.labelPos }} />
+            ))}
             {accounts.map((acc, idx) => (
               <Area key={acc.id} type="monotone" dataKey={acc.name}
                 stroke={PALETTE[idx % PALETTE.length]} fill={`${PALETTE[idx % PALETTE.length]}22`} strokeWidth={2} />
