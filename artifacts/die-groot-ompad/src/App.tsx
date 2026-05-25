@@ -18,6 +18,7 @@ import ChecklistPage from "@/pages/checklist-page";
 import ExportPage from "@/pages/export-page";
 import AdvanceBookingsPage from "@/pages/advance-bookings-page";
 import PowerConfigPage from "@/pages/power-config-page";
+import StoragePage from "@/pages/storage-page";
 import { CHECKLIST_D2, CHECKLIST_DEPARTURE, CHECKLIST_PACKING, CHECKLIST_SERVICE } from "@/data/checklists";
 
 // ── Clerk config ───────────────────────────────────────────────────────────────
@@ -358,6 +359,11 @@ function ClerkProviderWithRoutes() {
             <Route path="/power-config">
               <ProtectedRoute>
                 <Layout><PowerConfigPage /></Layout>
+              </ProtectedRoute>
+            </Route>
+            <Route path="/storage">
+              <ProtectedRoute>
+                <Layout><StoragePage /></Layout>
               </ProtectedRoute>
             </Route>
             <Route path="/checklists/d2">

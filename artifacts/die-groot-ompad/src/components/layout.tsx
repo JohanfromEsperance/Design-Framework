@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Map, Home, Menu, MessageSquare, Globe, DollarSign, LogOut, Truck, ClipboardCheck, Download, Save, CalendarCheck, BookOpen, Zap } from "lucide-react";
+import { Map, Home, Menu, MessageSquare, Globe, DollarSign, LogOut, Truck, ClipboardCheck, Download, Save, CalendarCheck, BookOpen, Zap, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useClerk, useUser } from "@clerk/react";
@@ -21,14 +21,21 @@ function openJohan() {
   );
 }
 
-const MAIN_NAV = [
+const TOP_NAV = [
   { href: "/dashboard",          label: "Dashboard",         icon: Home },
   { href: "/trips",              label: "My Trips",          icon: Map },
   { href: "/advance-bookings",   label: "Advance Bookings",  icon: CalendarCheck },
   { href: "/budget",             label: "Budget",            icon: DollarSign },
-  { href: "/vehicle",            label: "Rig & Vehicle",     icon: Truck },
-  { href: "/power-config",       label: "Power & BMS",       icon: Zap },
   { href: "/export",             label: "Export Data",       icon: Download },
+] as const;
+
+const UTE_NAV = [
+  { href: "/vehicle",            label: "Rig & Vehicle",     icon: Truck },
+] as const;
+
+const CARAVAN_NAV = [
+  { href: "/power-config",       label: "Power & BMS",       icon: Zap },
+  { href: "/storage",            label: "Storage",           icon: Layers },
 ] as const;
 
 const CHECKLIST_NAV = [
@@ -106,8 +113,8 @@ function Sidebar({ location, firstName, initials, email, onSignOut, onNav }: Sid
       </div>
 
       <nav className="flex-1 px-4 py-4 space-y-0.5">
-        {/* Main nav */}
-        {MAIN_NAV.map((item) => {
+        {/* Top nav */}
+        {TOP_NAV.map((item) => {
           const isActive =
             location === item.href ||
             (item.href !== "/dashboard" && location.startsWith(item.href));
@@ -116,8 +123,30 @@ function Sidebar({ location, firstName, initials, email, onSignOut, onNav }: Sid
           );
         })}
 
+        {/* UTE section */}
+        <div className="pt-3 pb-0.5">
+          <p className="px-3 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/70 select-none">UTE</p>
+        </div>
+        {UTE_NAV.map((item) => {
+          const isActive = location === item.href || location.startsWith(item.href);
+          return (
+            <NavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} isActive={isActive} onNav={onNav} />
+          );
+        })}
+
+        {/* Caravan section */}
+        <div className="pt-3 pb-0.5">
+          <p className="px-3 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/70 select-none">Caravan</p>
+        </div>
+        {CARAVAN_NAV.map((item) => {
+          const isActive = location === item.href || location.startsWith(item.href);
+          return (
+            <NavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} isActive={isActive} onNav={onNav} />
+          );
+        })}
+
         {/* Checklists section */}
-        <div className="pt-4 pb-1">
+        <div className="pt-3 pb-0.5">
           <p className="px-3 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/70 select-none">
             Checklists
           </p>
