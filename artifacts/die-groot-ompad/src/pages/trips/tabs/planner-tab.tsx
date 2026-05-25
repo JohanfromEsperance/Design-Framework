@@ -41,6 +41,7 @@ import {
 
 interface PlannerTabProps {
   trip: Trip;
+  onSwitchToBookings?: () => void;
 }
 
 const defaultLegState = {
@@ -97,7 +98,7 @@ function googleMapsUrl(from: string, to: string) {
   );
 }
 
-export default function PlannerTab({ trip }: PlannerTabProps) {
+export default function PlannerTab({ trip, onSwitchToBookings }: PlannerTabProps) {
   const { data: legs, isLoading } = useListLegs(trip.id);
   const createLeg = useCreateLeg();
   const updateLeg = useUpdateLeg();
@@ -694,9 +695,19 @@ export default function PlannerTab({ trip }: PlannerTabProps) {
                 : " — Upcoming (all trips)"}
             </span>
           </div>
-          <a href="/advance-bookings" className="text-[11px] text-primary hover:underline flex items-center gap-1">
-            <ExternalLink className="h-3 w-3" /> Manage
-          </a>
+          <div className="flex items-center gap-3">
+            {onSwitchToBookings && (
+              <button
+                onClick={onSwitchToBookings}
+                className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+              >
+                <Plus className="h-3 w-3" /> Add Booking
+              </button>
+            )}
+            <a href="/advance-bookings" className="text-[11px] text-primary hover:underline flex items-center gap-1">
+              <ExternalLink className="h-3 w-3" /> Manage
+            </a>
+          </div>
         </div>
         <div className="divide-y divide-border/50">
           {upcomingBookings.map(b => {

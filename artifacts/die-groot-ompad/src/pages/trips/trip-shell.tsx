@@ -163,7 +163,7 @@ export default function TripShell({ params }: TripShellProps) {
 
           <div className="mt-4">
             <TabsContent value="planner" className="m-0">
-              <PlannerTab trip={trip} />
+              <PlannerTab trip={trip} onSwitchToBookings={() => setActiveTab("bookings")} />
             </TabsContent>
 
             <TabsContent value="map" className="m-0">

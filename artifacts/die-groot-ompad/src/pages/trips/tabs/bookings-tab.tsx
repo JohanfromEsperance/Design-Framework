@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import jsQR from "jsqr";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,7 @@ import {
 import {
   Plus, Pencil, Trash2, Save, CalendarCheck, DollarSign,
   MapPin, Receipt, ExternalLink, Upload, X, AlertCircle,
-  Link2, Camera, ClipboardPaste, Image,
+  Link2, Camera, ClipboardPaste, Image, ScanLine,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -145,6 +146,82 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const photoRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+
+  // ── QR scan state ───────────────────────────────────────────────────────────
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [scanTarget, setScanTarget] = useState<"siteUrl" | "linkUrl">("siteUrl");
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rafRef = useRef<number>(0);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const stopScan = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    setScanOpen(false);
+    setScanError(null);
+  }, []);
+
+  const tick = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || video.readyState !== video.HAVE_ENOUGH_DATA) {
+      rafRef.current = requestAnimationFrame(tick);
+      return;
+    }
+    const ctx = canvas.getContext("2d");
+    if (!ctx) { rafRef.current = requestAnimationFrame(tick); return; }
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const result = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: "dontInvert" });
+    if (result) {
+      const text = result.data.trim();
+      stopScan();
+      const isUrl = text.startsWith("http://") || text.startsWith("https://");
+      if (scanTarget === "siteUrl") {
+        setForm(f => ({ ...f, siteUrl: isUrl ? text : f.siteUrl }));
+        if (!isUrl) {
+          // treat as confirmation number
+          setForm(f => ({ ...f, confirmationNumber: text }));
+          toast({ title: "QR scanned", description: `Saved as confirmation number: ${text}` });
+        } else {
+          toast({ title: "QR scanned", description: "URL saved as main site link" });
+        }
+      } else {
+        setNewLinkUrl(isUrl ? text : "https://" + text);
+        toast({ title: "QR scanned", description: "URL ready to add as link" });
+      }
+    } else {
+      rafRef.current = requestAnimationFrame(tick);
+    }
+  }, [scanTarget, stopScan, toast]);
+
+  const startScan = useCallback(async (target: "siteUrl" | "linkUrl") => {
+    setScanTarget(target);
+    setScanError(null);
+    setScanOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    } catch {
+      setScanError("Camera access denied — grant permission and try again");
+    }
+  }, [tick]);
+
+  useEffect(() => () => stopScan(), [stopScan]);
 
   const persist = (next: Booking[]) => {
     setBookings(next);
@@ -591,7 +668,14 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
                   >
                     <ClipboardPaste className="h-4 w-4" />
                   </Button>
+                  <Button type="button" variant="outline" size="sm" className="shrink-0 px-3"
+                    onClick={() => startScan("siteUrl")}
+                    title="Scan QR code — populates URL or confirmation number"
+                  >
+                    <ScanLine className="h-4 w-4" />
+                  </Button>
                 </div>
+                <p className="text-[10px] text-muted-foreground">Scan a booking QR → URL goes to site link, plain text goes to confirmation number</p>
               </div>
 
               {/* Additional links */}
@@ -626,6 +710,11 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
                   />
                   <Button type="button" variant="outline" size="sm" className="shrink-0 px-3" onClick={pasteUrl} title="Paste URL">
                     <ClipboardPaste className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="shrink-0 px-3"
+                    onClick={() => startScan("linkUrl")}
+                    title="Scan QR code into URL field">
+                    <ScanLine className="h-4 w-4" />
                   </Button>
                   <Button type="button" variant="outline" size="sm" className="shrink-0 px-3" onClick={addLink} title="Add link">
                     <Plus className="h-4 w-4" />
@@ -692,6 +781,64 @@ export default function BookingsTab({ tripId }: BookingsTabProps) {
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
               <Button onClick={handleSave}><Save className="mr-1.5 h-4 w-4" /> {editingId ? "Update" : "Add Booking"}</Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── QR Scan Modal ─────────────────────────────────────────────────── */}
+      <Dialog open={scanOpen} onOpenChange={open => { if (!open) stopScan(); }}>
+        <DialogContent className="max-w-sm p-0 overflow-hidden">
+          <DialogHeader className="px-4 pt-4 pb-2">
+            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
+              <ScanLine className="h-4 w-4 text-primary" />
+              Scan Booking QR Code
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="relative bg-black" style={{ aspectRatio: "1/1" }}>
+            <video
+              ref={videoRef}
+              className="w-full h-full object-cover"
+              playsInline
+              muted
+            />
+            {/* scan-frame overlay */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="relative w-48 h-48">
+                <div className="absolute inset-0 border-2 border-white/30 rounded-lg" />
+                {/* corner marks */}
+                {(["top-left","top-right","bottom-left","bottom-right"] as const).map(c => (
+                  <div key={c} className={cn(
+                    "absolute w-6 h-6 border-[#d9b880]",
+                    c === "top-left"     && "top-0 left-0 border-t-2 border-l-2 rounded-tl",
+                    c === "top-right"    && "top-0 right-0 border-t-2 border-r-2 rounded-tr",
+                    c === "bottom-left"  && "bottom-0 left-0 border-b-2 border-l-2 rounded-bl",
+                    c === "bottom-right" && "bottom-0 right-0 border-b-2 border-r-2 rounded-br",
+                  )} />
+                ))}
+                {/* scan line */}
+                <div className="absolute left-1 right-1 top-1/2 h-px bg-[#d9b880]/70 animate-pulse" />
+              </div>
+            </div>
+          </div>
+          <canvas ref={canvasRef} className="hidden" />
+
+          <div className="px-4 py-3 space-y-2">
+            {scanError ? (
+              <p className="text-xs text-destructive">{scanError}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground text-center">
+                Point camera at a booking confirmation QR code
+              </p>
+            )}
+            <p className="text-[10px] text-muted-foreground text-center">
+              {scanTarget === "siteUrl"
+                ? "URL → main site link  ·  text → confirmation number"
+                : "URL will be placed in the additional link URL field"}
+            </p>
+            <Button variant="outline" size="sm" className="w-full" onClick={stopScan}>
+              <X className="mr-1.5 h-3.5 w-3.5" /> Cancel
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
