@@ -10,9 +10,6 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle,
-} from "@/components/ui/sheet";
-import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
@@ -66,7 +63,7 @@ function blankItem(): StorageItem {
 function blankLocation(): StorageLocation {
   return {
     id: uid(), name: "", locationDescription: "", category: "CARAVAN",
-    items: [], photoData: "", notes: "", sortOrder: Date.now(),
+    items: [], photoData: "", notes: "", sortOrder: Date.now(), tagSerial: "",
   };
 }
 
@@ -501,16 +498,13 @@ function LocationDialog({
 
   const handleLocScan = useCallback((payload: string) => {
     setScanOpen(false);
-    // If it's already a known storage QR, pull out the raw ID and use it as a note
-    // otherwise use the scanned text as the location name (most common case: user has a label QR)
-    const isStorageQr = payload.startsWith("STORAGE:");
-    if (isStorageQr) {
-      // The QR is already a registered location tag — inform the user
+    const isOwnQr = payload.startsWith(QR_PREFIX);
+    if (isOwnQr) {
       toast({ description: "That QR belongs to an existing location. Scan from the main screen to open it." });
     } else {
-      // Plain text or product code — pre-fill the name
-      setLoc(prev => ({ ...prev, name: payload.slice(0, 60).toUpperCase() }));
-      toast({ description: "Scanned text set as location name." });
+      // Store raw scan result as the physical tag serial — name stays user-defined
+      setLoc(prev => ({ ...prev, tagSerial: payload }));
+      toast({ description: "QR tag linked — type the location name yourself." });
     }
   }, [toast]);
 
@@ -533,17 +527,34 @@ function LocationDialog({
         <div className="space-y-3">
           <div className="space-y-1">
             <Label className="text-xs">Location Name *</Label>
+            <Input value={loc.name} onChange={set("name")}
+              placeholder="e.g. FRONT TUNNEL DOOR LEFT" className="text-xs h-8 font-semibold" />
+          </div>
+
+          {/* Physical tag serial — populated by QR scan, not editable */}
+          <div className="space-y-1">
+            <Label className="text-xs">QR Tag Serial</Label>
             <div className="flex gap-2">
-              <Input value={loc.name} onChange={set("name")}
-                placeholder="e.g. FRONT TUNNEL DOOR LEFT" className="text-xs h-8 font-semibold flex-1" />
+              <Input
+                value={loc.tagSerial ?? ""}
+                readOnly
+                placeholder="Scan the physical label attached to this location"
+                className="text-xs h-8 font-mono bg-muted/40 flex-1"
+              />
               <Button size="sm" variant="outline" className="h-8 px-2 shrink-0"
-                title="Scan QR tag to fill name"
+                title="Scan physical QR label to link it"
                 onClick={() => setScanOpen(true)}>
                 <ScanLine className="h-3.5 w-3.5" />
               </Button>
+              {loc.tagSerial && (
+                <Button size="sm" variant="ghost" className="h-8 px-2 shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => setLoc(prev => ({ ...prev, tagSerial: "" }))}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
             <p className="text-[10px] text-muted-foreground">
-              Scan the QR tag attached to this location to auto-fill its name
+              Scan to link the physical QR sticker — location name is always typed by you
             </p>
           </div>
           <div className="space-y-1">
@@ -635,9 +646,9 @@ function LocationSheet({
 
   return (
     <>
-      <Sheet open={!!location} onOpenChange={v => { if (!v) onClose(); }}>
-        <SheetContent side="right" className="w-full sm:w-[620px] p-0 flex flex-col" aria-describedby={undefined}>
-          <SheetHeader className="px-5 py-4 border-b border-border shrink-0">
+      <Dialog open={!!location} onOpenChange={v => { if (!v) onClose(); }}>
+        <DialogContent className="max-w-2xl w-full max-h-[90vh] flex flex-col p-0" aria-describedby={undefined}>
+          <DialogHeader className="px-5 py-4 border-b border-border shrink-0">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -646,7 +657,7 @@ function LocationSheet({
                     {location.category}
                   </Badge>
                 </div>
-                <SheetTitle className="text-base font-bold leading-tight">{location.name}</SheetTitle>
+                <DialogTitle className="text-base font-bold leading-tight">{location.name}</DialogTitle>
                 {location.locationDescription && (
                   <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{location.locationDescription}</p>
                 )}
@@ -667,9 +678,9 @@ function LocationSheet({
                 </button>
               </div>
             </div>
-          </SheetHeader>
+          </DialogHeader>
 
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="px-5 py-4 space-y-4">
               {/* QR code thumbnail */}
               <div className="flex items-center gap-4 p-3 bg-muted/40 rounded-lg border border-border">
@@ -725,8 +736,8 @@ function LocationSheet({
               )}
             </div>
           </ScrollArea>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       {/* Item add/edit dialog */}
       <ItemDialog
