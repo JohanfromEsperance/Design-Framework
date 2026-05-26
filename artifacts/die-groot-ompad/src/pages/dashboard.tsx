@@ -1,3 +1,4 @@
+import React, { useMemo } from "react";
 import { useGetDashboard, useGetGlobalBudget } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -7,7 +8,9 @@ import {
   Map, Route, Fuel, BookOpen, ArrowRight,
   TrendingUp, TrendingDown, Minus, Award, Compass, AlertTriangle,
   BarChart2, ClipboardCheck, CheckCircle2, XCircle, Clock, PiggyBank,
+  Tent, Building2, DollarSign, CalendarDays,
 } from "lucide-react";
+import { loadBookings } from "@/lib/bookings-store";
 import { ALL_CHECKLISTS, CheckState, computeStats } from "@/data/checklists";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
@@ -175,6 +178,40 @@ function StatBlock({ label, value, sub, icon, accent = "#1f6f5f" }: StatBlockPro
             <p className="mt-1 text-2xl font-bold text-foreground leading-none">
               {value}
               {sub && <span className="ml-1 text-sm font-normal text-muted-foreground">{sub}</span>}
+            </p>
+          </div>
+          <div className="shrink-0 h-9 w-9 rounded-md flex items-center justify-center" style={{ background: `${accent}18` }}>
+            <span style={{ color: accent }}>{icon}</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Accommodation KPI block (shows this-month + accumulated) ──────────────────
+interface AccomBlockProps {
+  label: string;
+  total: string | number;
+  totalSub?: string;
+  thisMonth: string | number;
+  icon: React.ReactNode;
+  accent?: string;
+}
+function AccomBlock({ label, total, totalSub, thisMonth, icon, accent = "#1f6f5f" }: AccomBlockProps) {
+  return (
+    <Card className="bg-card border-border">
+      <CardContent className="pt-4 pb-4 px-5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide truncate">{label}</p>
+            <p className="mt-1 text-2xl font-bold text-foreground leading-none">
+              {total}
+              {totalSub && <span className="ml-1 text-sm font-normal text-muted-foreground">{totalSub}</span>}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+              <span className="font-semibold" style={{ color: accent }}>{thisMonth}</span>
+              <span className="ml-1">this month</span>
             </p>
           </div>
           <div className="shrink-0 h-9 w-9 rounded-md flex items-center justify-center" style={{ background: `${accent}18` }}>
@@ -364,16 +401,25 @@ interface SavingsWorksheetLocal {
   months?: Record<string, { deposit?: number; withdrawal?: number }>;
 }
 
-// Auto-compute savings pool from grid deposits (savingsZandra + savingsJohan) and
-// automatic drawdown once income falls short of spending from DRAWDOWN_START_IDX onwards.
+// Auto-compute savings pool.
+// Deposits: savings sub-tab months[i].deposit is authoritative when set;
+// falls back to savingsZandra + savingsJohan from the budget grid.
+// Manual withdrawals from savings sub-tab are applied first;
+// from DRAWDOWN_START_IDX onward, remaining income shortfall is auto-drawn.
 function computeSavingsPool(months: Record<string, BudgetMonth>, savings: SavingsWorksheetLocal | undefined) {
   let bal = savings?.openingBalance ?? 0;
 
   return Array.from({ length: 60 }, (_, i) => {
     const m: BudgetMonth = (months[i.toString()] as BudgetMonth) ?? {};
+    const savingsM = savings?.months?.[i.toString()];
 
-    // Deposits come from the savings grid rows
-    const deposit = (Number(m.savingsZandra) || 0) + (Number(m.savingsJohan) || 0);
+    // Prefer savings sub-tab deposit if set, otherwise fall back to grid columns
+    const savingsTabDeposit = Number(savingsM?.deposit) || 0;
+    const gridDeposit = (Number(m.savingsZandra) || 0) + (Number(m.savingsJohan) || 0);
+    const deposit = savingsTabDeposit > 0 ? savingsTabDeposit : gridDeposit;
+
+    // Manual withdrawal entered in the savings sub-tab
+    const manualWithdrawal = Number(savingsM?.withdrawal) || 0;
 
     // Income excluding drawdown itself
     let inc = 0;
@@ -382,8 +428,7 @@ function computeSavingsPool(months: Record<string, BudgetMonth>, savings: Saving
       inc += Math.max(0, Number(m[k]) || 0);
     }
 
-    // Spending expenses — exclude the savings contributions themselves
-    // (they are deposits into the pool, not real spending shortfall)
+    // Spending expenses — exclude savings contributions (they are pool deposits)
     let exp = 0;
     for (const k of EXPENSE_KEYS) {
       if (k === "savingsZandra" || k === "savingsJohan") continue;
@@ -392,15 +437,18 @@ function computeSavingsPool(months: Record<string, BudgetMonth>, savings: Saving
 
     const opening = bal;
     bal += deposit;
+    bal -= manualWithdrawal;
+    if (bal < 0) bal = 0;
 
     // From drawdown month: auto-draw the income shortfall, capped by available pool
-    let withdrawal = 0;
+    let autoWithdrawal = 0;
     if (i >= DRAWDOWN_START_IDX && bal > 0) {
       const shortfall = Math.max(0, exp - inc);
-      withdrawal = Math.min(shortfall, bal);
-      bal -= withdrawal;
+      autoWithdrawal = Math.min(shortfall, bal);
+      bal -= autoWithdrawal;
     }
 
+    const withdrawal = manualWithdrawal + autoWithdrawal;
     return { opening, deposit, withdrawal, closing: bal };
   });
 }
@@ -887,6 +935,40 @@ export default function Dashboard() {
   const savingsKpiPool         = savingsKpiPool_[DRAWDOWN_START_IDX]?.opening ?? 0;
   const savingsKpiHas          = savingsKpiPool > 0 || ((savings?.openingBalance ?? 0) > 0);
 
+  // ── Accommodation stats from localStorage bookings ─────────────────────────
+  const accStats = useMemo(() => {
+    const tripIds = stats?.tripBreakdown?.map(t => t.id) ?? [];
+    const now = new Date();
+    const thisMonth = now.getMonth();
+    const thisYear  = now.getFullYear();
+
+    let freeNightsTotal = 0, freeNightsMonth = 0;
+    let paidNightsTotal = 0, paidNightsMonth = 0;
+    let costTotal = 0,       costMonth = 0;
+    let nightsTotal = 0,     nightsMonth = 0;
+
+    for (const tripId of tripIds) {
+      for (const b of loadBookings(tripId)) {
+        const nights = Number(b.nights) || 1;
+        const cost   = Number(b.cost)   || 0;
+        const d = b.dateFrom ? new Date(b.dateFrom) : null;
+        const isCurMonth = d ? (d.getMonth() === thisMonth && d.getFullYear() === thisYear) : false;
+        const isFree     = cost === 0;
+
+        nightsTotal += nights;
+        costTotal   += cost;
+        if (isFree) freeNightsTotal += nights; else paidNightsTotal += nights;
+
+        if (isCurMonth) {
+          nightsMonth += nights;
+          costMonth   += cost;
+          if (isFree) freeNightsMonth += nights; else paidNightsMonth += nights;
+        }
+      }
+    }
+    return { freeNightsTotal, freeNightsMonth, paidNightsTotal, paidNightsMonth, costTotal, costMonth, nightsTotal, nightsMonth };
+  }, [stats?.tripBreakdown]);
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -916,6 +998,41 @@ export default function Dashboard() {
           sub={savingsKpiHas ? undefined : "not set"}
           icon={<PiggyBank className="h-4 w-4" />}
           accent="#ec4899"
+        />
+      </div>
+
+      {/* Row 1b — Accommodation KPI blocks */}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <AccomBlock
+          label="Accommodation — Free Nights"
+          total={accStats.freeNightsTotal}
+          totalSub="nights"
+          thisMonth={`${accStats.freeNightsMonth} nights`}
+          icon={<Tent className="h-4 w-4" />}
+          accent="#1f6f5f"
+        />
+        <AccomBlock
+          label="Accommodation — Paid Nights"
+          total={accStats.paidNightsTotal}
+          totalSub="nights"
+          thisMonth={`${accStats.paidNightsMonth} nights`}
+          icon={<Building2 className="h-4 w-4" />}
+          accent="#d9b880"
+        />
+        <AccomBlock
+          label="Accommodation Cost"
+          total={fmtAud(accStats.costTotal)}
+          thisMonth={fmtAud(accStats.costMonth)}
+          icon={<DollarSign className="h-4 w-4" />}
+          accent="#b97e30"
+        />
+        <AccomBlock
+          label="Nights on Road"
+          total={accStats.nightsTotal}
+          totalSub="nights"
+          thisMonth={`${accStats.nightsMonth} nights`}
+          icon={<CalendarDays className="h-4 w-4" />}
+          accent="#2a8a76"
         />
       </div>
 

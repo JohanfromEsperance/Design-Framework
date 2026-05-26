@@ -470,6 +470,7 @@ export default function BudgetPage() {
     vehicleDocs: data.vehicleDocs,
     checklists: data.checklists,
     savings: data.savings,
+    powerConfig: data.powerConfig,
   });
 
   const triggerSave = (data: any) => {
