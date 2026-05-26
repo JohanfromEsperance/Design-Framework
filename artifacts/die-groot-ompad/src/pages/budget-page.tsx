@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Save, Download, Upload, TrendingUp, TrendingDown, DollarSign,
   AlertTriangle, CheckCircle2, Lightbulb, TrendingUp as CpiIcon,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Lock, X,
 } from "lucide-react";
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
@@ -182,6 +182,36 @@ const ALL_KEYS = [
   ...ANNUAL_COSTS, ...SUPER_SAVINGS, ...FAMILY_COSTS, ...RENTAL_EXPENSES, ...INCOME_ITEMS,
 ];
 
+// ── Cell source map — keys whose values are owned by a sub-page (locked in grid) ──
+type CellKind = "rental" | "income" | "super";
+interface CellSourceMeta { kind: CellKind; tab: string; description: string }
+const CELL_SOURCE: Record<string, CellSourceMeta> = {
+  rentalNet:          { kind: "rental", tab: "Rental Property", description: "Gross rent — weekly rent × (52 − vacancy weeks) ÷ 12" },
+  rentalInterest:     { kind: "rental", tab: "Rental Property", description: "Mortgage interest — loan balance × annual rate ÷ 12. Zeroed after payoff date." },
+  rentalRatesLevies:  { kind: "rental", tab: "Rental Property", description: "Council rates, strata levies & land tax ÷ 12" },
+  rentalWater:        { kind: "rental", tab: "Rental Property", description: "Annual water rates ÷ 12" },
+  rentalElectricity:  { kind: "rental", tab: "Rental Property", description: "Annual electricity cost ÷ 12" },
+  rentalMgmtFees:     { kind: "rental", tab: "Rental Property", description: "Property management & letting fees ÷ 12" },
+  rentalOtherCosts:   { kind: "rental", tab: "Rental Property", description: "Insurance, repairs, advertising & other costs ÷ 12" },
+  salary:             { kind: "income", tab: "Income", description: "Employment salary — actual or forecast from Income worksheet" },
+  businessIncome:     { kind: "income", tab: "Income", description: "Business income — from Income worksheet" },
+  dividends:          { kind: "income", tab: "Income", description: "Share dividends — from Income worksheet" },
+  cgt:                { kind: "income", tab: "Income", description: "Capital gains — from Income worksheet" },
+  centrelink:         { kind: "income", tab: "Income", description: "Centrelink / government payments — from Income worksheet" },
+  superPensionIncome: { kind: "income", tab: "Income", description: "Super pension drawdown — from Income worksheet" },
+  sideIncome:         { kind: "income", tab: "Income", description: "Side income — from Income worksheet" },
+  otherIncome1:       { kind: "income", tab: "Income", description: "Other Income 1 — from Income worksheet" },
+  otherIncome2:       { kind: "income", tab: "Income", description: "Other Income 2 — from Income worksheet" },
+  customIncome:       { kind: "income", tab: "Income", description: "Aggregated custom income sources — from Income worksheet" },
+  superContribution:  { kind: "super",  tab: "Superannuation", description: "Personal super contribution — salary × contribution rate ÷ 12" },
+};
+
+const KIND_STYLE: Record<CellKind, { bg: string; badge: string; badgeText: string; label: string }> = {
+  rental: { bg: "rgba(217,184,128,0.20)", badge: "bg-[#d9b880]/30 text-[#7a5800]",     badgeText: "Rental Property", label: "Rental Property config" },
+  income: { bg: "rgba(31,111,95,0.12)",   badge: "bg-[#1f6f5f]/20 text-[#1f6f5f]",    badgeText: "Income",          label: "Income worksheet" },
+  super:  { bg: "rgba(167,139,250,0.18)", badge: "bg-[#a78bfa]/25 text-[#5b21b6]",    badgeText: "Superannuation",  label: "Superannuation config" },
+};
+
 // ── Default 12-month pattern (Year 1) ────────────────────────────────────────
 
 const BASE_BILLS = {
@@ -286,6 +316,10 @@ export default function BudgetPage() {
   const [cpiDialogOpen, setCpiDialogOpen] = useState(false);
   const [cpiRate, setCpiRate] = useState(2.5);
   const [cpiFromMonth, setCpiFromMonth] = useState(0);
+
+  const [lockedPopover, setLockedPopover] = useState<{
+    key: string; label: string; meta: CellSourceMeta; x: number; y: number;
+  } | null>(null);
 
   const viewStart = customMode ? customFrom : viewYear * 12;
   const viewEnd   = customMode ? Math.max(customFrom, customTo) : viewYear * 12 + 11;
@@ -959,6 +993,31 @@ export default function BudgetPage() {
     reader.readAsText(file); e.target.value = "";
   };
 
+  // ── Sub-page lock helpers ─────────────────────────────────────────────────
+  const isRentalConfigured = !!((budgetData?.rental as RentalConfig)?.weeklyRent);
+  const isIncomeConfigured = !!((budgetData?.income as IncomeWorksheet)?.sources?.length);
+  const isSuperConfigured  = !!((budgetData?.super as SuperPortfolio)?.accounts?.some(
+    (a: { personalRate?: number }) => a.personalRate && a.personalRate > 0
+  ));
+
+  const isCellLocked = (key: string): boolean => {
+    const src = CELL_SOURCE[key];
+    if (!src) return false;
+    if (src.kind === "rental") return isRentalConfigured;
+    if (src.kind === "income") return isIncomeConfigured;
+    if (src.kind === "super")  return isSuperConfigured;
+    return false;
+  };
+
+  const openLockedPopover = (e: React.MouseEvent, key: string, label: string) => {
+    const meta = CELL_SOURCE[key];
+    if (!meta) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = Math.min(rect.left, window.innerWidth - 268);
+    const y = Math.min(rect.bottom + 6, window.innerHeight - 160);
+    setLockedPopover({ key, label, meta, x, y });
+  };
+
   if (isLoading || !budgetData) {
     return (
       <div className="p-8 text-muted-foreground">Loading budget...</div>
@@ -1292,6 +1351,23 @@ export default function BudgetPage() {
               Budget Grid — {visibleCount} Months ({monthLabel(viewStart, "long")} – {monthLabel(viewEnd, "long")})
             </CardTitle>
           </CardHeader>
+
+          {/* ── Data source legend ── */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 px-3 py-2 border-b border-border/30 bg-muted/10 text-[10px] text-muted-foreground">
+            <span className="font-semibold uppercase tracking-wide text-muted-foreground/70">Source:</span>
+            {(Object.entries(KIND_STYLE) as [CellKind, typeof KIND_STYLE[CellKind]][]).map(([kind, s]) => (
+              <span key={kind} className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 rounded-sm border border-border/30" style={{ backgroundColor: s.bg }} />
+                <Lock className="h-2.5 w-2.5 opacity-40" />
+                {s.label} — locked, click for details
+              </span>
+            ))}
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-3 h-3 rounded-sm border border-border" style={{ backgroundColor: "transparent" }} />
+              Manual entry — editable
+            </span>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-xs border-collapse">
               <thead>
@@ -1347,24 +1423,41 @@ export default function BudgetPage() {
                       const rowTotal = Array.from({ length: visibleCount }, (_, i) => viewStart + i)
                         .reduce((s, mi) => s + (Number((budgetData.months[mi.toString()] ?? budgetData.months[mi])?.[cat.key]) || 0), 0);
                       const rowHint = getRowHint(cat.key);
+                      const locked = isCellLocked(cat.key);
+                      const kindMeta = locked ? CELL_SOURCE[cat.key] : null;
+                      const kindStyle = kindMeta ? KIND_STYLE[kindMeta.kind] : null;
                       return (
                         <tr key={cat.key} className="border-b border-border/20 hover:bg-muted/20 transition-colors">
                           <td className="p-1.5 pl-3 text-foreground whitespace-nowrap">
-                            <div>{cat.label}</div>
+                            <div className="flex items-center gap-1">
+                              {cat.label}
+                              {locked && <Lock className="h-2.5 w-2.5 text-muted-foreground/35 shrink-0" />}
+                            </div>
                             {rowHint && <div className="text-[10px] text-muted-foreground leading-tight">{rowHint}</div>}
                           </td>
                           {Array.from({ length: visibleCount }, (_, i) => viewStart + i).map(mi => {
                             const m = budgetData.months[mi.toString()] ?? budgetData.months[mi] ?? {};
                             const val = Number(m[cat.key]) || 0;
                             return (
-                              <td key={mi} className="p-1 text-right">
-                                <BudgetCell step={10} value={val}
-                                  onChange={v => handleCellChange(mi, cat.key, v)}
-                                  className={cn(
-                                    "w-full text-right bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 tabular-nums",
-                                    val > 0 ? "text-foreground" : "text-muted-foreground/30"
-                                  )}
-                                />
+                              <td key={mi} className="p-1 text-right" style={kindStyle ? { backgroundColor: kindStyle.bg } : undefined}>
+                                {locked ? (
+                                  <button type="button"
+                                    className="w-full text-right tabular-nums cursor-help flex items-center justify-end gap-0.5 group px-1"
+                                    onClick={e => openLockedPopover(e, cat.key, cat.label)}>
+                                    <span className={cn("text-xs", val > 0 ? "text-foreground" : "text-muted-foreground/30")}>
+                                      {val > 0 ? val.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "0"}
+                                    </span>
+                                    <Lock className="h-2 w-2 text-muted-foreground/20 group-hover:text-muted-foreground/50 shrink-0 transition-colors" />
+                                  </button>
+                                ) : (
+                                  <BudgetCell step={10} value={val}
+                                    onChange={v => handleCellChange(mi, cat.key, v)}
+                                    className={cn(
+                                      "w-full text-right bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 tabular-nums",
+                                      val > 0 ? "text-foreground" : "text-muted-foreground/30"
+                                    )}
+                                  />
+                                )}
                               </td>
                             );
                           })}
@@ -1401,21 +1494,40 @@ export default function BudgetPage() {
                 {INCOME_ITEMS.map(cat => {
                   const rowTotal = Array.from({ length: visibleCount }, (_, i) => viewStart + i)
                     .reduce((s, mi) => s + (Number((budgetData.months[mi.toString()] ?? budgetData.months[mi])?.[cat.key]) || 0), 0);
+                  const locked = isCellLocked(cat.key);
+                  const kindMeta = locked ? CELL_SOURCE[cat.key] : null;
+                  const kindStyle = kindMeta ? KIND_STYLE[kindMeta.kind] : null;
                   return (
                     <tr key={cat.key} className="border-b border-border/20 hover:bg-muted/20 transition-colors">
-                      <td className="p-1.5 pl-3 text-foreground whitespace-nowrap">{cat.label}</td>
+                      <td className="p-1.5 pl-3 text-foreground whitespace-nowrap">
+                        <div className="flex items-center gap-1">
+                          {cat.label}
+                          {locked && <Lock className="h-2.5 w-2.5 text-muted-foreground/35 shrink-0" />}
+                        </div>
+                      </td>
                       {Array.from({ length: visibleCount }, (_, i) => viewStart + i).map(mi => {
                         const m = budgetData.months[mi.toString()] ?? budgetData.months[mi] ?? {};
                         const val = Number(m[cat.key]) || 0;
                         return (
-                          <td key={mi} className="p-1 text-right">
-                            <BudgetCell step={10} value={val}
-                              onChange={v => handleCellChange(mi, cat.key, v)}
-                              className={cn(
-                                "w-full text-right bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 tabular-nums",
-                                val > 0 ? "text-primary font-medium" : "text-muted-foreground/30"
-                              )}
-                            />
+                          <td key={mi} className="p-1 text-right" style={kindStyle ? { backgroundColor: kindStyle.bg } : undefined}>
+                            {locked ? (
+                              <button type="button"
+                                className="w-full text-right tabular-nums cursor-help flex items-center justify-end gap-0.5 group px-1"
+                                onClick={e => openLockedPopover(e, cat.key, cat.label)}>
+                                <span className={cn("text-xs", val > 0 ? "text-primary font-medium" : "text-muted-foreground/30")}>
+                                  {val > 0 ? val.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "0"}
+                                </span>
+                                <Lock className="h-2 w-2 text-muted-foreground/20 group-hover:text-muted-foreground/50 shrink-0 transition-colors" />
+                              </button>
+                            ) : (
+                              <BudgetCell step={10} value={val}
+                                onChange={v => handleCellChange(mi, cat.key, v)}
+                                className={cn(
+                                  "w-full text-right bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 tabular-nums",
+                                  val > 0 ? "text-primary font-medium" : "text-muted-foreground/30"
+                                )}
+                              />
+                            )}
                           </td>
                         );
                       })}
@@ -1547,6 +1659,36 @@ export default function BudgetPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* ── Locked cell popover ── */}
+        {lockedPopover && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setLockedPopover(null)} />
+            <div className="fixed z-50 w-64 rounded-lg border border-border bg-card shadow-xl text-xs"
+              style={{ left: lockedPopover.x, top: lockedPopover.y }}>
+              <div className="flex items-start gap-2 p-3">
+                <div className="flex-1 min-w-0">
+                  <span className={cn(
+                    "inline-block px-1.5 py-0.5 rounded text-[10px] font-bold mb-1.5",
+                    KIND_STYLE[lockedPopover.meta.kind].badge
+                  )}>
+                    {KIND_STYLE[lockedPopover.meta.kind].badgeText}
+                  </span>
+                  <p className="font-semibold text-foreground mb-1 leading-snug">{lockedPopover.label}</p>
+                  <p className="text-muted-foreground leading-relaxed mb-2">{lockedPopover.meta.description}</p>
+                  <div className="flex items-center gap-1 text-primary font-medium">
+                    <Lock className="h-3 w-3 shrink-0" />
+                    <span>Edit in the <strong>{lockedPopover.meta.tab}</strong> tab</span>
+                  </div>
+                </div>
+                <button onClick={() => setLockedPopover(null)}
+                  className="text-muted-foreground hover:text-foreground shrink-0 mt-0.5 transition-colors">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          </>
+        )}
 
         </React.Fragment>}
     </div>
