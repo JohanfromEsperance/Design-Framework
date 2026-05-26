@@ -40,6 +40,7 @@ export interface StorageLocation {
   photoData: string;
   notes: string;
   sortOrder: number;
+  tagSerial?: string; // raw payload from a scanned physical QR/barcode label
 }
 
 export interface AssetRegister {
