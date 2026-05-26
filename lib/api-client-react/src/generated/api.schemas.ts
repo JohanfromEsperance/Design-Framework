@@ -189,6 +189,7 @@ export interface MonthBudget {
   rentalElectricity?: number;
   rentalMgmtFees?: number;
   rentalOtherCosts?: number;
+  rentalNetIncome?: number;
   rentalNet?: number;
   salary?: number;
   businessIncome?: number;

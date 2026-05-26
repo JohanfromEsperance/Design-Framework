@@ -187,6 +187,7 @@ type CellKind = "rental" | "income" | "super";
 interface CellSourceMeta { kind: CellKind; tab: string; description: string }
 const CELL_SOURCE: Record<string, CellSourceMeta> = {
   rentalNet:          { kind: "rental", tab: "Rental Property", description: "Gross rent — weekly rent × (52 − vacancy weeks) ÷ 12" },
+  rentalNetIncome:    { kind: "rental", tab: "Rental Property", description: "Net rental income — gross rent minus mortgage interest, rates, water, electricity, management fees and other costs. Increases from the mortgage payoff month onward." },
   rentalInterest:     { kind: "rental", tab: "Rental Property", description: "Mortgage interest — loan balance × annual rate ÷ 12. Zeroed after payoff date." },
   rentalRatesLevies:  { kind: "rental", tab: "Rental Property", description: "Council rates, strata levies & land tax ÷ 12" },
   rentalWater:        { kind: "rental", tab: "Rental Property", description: "Annual water rates ÷ 12" },
@@ -362,9 +363,11 @@ export default function BudgetPage() {
       const out: Record<string, any> = {};
       for (let i = 0; i < 60; i++) {
         const interest = payoffIdx !== null && i >= payoffIdx ? 0 : monthlyInterest;
+        const rentalNetIncome = monthlyGrossRent - interest - monthlyRates - monthlyWater - monthlyElectricity - monthlyMgmt - monthlyOther;
         out[i.toString()] = {
           ...(months[i.toString()] ?? {}),
           rentalNet:         monthlyGrossRent,
+          rentalNetIncome,
           rentalInterest:    interest,
           rentalRatesLevies: monthlyRates,
           rentalWater:       monthlyWater,
@@ -1552,6 +1555,41 @@ export default function BudgetPage() {
                     </tr>
                   );
                 })}
+
+                {/* Net Rental Income — computed display row, not included in totalIncome */}
+                {isRentalConfigured && (() => {
+                  const rowTotal = Array.from({ length: visibleCount }, (_, i) => viewStart + i)
+                    .reduce((s, mi) => s + (Number((budgetData.months[mi.toString()] ?? budgetData.months[mi])?.rentalNetIncome) || 0), 0);
+                  return (
+                    <tr className="border-b border-border/40 hover:bg-muted/20 transition-colors">
+                      <td className="p-1.5 pl-3 whitespace-nowrap">
+                        <div className="flex items-center gap-1 font-semibold text-[#7a5800] text-xs uppercase tracking-wide">
+                          Net Rental Income
+                          <Lock className="h-2.5 w-2.5 text-[#d9b880]/60 shrink-0" />
+                        </div>
+                      </td>
+                      {Array.from({ length: visibleCount }, (_, i) => viewStart + i).map(mi => {
+                        const m = budgetData.months[mi.toString()] ?? budgetData.months[mi] ?? {};
+                        const val = Number(m.rentalNetIncome) || 0;
+                        return (
+                          <td key={mi} className="p-1 text-right" style={{ backgroundColor: "rgba(217,184,128,0.25)" }}>
+                            <button type="button"
+                              className="w-full text-right tabular-nums cursor-help flex items-center justify-end gap-0.5 group px-1"
+                              onClick={e => openLockedPopover(e, "rentalNetIncome", "Net Rental Income")}>
+                              <span className={cn("text-xs font-semibold", val > 0 ? "text-[#7a5800]" : val < 0 ? "text-destructive" : "text-muted-foreground/30")}>
+                                {val !== 0 ? val.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "0"}
+                              </span>
+                              <Lock className="h-2 w-2 text-muted-foreground/20 group-hover:text-muted-foreground/50 shrink-0 transition-colors" />
+                            </button>
+                          </td>
+                        );
+                      })}
+                      <td className="text-right p-2 font-bold tabular-nums text-xs text-[#7a5800]">
+                        ${rowTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </td>
+                    </tr>
+                  );
+                })()}
 
                 {[
                   { label: "Total Expenses", key: "totalExpenses", color: "text-destructive", bold: true },
