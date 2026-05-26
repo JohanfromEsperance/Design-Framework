@@ -975,42 +975,78 @@ components:
       type: object
       additionalProperties: true
       properties:
-        fuel:
-          type: number
-        accommodation:
-          type: number
-        groceries:
-          type: number
-        eatingOut:
-          type: number
-        entertainment:
-          type: number
-        passesPermits:
-          type: number
-        insurance:
-          type: number
-        phoneInternet:
-          type: number
-        medical:
-          type: number
-        repairs:
-          type: number
-        subscriptions:
-          type: number
-        otherExpenses:
-          type: number
-        salary:
-          type: number
-        businessIncome:
-          type: number
-        refunds:
-          type: number
-        otherIncome1:
-          type: number
-        otherIncome2:
-          type: number
-        openingBalance:
-          type: number
+        # ── Travel & Road ──────────────────────────────────────────────────────
+        fuel:             { type: number }
+        accommodation:    { type: number }
+        food:             { type: number }
+        groceries:        { type: number }
+        eatingOut:        { type: number }
+        entertainment:    { type: number }
+        passesPermits:    { type: number }
+        ferries:          { type: number }
+        gasBottles:       { type: number }
+        # ── Vehicle & Rig ──────────────────────────────────────────────────────
+        vehicleService:   { type: number }
+        caravanService:   { type: number }
+        tyresVehicle:     { type: number }
+        tyresCaravan:     { type: number }
+        repairs:          { type: number }
+        # ── Fixed Monthly Bills ────────────────────────────────────────────────
+        starlink:         { type: number }
+        johanMobile:      { type: number }
+        zandraMobile:     { type: number }
+        insurance:        { type: number }
+        phoneInternet:    { type: number }
+        medical:          { type: number }
+        prescriptions:    { type: number }
+        apartmentInsurance: { type: number }
+        subscriptions:    { type: number }
+        otherExpenses:    { type: number }
+        # ── Annual — Rego & Insurance ──────────────────────────────────────────
+        vehicleLicence:   { type: number }
+        caravanLicence:   { type: number }
+        vehicleInsurance: { type: number }
+        caravanInsurance: { type: number }
+        roadsideAssist:   { type: number }
+        # ── Super & Savings ────────────────────────────────────────────────────
+        superContribution: { type: number }
+        savingsZandra:    { type: number }
+        savingsJohan:     { type: number }
+        # ── Grandkids & Family ─────────────────────────────────────────────────
+        grandkidsFlights: { type: number }
+        grandkidsHotels:  { type: number }
+        # ── Rental Property Costs ──────────────────────────────────────────────
+        rentalInterest:    { type: number }
+        rentalRatesLevies: { type: number }
+        rentalWater:       { type: number }
+        rentalElectricity: { type: number }
+        rentalMgmtFees:    { type: number }
+        rentalOtherCosts:  { type: number }
+        # ── Income ────────────────────────────────────────────────────────────
+        rentalNet:         { type: number }
+        salary:            { type: number }
+        businessIncome:    { type: number }
+        dividends:         { type: number }
+        cgt:               { type: number }
+        centrelink:        { type: number }
+        superPensionIncome: { type: number }
+        sideIncome:        { type: number }
+        refunds:           { type: number }
+        otherIncome1:      { type: number }
+        otherIncome2:      { type: number }
+        customIncome:      { type: number }
+        # ── Trip Planning Inputs ───────────────────────────────────────────────
+        atHome:           { type: boolean }
+        freeNights:       { type: number }
+        paidNights:       { type: number }
+        paidRate:         { type: number }
+        plannedKm:        { type: number }
+        fuelConsumption:  { type: number }
+        fuelPrice:        { type: number }
+        totalDays:        { type: number }
+        foodDailyRate:    { type: number }
+        # ── Balance ───────────────────────────────────────────────────────────
+        openingBalance:   { type: number }
 
     IncomeSource:
       type: object
