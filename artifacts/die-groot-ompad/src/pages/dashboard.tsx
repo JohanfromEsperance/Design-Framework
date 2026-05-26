@@ -902,40 +902,8 @@ export default function Dashboard() {
   const { data: budget } = useGetGlobalBudget();
   const [, setLocation] = useLocation();
 
-  if (isLoading) {
-    return (
-      <div className="space-y-5">
-        <div className="flex items-center justify-between">
-          <div><Skeleton className="h-8 w-56" /><Skeleton className="h-3.5 w-40 mt-2" /></div>
-          <Skeleton className="h-9 w-28" />
-        </div>
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-          {[1,2,3,4].map(i => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}
-        </div>
-        <Skeleton className="h-96 w-full rounded-xl" />
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-          {[1,2,3,4].map(i => <Skeleton key={i} className="h-72 w-full rounded-xl" />)}
-        </div>
-      </div>
-    );
-  }
-
-  const breakdown = stats?.tripBreakdown ?? [];
-  const plannedPieData = breakdown.map((t) => ({ name: t.name, value: Math.round(t.plannedFuelCost) }));
-  const actualPieData  = breakdown.map((t) => ({ name: t.name, value: Math.round(t.actualFuelCost) }));
-  const totalPlanned   = plannedPieData.reduce((s, d) => s + d.value, 0);
-  const totalActual    = actualPieData.reduce((s, d) => s + d.value, 0);
-
-  const budgetMonths     = (budget as any)?.months ?? {};
-  const superPortfolio   = (budget as any)?.super;
-  const savings          = (budget as any)?.savings as SavingsWorksheetLocal | undefined;
-
-  // Compute savings pool at drawdown start (month 12 = March 2027) for the KPI row
-  const savingsKpiPool_        = computeSavingsPool(budgetMonths, savings);
-  const savingsKpiPool         = savingsKpiPool_[DRAWDOWN_START_IDX]?.opening ?? 0;
-  const savingsKpiHas          = savingsKpiPool > 0 || ((savings?.openingBalance ?? 0) > 0);
-
   // ── Accommodation stats from localStorage bookings ─────────────────────────
+  // Must be before any early returns (Rules of Hooks)
   const accStats = useMemo(() => {
     const tripIds = stats?.tripBreakdown?.map(t => t.id) ?? [];
     const now = new Date();
@@ -968,6 +936,38 @@ export default function Dashboard() {
     }
     return { freeNightsTotal, freeNightsMonth, paidNightsTotal, paidNightsMonth, costTotal, costMonth, nightsTotal, nightsMonth };
   }, [stats?.tripBreakdown]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center justify-between">
+          <div><Skeleton className="h-8 w-56" /><Skeleton className="h-3.5 w-40 mt-2" /></div>
+          <Skeleton className="h-9 w-28" />
+        </div>
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          {[1,2,3,4].map(i => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}
+        </div>
+        <Skeleton className="h-96 w-full rounded-xl" />
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          {[1,2,3,4].map(i => <Skeleton key={i} className="h-72 w-full rounded-xl" />)}
+        </div>
+      </div>
+    );
+  }
+
+  const breakdown = stats?.tripBreakdown ?? [];
+  const plannedPieData = breakdown.map((t) => ({ name: t.name, value: Math.round(t.plannedFuelCost) }));
+  const actualPieData  = breakdown.map((t) => ({ name: t.name, value: Math.round(t.actualFuelCost) }));
+  const totalPlanned   = plannedPieData.reduce((s, d) => s + d.value, 0);
+  const totalActual    = actualPieData.reduce((s, d) => s + d.value, 0);
+
+  const budgetMonths     = (budget as any)?.months ?? {};
+  const superPortfolio   = (budget as any)?.super;
+  const savings          = (budget as any)?.savings as SavingsWorksheetLocal | undefined;
+
+  const savingsKpiPool_        = computeSavingsPool(budgetMonths, savings);
+  const savingsKpiPool         = savingsKpiPool_[DRAWDOWN_START_IDX]?.opening ?? 0;
+  const savingsKpiHas          = savingsKpiPool > 0 || ((savings?.openingBalance ?? 0) > 0);
 
   return (
     <div className="space-y-5">
