@@ -125,24 +125,28 @@ interface SavingsSubProps {
   data: SavingsWorksheet;
   onChange: (updated: SavingsWorksheet) => void;
   drawdown?: number[];
+  contributions?: number[];
 }
 
-export default function SavingsSub({ data, onChange, drawdown }: SavingsSubProps) {
+export default function SavingsSub({ data, onChange, drawdown, contributions }: SavingsSubProps) {
   const ws = { ...DEFAULT_SAVINGS, ...data, months: data.months ?? {} };
   const [viewYear, setViewYear] = useState(0);
 
   const viewStart = viewYear * 12;
   const visibleMonths = Array.from({ length: 12 }, (_, i) => viewStart + i);
 
-  // Compute running balance across all 60 months (factors in drawdown)
+  // Compute running balance across all 60 months.
+  // contributions = savingsZandra + savingsJohan from the budget grid (internal budget-to-savings transfers).
+  // drawdown = budget shortfall that must be funded from savings (already excludes contributions).
   const runningBalance = (() => {
     let bal = ws.openingBalance;
     return Array.from({ length: 60 }, (_, i) => {
-      const m    = getMonth(ws, i);
-      const draw = drawdown?.[i] ?? 0;
+      const m      = getMonth(ws, i);
+      const draw   = drawdown?.[i] ?? 0;
+      const contrib = contributions?.[i] ?? 0;
       const opening = bal;
-      bal = bal + m.deposit - m.withdrawal - draw;
-      return { opening, deposit: m.deposit, withdrawal: m.withdrawal, drawdown: draw, closing: bal };
+      bal = bal + m.deposit + contrib - m.withdrawal - draw;
+      return { opening, deposit: m.deposit, contrib, withdrawal: m.withdrawal, drawdown: draw, closing: bal };
     });
   })();
 
@@ -155,9 +159,10 @@ export default function SavingsSub({ data, onChange, drawdown }: SavingsSubProps
   };
 
   const periodDeposits    = visibleMonths.reduce((s, i) => s + runningBalance[i].deposit, 0);
+  const periodContribs    = visibleMonths.reduce((s, i) => s + runningBalance[i].contrib, 0);
   const periodWithdrawals = visibleMonths.reduce((s, i) => s + runningBalance[i].withdrawal, 0);
   const periodDrawdown    = visibleMonths.reduce((s, i) => s + Math.max(0, runningBalance[i].drawdown), 0);
-  const periodNet         = periodDeposits - periodWithdrawals - periodDrawdown;
+  const periodNet         = periodDeposits + periodContribs - periodWithdrawals - periodDrawdown;
   const closingBalance    = runningBalance[viewStart + 11]?.closing ?? ws.openingBalance;
   const openingThisYear   = runningBalance[viewStart]?.opening ?? ws.openingBalance;
 
@@ -173,6 +178,7 @@ export default function SavingsSub({ data, onChange, drawdown }: SavingsSubProps
   }));
 
   const total5yrDeposits    = runningBalance.reduce((s, b) => s + b.deposit, 0);
+  const total5yrContribs    = runningBalance.reduce((s, b) => s + b.contrib, 0);
   const total5yrWithdrawals = runningBalance.reduce((s, b) => s + b.withdrawal, 0);
   const total5yrDrawdown    = runningBalance.reduce((s, b) => s + Math.max(0, b.drawdown), 0);
   const finalBalance        = runningBalance[59]?.closing ?? ws.openingBalance;
@@ -309,9 +315,12 @@ export default function SavingsSub({ data, onChange, drawdown }: SavingsSubProps
                 {/* Deposit row */}
                 <tr className="border-b border-border/20 hover:bg-primary/3">
                   <td className="p-2 pl-3">
-                    <div className="flex items-center gap-1.5">
-                      <ArrowDownCircle className="h-3 w-3 text-primary shrink-0" />
-                      <span className="font-semibold text-primary">Deposit</span>
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <ArrowDownCircle className="h-3 w-3 text-primary shrink-0" />
+                        <span className="font-semibold text-primary">Deposit</span>
+                      </div>
+                      <span className="text-[9px] text-muted-foreground leading-tight">One-off cash injections (super lump sum, etc.)</span>
                     </div>
                   </td>
                   {visibleMonths.map(mi => (
@@ -321,6 +330,30 @@ export default function SavingsSub({ data, onChange, drawdown }: SavingsSubProps
                   ))}
                   <td className="p-2 pr-3 text-right tabular-nums font-semibold text-primary">
                     {periodDeposits > 0 ? fmt(periodDeposits) : ""}
+                  </td>
+                </tr>
+
+                {/* Budget Allocation row — read-only, from savingsZandra + savingsJohan in budget grid */}
+                <tr className="border-b border-border/20 bg-primary/2">
+                  <td className="p-2 pl-3">
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <ArrowDownCircle className="h-3 w-3 text-primary/60 shrink-0" />
+                        <span className="font-semibold text-primary/70">Budget Allocation</span>
+                      </div>
+                      <span className="text-[9px] text-muted-foreground leading-tight">Savings Zandra + Savings Johan from budget grid</span>
+                    </div>
+                  </td>
+                  {visibleMonths.map(mi => {
+                    const c = runningBalance[mi].contrib;
+                    return (
+                      <td key={mi} className="p-2 text-right tabular-nums font-medium text-primary/70">
+                        {c > 0 ? fmt(c) : <span className="text-muted-foreground/40">—</span>}
+                      </td>
+                    );
+                  })}
+                  <td className="p-2 pr-3 text-right tabular-nums font-semibold text-primary/70">
+                    {periodContribs > 0 ? fmt(periodContribs) : "—"}
                   </td>
                 </tr>
 
@@ -401,10 +434,11 @@ export default function SavingsSub({ data, onChange, drawdown }: SavingsSubProps
         <CardContent className="p-0">
           <div className="divide-y divide-border/30">
             {[
-              { label: "Opening Balance (Month 0)",      value: ws.openingBalance,    color: "text-foreground",  sign: "" },
-              { label: "Total Deposits (60 months)",     value: total5yrDeposits,     color: "text-primary",     sign: "+" },
-              { label: "Total Withdrawals (60 months)",  value: total5yrWithdrawals,  color: "text-[#b8943e]",   sign: "−" },
-              { label: "Total Drawdown (60 months)",     value: total5yrDrawdown,     color: "text-destructive", sign: "−" },
+              { label: "Opening Balance (Month 0)",             value: ws.openingBalance,    color: "text-foreground",    sign: "" },
+              { label: "Total Deposits (60 months)",            value: total5yrDeposits,     color: "text-primary",       sign: "+" },
+              { label: "Total Budget Allocations (60 months)",  value: total5yrContribs,     color: "text-primary/70",    sign: "+" },
+              { label: "Total Withdrawals (60 months)",         value: total5yrWithdrawals,  color: "text-[#b8943e]",     sign: "−" },
+              { label: "Total Drawdown (60 months)",            value: total5yrDrawdown,     color: "text-destructive",   sign: "−" },
             ].map(({ label, value, color, sign }) => (
               <div key={label} className="flex items-center justify-between px-4 py-2.5">
                 <span className="text-xs text-muted-foreground">{label}</span>
@@ -423,10 +457,11 @@ export default function SavingsSub({ data, onChange, drawdown }: SavingsSubProps
         </CardContent>
       </Card>
 
-      <div className="flex gap-6 text-[10px] text-muted-foreground">
-        <span><span className="inline-block w-2 h-2 rounded-full bg-primary mr-1" />Deposit — money moved into this bucket</span>
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-[10px] text-muted-foreground">
+        <span><span className="inline-block w-2 h-2 rounded-full bg-primary mr-1" />Deposit — one-off cash injections (super lump sum, inheritance, etc.)</span>
+        <span><span className="inline-block w-2 h-2 rounded-full bg-primary/50 mr-1" />Budget Allocation — Savings Zandra + Savings Johan from budget grid (auto)</span>
         <span><span className="inline-block w-2 h-2 rounded-full bg-[#d9b880] mr-1" />Withdrawal — money taken from this bucket</span>
-        <span><span className="inline-block w-2 h-2 rounded-full bg-destructive mr-1" />Drawdown — monthly budget deficit (auto from Budget overview)</span>
+        <span><span className="inline-block w-2 h-2 rounded-full bg-destructive mr-1" />Drawdown — monthly budget deficit funded from savings (auto)</span>
       </div>
     </div>
   );

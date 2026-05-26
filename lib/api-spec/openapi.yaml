@@ -824,6 +824,7 @@ components:
         ownersInsurance: { type: number }
         ownersInsurancePolicy: { type: string }
         leaseSigningDate: { type: string }
+        mortgagePayoffDate: { type: string }
         strataLevies: { type: number }
         landTax: { type: number }
         managementFeeRate: { type: number }

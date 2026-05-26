@@ -129,6 +129,7 @@ export interface RentalConfig {
   ownersInsurance?: number;
   ownersInsurancePolicy?: string;
   leaseSigningDate?: string;
+  mortgagePayoffDate?: string;
   strataLevies?: number;
   landTax?: number;
   managementFeeRate?: number;

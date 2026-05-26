@@ -448,7 +448,6 @@ export default function BudgetPage() {
       m = withRentalNet(m, budget?.rental);
       m = withSuperContribution(m, budget?.super);
       m = withIncomeSync(m, budget?.income);
-      m = withSavingsSync(m, budget?.savings);
       return m;
     };
 
@@ -792,10 +791,25 @@ export default function BudgetPage() {
     [computedTotals, todayMonthIdx]
   );
 
-  // Monthly drawdown = net budget outflow (positive = drawing from savings, negative = surplus)
+  // Per-month savings contributions from budget grid (savingsZandra + savingsJohan).
+  // These are internal budget-to-savings transfers and are passed directly to the savings pool
+  // as contributions rather than counted as drawdown pressure.
+  const monthlySavingsContrib = useMemo(() =>
+    Array.from({ length: 60 }, (_, i) => {
+      const m = (budgetData?.months as Record<string, any>)?.[i.toString()] ?? {};
+      return (Number(m.savingsZandra) || 0) + (Number(m.savingsJohan) || 0);
+    }),
+    [budgetData?.months]
+  );
+
+  // Monthly drawdown = budget shortfall that needs to be covered from savings.
+  // Excludes savingsZandra + savingsJohan (those go to the savings pool as contributions, not as external outflow).
   const monthlyDrawdown = useMemo(() =>
-    computedTotals.map(t => t.totalExpenses - t.totalIncome),
-    [computedTotals]
+    computedTotals.map((t, i) => {
+      const contrib = monthlySavingsContrib[i] ?? 0;
+      return Math.max(0, t.totalExpenses - contrib - t.totalIncome);
+    }),
+    [computedTotals, monthlySavingsContrib]
   );
 
   // ── Insights ─────────────────────────────────────────────────────────────
@@ -1112,6 +1126,7 @@ export default function BudgetPage() {
             data={{ ...DEFAULT_SAVINGS, ...(budgetData.savings as SavingsWorksheet ?? {}) }}
             onChange={handleSavingsChange}
             drawdown={monthlyDrawdown}
+            contributions={monthlySavingsContrib}
           />
         )}
 
