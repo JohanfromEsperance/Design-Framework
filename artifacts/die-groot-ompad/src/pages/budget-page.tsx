@@ -128,7 +128,6 @@ const INCOME_SYNC_MAP: Record<string, string> = {
   other2:       "otherIncome2",
 };
 
-// Compute monthly net cash from a rental config (mirrors the calc in rental-sub.tsx)
 // ── Buffered grid cell — commits on blur/Enter, never resets while typing ──────
 
 function BudgetCell({ value, onChange, step = 10, className }: {
@@ -162,20 +161,6 @@ function BudgetCell({ value, onChange, step = 10, className }: {
   );
 }
 
-function computeMonthlyRentalNet(rental: any): number {
-  if (!rental) return 0;
-  const cfg = { ...DEFAULT_RENTAL, ...rental } as RentalConfig;
-  const grossRent     = cfg.weeklyRent * (52 - cfg.vacancyWeeks);
-  const mgmtFees      = (cfg.managementFeeRate / 100) * grossRent;
-  const lettingFees   = cfg.lettingFeeWeeks * cfg.weeklyRent;
-  const interestExp   = (cfg.loanBalance * cfg.interestRate) / 100;
-  const cashDeductions =
-    cfg.councilRates + cfg.waterRates + (cfg.electricity ?? 0) + cfg.landlordInsurance +
-    cfg.strataLevies + cfg.landTax + mgmtFees + lettingFees +
-    cfg.repairs + cfg.advertising + cfg.accountingFees +
-    cfg.legalFees + cfg.bankCharges + interestExp;
-  return Math.round((grossRent - cashDeductions) / 12);
-}
 
 const EXPENSE_SECTIONS = [
   { title: "Travel & Road",             items: TRAVEL_EXPENSES,  color: "#1f6f5f" },
@@ -601,13 +586,6 @@ export default function BudgetPage() {
         }
         if (customIncome > 0) m.customIncome = customIncome;
         newMonths[i.toString()] = m;
-      }
-      // Rental sub-page is authoritative for rentalNet — always re-assert after income sync
-      const rentalNet = computeMonthlyRentalNet(prev.rental);
-      if (rentalNet !== 0) {
-        for (let i = 0; i < 60; i++) {
-          newMonths[i.toString()] = { ...newMonths[i.toString()], rentalNet };
-        }
       }
       const newData = { ...prev, income: incomeData, months: newMonths };
       triggerSave(newData);
