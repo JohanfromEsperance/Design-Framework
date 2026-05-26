@@ -401,13 +401,38 @@ interface SavingsWorksheetLocal {
   months?: Record<string, { deposit?: number; withdrawal?: number }>;
 }
 
+// Compute super lump-sum withdrawal amounts keyed by budget month index.
+// BUDGET_BASE = March 2026 (month 0); lumpSumDate is a "YYYY" calendar year string.
+// We deposit into the first month of that calendar year (Jan of YYYY).
+function superDrawdownByMonth(superPortfolio: any): Record<number, number> {
+  const result: Record<number, number> = {};
+  const accounts: Array<{ lumpSumWithdrawal?: number; lumpSumDate?: string }> =
+    superPortfolio?.accounts ?? [];
+  for (const acc of accounts) {
+    if (!acc.lumpSumWithdrawal || !acc.lumpSumDate) continue;
+    const year = parseInt(acc.lumpSumDate, 10);
+    if (isNaN(year)) continue;
+    // January of the lump-sum year relative to BUDGET_BASE (March 2026 = month 0)
+    const monthIdx = (year - BUDGET_BASE.getFullYear()) * 12 + (0 - BUDGET_BASE.getMonth());
+    if (monthIdx < 0 || monthIdx >= 60) continue;
+    result[monthIdx] = (result[monthIdx] ?? 0) + acc.lumpSumWithdrawal;
+  }
+  return result;
+}
+
 // Auto-compute savings pool.
 // Deposits: savings sub-tab months[i].deposit is authoritative when set;
 // falls back to savingsZandra + savingsJohan from the budget grid.
+// Super lump-sum withdrawals are added as one-time deposits in their respective month.
 // Manual withdrawals from savings sub-tab are applied first;
 // from DRAWDOWN_START_IDX onward, remaining income shortfall is auto-drawn.
-function computeSavingsPool(months: Record<string, BudgetMonth>, savings: SavingsWorksheetLocal | undefined) {
+function computeSavingsPool(
+  months: Record<string, BudgetMonth>,
+  savings: SavingsWorksheetLocal | undefined,
+  superPortfolio?: any,
+) {
   let bal = savings?.openingBalance ?? 0;
+  const superDeposits = superPortfolio ? superDrawdownByMonth(superPortfolio) : {};
 
   return Array.from({ length: 60 }, (_, i) => {
     const m: BudgetMonth = (months[i.toString()] as BudgetMonth) ?? {};
@@ -416,7 +441,10 @@ function computeSavingsPool(months: Record<string, BudgetMonth>, savings: Saving
     // Prefer savings sub-tab deposit if set, otherwise fall back to grid columns
     const savingsTabDeposit = Number(savingsM?.deposit) || 0;
     const gridDeposit = (Number(m.savingsZandra) || 0) + (Number(m.savingsJohan) || 0);
-    const deposit = savingsTabDeposit > 0 ? savingsTabDeposit : gridDeposit;
+    const regularDeposit = savingsTabDeposit > 0 ? savingsTabDeposit : gridDeposit;
+    // Super lump-sum drawdown arrives as a one-time deposit in its matching month
+    const superDeposit = superDeposits[i] ?? 0;
+    const deposit = regularDeposit + superDeposit;
 
     // Manual withdrawal entered in the savings sub-tab
     const manualWithdrawal = Number(savingsM?.withdrawal) || 0;
@@ -453,8 +481,8 @@ function computeSavingsPool(months: Record<string, BudgetMonth>, savings: Saving
   });
 }
 
-function buildChartData(months: Record<string, BudgetMonth>, savings?: SavingsWorksheetLocal) {
-  const pool = computeSavingsPool(months, savings);
+function buildChartData(months: Record<string, BudgetMonth>, savings?: SavingsWorksheetLocal, superPortfolio?: any) {
+  const pool = computeSavingsPool(months, savings, superPortfolio);
 
   return Array.from({ length: 24 }, (_, i) => {
     const m: BudgetMonth = (months[i.toString()] as BudgetMonth) ?? {};
@@ -522,11 +550,11 @@ interface FinancialOverviewChartProps {
 }
 
 function FinancialOverviewChart({ months, superPortfolio, savings }: FinancialOverviewChartProps) {
-  const rawData   = buildChartData(months, savings);
+  const rawData   = buildChartData(months, savings, superPortfolio);
   const chartData = addConfidenceBand(rawData);
 
-  // Savings pool calculations — uses auto-drawdown logic
-  const savingsPool           = computeSavingsPool(months, savings);
+  // Savings pool calculations — uses auto-drawdown logic + super drawdown deposits
+  const savingsPool           = computeSavingsPool(months, savings, superPortfolio);
   const savingsPoolAtDrawdown = savingsPool[DRAWDOWN_START_IDX]?.opening ?? 0;
   const hasSavings            = savingsPoolAtDrawdown > 0 || (savings?.openingBalance ?? 0) > 0;
   // Average monthly auto-drawdown over the first 12 drawdown months
@@ -965,7 +993,7 @@ export default function Dashboard() {
   const superPortfolio   = (budget as any)?.super;
   const savings          = (budget as any)?.savings as SavingsWorksheetLocal | undefined;
 
-  const savingsKpiPool_        = computeSavingsPool(budgetMonths, savings);
+  const savingsKpiPool_        = computeSavingsPool(budgetMonths, savings, superPortfolio);
   const savingsKpiPool         = savingsKpiPool_[DRAWDOWN_START_IDX]?.opening ?? 0;
   const savingsKpiHas          = savingsKpiPool > 0 || ((savings?.openingBalance ?? 0) > 0);
 

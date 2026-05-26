@@ -26,6 +26,8 @@ export interface RentalConfig {
   ownersInsurancePolicy: string;
   // Lease signing date
   leaseSigningDate: string;
+  // Mortgage payoff date — rentalInterest is zeroed out from this month onward
+  mortgagePayoffDate: string;
   // Utilities (annual)
   electricity: number;
   strataLevies: number;
@@ -60,6 +62,7 @@ export const DEFAULT_RENTAL: RentalConfig = {
   ownersInsurance: 0,
   ownersInsurancePolicy: "",
   leaseSigningDate: "",
+  mortgagePayoffDate: "",
   electricity: 0,
   strataLevies: 0,
   landTax: 0,
@@ -220,57 +223,21 @@ function TextField({
 }
 
 function DateField({
-  label, value, onChange,
+  label, value, onChange, hint,
 }: {
-  label: string; value: string; onChange: (v: string) => void;
+  label: string; value: string; onChange: (v: string) => void; hint?: string;
 }) {
-  const toDisplay = (iso: string) => {
-    if (!iso) return "";
-    const [y, m, d] = iso.split("-");
-    if (y && m && d) return `${d}/${m}/${y}`;
-    return iso;
-  };
-  const toIso = (display: string) => {
-    const parts = display.trim().split("/");
-    if (parts.length === 3) {
-      const [d, m, y] = parts;
-      if (d && m && y && y.length === 4) {
-        return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-      }
-    }
-    return "";
-  };
-
-  const [local, setLocal] = useState(toDisplay(value));
-  const [focused, setFocused] = useState(false);
-
-  useEffect(() => {
-    if (!focused) setLocal(toDisplay(value));
-  }, [value, focused]);
-
-  const commit = (raw: string) => {
-    const iso = toIso(raw);
-    // Always persist: valid date as ISO, cleared field as "", invalid input ignored
-    if (iso || raw.trim() === "") onChange(iso);
-  };
-
   return (
     <div className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/20 mt-1">
-      <span className="text-sm text-foreground w-44 shrink-0">{label}</span>
+      <div className="flex flex-col min-w-0">
+        <span className="text-sm text-foreground w-44 shrink-0">{label}</span>
+        {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
+      </div>
       <input
-        type="text"
-        value={local}
-        placeholder="DD/MM/YYYY"
-        onChange={e => setLocal(e.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={e => { setFocused(false); commit(e.target.value); }}
-        onKeyDown={e => {
-          if (e.key === "Enter") {
-            commit((e.target as HTMLInputElement).value);
-            (e.target as HTMLInputElement).blur();
-          }
-        }}
-        className="w-36 bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 text-sm"
+        type="date"
+        value={value ?? ""}
+        onChange={e => onChange(e.target.value)}
+        className="bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 text-sm text-foreground"
       />
       {value && (
         <span className="text-xs text-muted-foreground">
@@ -439,7 +406,7 @@ export default function RentalSub({ config, onChange }: RentalSubProps) {
                 <FieldRow label="Year built" value={config.yearBuilt} onChange={v => set("yearBuilt", v)} prefix="" step={1} min={1900} />
               </div>
               <DateField
-                label="Lease Signing Date (SISNING)"
+                label="Lease Signing Date"
                 value={config.leaseSigningDate ?? ""}
                 onChange={v => set("leaseSigningDate", v)}
               />
@@ -543,6 +510,12 @@ export default function RentalSub({ config, onChange }: RentalSubProps) {
                 prefix="" suffix="% pa" step={0.05} />
               <FieldRow label="Annual interest expense" value={calc.interestExpense} computed highlight
                 hint={`$${config.loanBalance.toLocaleString()} × ${config.interestRate}%`} />
+              <DateField
+                label="Mortgage payoff date"
+                hint="Interest expense stops from this month"
+                value={config.mortgagePayoffDate ?? ""}
+                onChange={v => set("mortgagePayoffDate", v)}
+              />
             </CardContent>
           </Card>
 

@@ -333,12 +333,20 @@ export default function BudgetPage() {
       const monthlyElectricity = Math.round((cfg.electricity ?? 0) / 12);
       const monthlyMgmt        = Math.round((mgmtFees + lettingFees) / 12);
       const monthlyOther       = Math.round((cfg.landlordInsurance + cfg.repairs + cfg.advertising + cfg.accountingFees + cfg.legalFees + cfg.bankCharges) / 12);
+      // Mortgage payoff: rentalInterest is zeroed from the payoff month onward
+      const payoffIdx = cfg.mortgagePayoffDate
+        ? (() => {
+            const d = new Date(cfg.mortgagePayoffDate + "T00:00:00");
+            return (d.getFullYear() - BUDGET_BASE.getFullYear()) * 12 + (d.getMonth() - BUDGET_BASE.getMonth());
+          })()
+        : null;
       const out: Record<string, any> = {};
       for (let i = 0; i < 60; i++) {
+        const interest = payoffIdx !== null && i >= payoffIdx ? 0 : monthlyInterest;
         out[i.toString()] = {
           ...(months[i.toString()] ?? {}),
           rentalNet:         monthlyGrossRent,
-          rentalInterest:    monthlyInterest,
+          rentalInterest:    interest,
           rentalRatesLevies: monthlyRates,
           rentalWater:       monthlyWater,
           rentalElectricity: monthlyElectricity,
@@ -647,12 +655,21 @@ export default function BudgetPage() {
       const monthlyMgmt         = Math.round((mgmtFees + lettingFees) / 12);
       const monthlyOther        = Math.round((cfg.landlordInsurance + cfg.repairs + cfg.advertising + cfg.accountingFees + cfg.legalFees + cfg.bankCharges) / 12);
 
+      // Mortgage payoff: rentalInterest zeroed from the payoff month onward
+      const payoffIdx = cfg.mortgagePayoffDate
+        ? (() => {
+            const d = new Date(cfg.mortgagePayoffDate + "T00:00:00");
+            return (d.getFullYear() - BUDGET_BASE.getFullYear()) * 12 + (d.getMonth() - BUDGET_BASE.getMonth());
+          })()
+        : null;
+
       const newMonths: Record<string, any> = { ...prev.months };
       for (let i = 0; i < 60; i++) {
+        const interest = payoffIdx !== null && i >= payoffIdx ? 0 : monthlyInterest;
         newMonths[i.toString()] = {
           ...newMonths[i.toString()],
           rentalNet:          monthlyGrossRent,
-          rentalInterest:     monthlyInterest,
+          rentalInterest:     interest,
           rentalRatesLevies:  monthlyRates,
           rentalWater:        monthlyWater,
           rentalElectricity:  monthlyElectricity,
